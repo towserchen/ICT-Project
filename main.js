@@ -23,28 +23,37 @@ imgElement.onload = function() { // Function callback when the image is loaded
     let hierarchy = new cv.Mat();
     cv.findContours(morphed, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE); // Find contours
 
+    let allContours = cv.imread(imgElement);
+    let colour = new cv.Scalar(255, 0, 0, 255);
+    cv.drawContours(allContours, contours, -1, colour, 2, cv.LINE_8);
+
     for (let i = 0; i < contours.size(); i++) { // Loop over all contours
         
         let approx = new cv.Mat();
         cv.approxPolyDP(contours.get(i), approx, 0.02 * cv.arcLength(contours.get(i), true), true); // Approximate the contour with a polygon
         
         if (approx.rows === 4){ // If the polygon has 4 vertices, we assume it's a quadrilateral
-            let colour = new cv.Scalar(255, 0, 0, 255);
             cv.drawContours(src, contours, i, colour, 2, cv.LINE_8, hierarchy, 0);
         }
 
         approx.delete();
     }
 
-  cv.imshow('outputCanvas', src); // Display the output
+    cv.imshow('grayCanvas', gray); // Display the outputs
+    cv.imshow('blurredCanvas', blurred);
+    cv.imshow('edgesCanvas', edges);
+    cv.imshow('morphedCanvas', morphed);
+    cv.imshow('contoursCanvas', allContours);
+    cv.imshow('outputCanvas', src);
 
-  src.delete(); // Clean up
-  gray.delete();
-  blurred.delete();
-  edges.delete();
-  morphed.delete();
-  contours.delete();
-  hierarchy.delete();
+    src.delete(); // Clean up
+    gray.delete();
+    blurred.delete();
+    edges.delete();
+    morphed.delete();
+    contours.delete();
+    allContours.delete();
+    hierarchy.delete();
 };
 
 window.Module = {
