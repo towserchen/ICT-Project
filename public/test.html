@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detect Test</title>
+    <script async src="https://docs.opencv.org/4.5.0/opencv.js" type="text/javascript"></script>
+</head>
+<body>
+    <h1>Detect Test</h1>
+    <input type="file" id="file" accept="image/*">
+    <canvas id="canvas"></canvas>
+    <script>
+        document.getElementById('file').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgElement = new Image();
+                imgElement.src = e.target.result;
+                imgElement.onload = function() {
+                    if (cv.getBuildInformation) {
+                        const mat = cv.imread(imgElement);
+                        const gray = new cv.Mat();
+                        const edges = new cv.Mat();
+
+                        const contours = new cv.MatVector();
+                        const hierarchy = new cv.Mat();
+
+                        cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+                        cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
+                        cv.Canny(gray, edges, 100, 200);
+                        const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+
+                        //cv.morphologyEx(edges, gray, cv.MORPH_CLOSE, kernel);
+                        cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, kernel);
+
+                        cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+                        /*for (let i = 0; i < contours.size(); i++) {
+                            const cnt = contours.get(i);
+                            const rect = cv.boundingRect(cnt);
+                            const aspectRatio = rect.width / rect.height;
+                            const area = rect.width * rect.height;
+
+                            // Filter out smaller rectangles according to size
+                            if (rect.width > 60 && rect.height > 60 &&
+                                aspectRatio >= 0.5 && aspectRatio <= 2 && 
+                                area > 1200) {
+                                cv.rectangle(mat, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [255, 0, 0, 255], 2);
+                            }
+                        }*/
+
+                        for (let i = 0; i < contours.size(); i++) {
+                            let approx = new cv.Mat();
+                            cv.approxPolyDP(contours.get(i), approx, 0.02 * cv.arcLength(contours.get(i), true), true);
+                            if (approx.rows === 4){
+                                let colour = new cv.Scalar(255, 0, 0, 255);
+                                cv.drawContours(mat, contours, i, colour, 2, cv.LINE_8, hierarchy, 0);
+                            }
+                        }
+
+
+                        cv.imshow('canvas', mat);
+                        mat.delete();
+                        gray.delete();
+                        edges.delete();
+                        contours.delete();
+                        hierarchy.delete();
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>
