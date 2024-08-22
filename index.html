@@ -4,10 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Vue</title>
+    <title>Quad Detection Prototype</title>
+    <!-- Load the OpenCV.js library -->
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+    <!-- Load main JavaScript file -->
+    <script src="./main.js" type="module"></script>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <h1>Quad Detection Test</h1>
+    <p id="status">OpenCV.js is loading...</p>
+    <div>
+      <div class="inputoutput">
+        <img id="srcImage" alt="No Image" />
+        <div class="caption">
+          Source image 
+          <br>
+          <input type="file" id="fileInput" name="file" accept="image/*">
+        </div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="outputCanvas" ></canvas>
+        <div class="caption">Output canvas</div>
+      </div>
+    </div>
   </body>
 </html>
