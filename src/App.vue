@@ -1,12 +1,12 @@
 <template>
     <div>
-        <h1>Quad Detection Test</h1>
+        <h1>Quad Detection System</h1>
 
         <div class="header">
             <div class="select-container">
                 <div class="select-head">
                     <ul>
-                        <li :class="{active: tabActive === 0}" @click="changeTab(0)">Start</li>
+                        <li :class="{active: tabActive === 0}" @click="changeTab(0)">Home</li>
                         <li :class="{active: tabActive === 1}" @click="changeTab(1)">Sample1</li>
                         <li :class="{active: tabActive === 2}" @click="changeTab(2)">Sample2</li>
                         <li :class="{active: tabActive === 3}" @click="changeTab(3)">Sample3</li>
@@ -15,7 +15,7 @@
                 </div>
 
                 <div v-if="tabActive === 0" class="landing-info">
-                    <p>Welcome to Quad Detection Test System. This system will detect rectangular objects such as Windows or doors in the picture.</p>
+                    <p>Welcome to the Quad Detection Test System. This system will detect rectangular objects such as window openings from pictures.</p>
                     <p>Powered by Long Chen & Matthew Freak.</p>
                 </div>
 
@@ -37,15 +37,15 @@
 
         <div v-if="tabActive !== 0" v-show="showEffect" class="show-container">
             <div class="inputoutput">
-                <div class="caption">Frayscale Canvas</div>
+                <div class="caption">Grayscale Canvas</div>
                 <canvas ref="grayCanvas"></canvas>
             </div>
             <div class="inputoutput">
-                <div class="caption">Vlurred Canvas</div>
+                <div class="caption">Blurred Canvas</div>
                 <canvas ref="blurredCanvas"></canvas>
             </div>
             <div class="inputoutput">
-                <div class="caption">Canny edges Canvas</div>
+                <div class="caption">Canny Edge Detection Canvas</div>
                 <canvas ref="edgesCanvas"></canvas>
             </div>
             <div class="inputoutput">
@@ -53,7 +53,7 @@
                 <canvas ref="morphedCanvas"></canvas>
             </div>
             <div class="inputoutput">
-                <div class="caption">All contours Canvas</div>
+                <div class="caption">All Contours Canvas</div>
                 <canvas ref="contoursCanvas"></canvas>
             </div>
             <div class="inputoutput">
