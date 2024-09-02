@@ -1,0 +1,32 @@
+canvas {
+    border: 1px solid black;
+  }
+  
+  #guide {
+    border: 1px solid black;
+    background-color: #d1d1ff;
+    margin-bottom: 5px;
+  }
+  
+  #srcImage {
+    visibility: hidden;
+    position:absolute;
+  }
+  
+  #container {
+    height: 200px;
+    position:relative;
+  }
+  
+  #inputCanvas, #canvasAdjust {
+    position:absolute;
+  }
+  
+  #inputCanvas {
+    cursor: not-allowed;
+  }
+  
+  #canvasAdjust {
+    cursor: crosshair;
+    z-index: 10;
+  }

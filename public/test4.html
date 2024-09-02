@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quad Detection Prototype</title>
+    <link rel="stylesheet" href="./test4.css">
+    <!-- Load the OpenCV.js library -->
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+    <!-- Load main JavaScript file -->
+    <script src="./test4.js" type="module"></script>
+  </head>
+  <body>
+    <h1>Quad Detection Test</h1>
+    <p id="status">OpenCV.js is loading...</p>
+    
+    <div id="guide">
+        <ul>
+            <li><strong>Step 1: </strong> Select a file</li>
+            <li><strong>Step 2: </strong> Draw some parts as sure foreground and sure background for the test</li>
+            <li><strong>Step 3: </strong> Click Validate</li>
+        </ul>
+    </div>
+    <div>
+        <input type="file" id="fileInput" name="file" accept="image/*">
+        <img id="srcImage" alt="No Image" />
+    </div>
+    <div>
+        <br>
+        <button id="fg" onclick="assignMarker('Foreground')" disabled>
+            Foreground
+        </button>
+        <button id="bg" onclick="assignMarker('Background')" disabled>
+            Background
+        </button>
+        <button id="validate" onclick="setGrabcut()" disabled>Validate</button>
+    </div>
+    <div>Source image</div>
+      <div id="container">
+         <canvas id="inputCanvas"></canvas>
+         <canvas id="canvasAdjust"></canvas>
+      </div>
+      <div>Output</div>
+       <div>
+         <canvas id="canvasOutput"></canvas>
+       </div>
+      
+    
+    <!--<div>
+      <div class="inputoutput">
+        <input type="file" id="fileInput" name="file" accept="image/*">
+        <br>
+        <img id="srcImage" alt="No Image" />
+        <div class="caption">
+          Source image 
+        </div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="outputCanvas" ></canvas>
+        <div class="caption">Output canvas</div>
+      </div>
+    </div>-->
+
+
+  </body>
+</html>
