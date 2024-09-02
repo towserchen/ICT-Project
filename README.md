@@ -1,5 +1,25 @@
-# Vue 3 + Vite
+# Quad Detection System
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Built with Vite, Vue3, and OpenCV.js.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## Install
+
+`npm install`
+
+## Run
+
+`npm run dev`
+
+## How to update the algorithm of detect?
+
+### Procedure
+
+1, There is a function in src/lib/detect.js which signature is processImages(imageDom, outputCanvas).
+2, Update this function and push it to the branch master.
+3, Vercel will pull the branch master and deploy automatically.
+
+### Function explain
+
+`imageDom` is an reference of a dom <img>, you can read any attrs from this variable.
+
+`outputCanvas` is an reference of a dom <canvas>, you can ouput your image into this variable.
