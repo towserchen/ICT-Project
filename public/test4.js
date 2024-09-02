@@ -30,6 +30,7 @@ function adjustContainerAndLayer() {
 
 function setGrabcut() {
     let src = cv.imread("inputCanvas");
+    let out = cv.imread("inputCanvas");
     cv.cvtColor(src, src, cv.COLOR_RGBA2RGB, 0);
     let markings = cv.imread("canvasAdjust", 0);
     let mask = new cv.Mat(src.rows, src.cols, cv.CV_8UC1, new cv.Scalar(cv.GC_PR_BGD));
@@ -56,7 +57,7 @@ function setGrabcut() {
   
     cv.grabCut(src, mask, dummyRect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK);
   
-    // draw foreground
+    // remove background
     for (let i = 0; i < src.rows; i++) {
       for (let j = 0; j < src.cols; j++) {
         if (mask.ucharPtr(i, j)[0] == 0 || mask.ucharPtr(i, j)[0] == 2) {
@@ -66,12 +67,55 @@ function setGrabcut() {
         }
       }
     }
+
+    let gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
+
+    let blurred = new cv.Mat();
+    let ksize = new cv.Size(5, 5)
+    cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT); // Apply Gaussian blur to reduce noise and improve edge detection
+
+    let edges = new cv.Mat();
+    cv.Canny(blurred, edges, 50, 250, 3, true); // Detect edges using Canny Algorithum
+
+    let lines = new cv.Mat();
+    cv.HoughLines(edges, lines, 1, Math.PI / 180, 140); // Apply the standard (non-probabilistic) Hough Line Transform
+
+    for (let i = 0; i < lines.rows; i++) { // Draw the detected lines on the image
+        let rho = lines.data32F[i * 2];       // Distance from the origin
+        let theta = lines.data32F[i * 2 + 1]; // Angle in radians
+
+        let a = Math.cos(theta);
+        let b = Math.sin(theta);
+        let x0 = a * rho;
+        let y0 = b * rho;
+
+        // Draw the origin point
+        cv.circle(out, new cv.Point(Math.round(x0), Math.round(y0)), 5, new cv.Scalar(0, 0, 255, 255), -1); // Blue dot for the origin
+
+        let scale = 2500; // Extend the lines across the image
+        let x1 = Math.round(x0 + scale * (-b));
+        let y1 = Math.round(y0 + scale * (a));
+        let x2 = Math.round(x0 - scale * (-b));
+        let y2 = Math.round(y0 - scale * (a));
+
+        cv.line(out, new cv.Point(x1, y1), new cv.Point(x2, y2), new cv.Scalar(0, 255, 0, 255), 2, cv.LINE_AA);
+    }
+
+    cv.imshow('grabCutCanvas', src);
+    cv.imshow('grayCanvas', gray); // Display the outputs
+    cv.imshow('blurredCanvas', blurred);
+    cv.imshow('edgesCanvas', edges);
+    cv.imshow("canvasOutput", out);
     
-    cv.imshow("canvasOutput", src);
-    src.delete();
+    src.delete(); // Clean up
     mask.delete();
     bgdModel.delete();
     fgdModel.delete();
+    gray.delete();
+    blurred.delete();
+    edges.delete();
+    lines.delete();
   }
   
 

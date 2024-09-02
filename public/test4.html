@@ -37,15 +37,32 @@
         <button id="validate" onclick="setGrabcut()" disabled>Validate</button>
     </div>
     <div>Source image</div>
-      <div id="container">
-         <canvas id="inputCanvas"></canvas>
-         <canvas id="canvasAdjust"></canvas>
-      </div>
-      <div>Output</div>
-       <div>
-         <canvas id="canvasOutput"></canvas>
-       </div>
-      
+    <div id="container">
+        <canvas id="inputCanvas"></canvas>
+        <canvas id="canvasAdjust"></canvas>
+    </div>
+
+    <div class="inputoutput">
+        <div class="caption">grabCut canvas</div>
+        <canvas id="grabCutCanvas" ></canvas>
+    </div>
+    <div class="inputoutput">
+        <div class="caption">grayscale canvas</div>
+        <canvas id="grayCanvas" ></canvas>
+    </div>
+    <div class="inputoutput">
+        <div class="caption">blurred canvas</div>
+        <canvas id="blurredCanvas" ></canvas>
+    </div>
+    <div class="inputoutput">
+        <div class="caption">Canny edges canvas</div>
+        <canvas id="edgesCanvas" ></canvas>
+    </div>
+    <div>
+        <div class="caption">Output</div>
+        <canvas id="canvasOutput"></canvas>
+    </div>
+    
     
     <!--<div>
       <div class="inputoutput">

@@ -67,7 +67,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
 
         // Check if the contour is closed
         let distance = Math.sqrt(Math.pow(firstPoint.x - lastPoint.x, 2) + Math.pow(firstPoint.y - lastPoint.y, 2));
-        let isClosed = distance < 1.0; // You can adjust this threshold
+        let isClosed = distance < 1.0;
 
         if (isClosed) {
             console.log(`Contour ${i} is closed.`);
