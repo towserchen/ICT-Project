@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenCV.js Example</title>
+    <script src="/libs/opencv.js"></script>
+    <style>
+        #canvasOutput {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h2>Remove Small Objects from Binary Image</h2>
+    <input type="file" id="imageInput" accept="image/*">
+    <canvas id="canvasOutput"></canvas>
+
+    <script>
+        let inputElement = document.getElementById('imageInput');
+        let canvas = document.getElementById('canvasOutput');
+        let ctx = canvas.getContext('2d');
+        let img = new Image();
+
+        inputElement.addEventListener('change', (e) => {
+            let file = e.target.files[0];
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0, img.width, img.height);
+                    processImage();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function processImage() {
+            let src = cv.imread(canvas);
+            let binary = new cv.Mat();
+            cv.cvtColor(src, binary, cv.COLOR_RGBA2GRAY, 0); // Ensure it's grayscale
+
+            // Apply morphological operations with smaller kernel to remove noise
+            let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+            let morph = new cv.Mat();
+            cv.morphologyEx(binary, morph, cv.MORPH_CLOSE, kernel);
+            cv.morphologyEx(morph, morph, cv.MORPH_OPEN, kernel);
+
+            // Find contours
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            cv.findContours(morph, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            // Filter contours with lower area threshold
+            let filteredContours = new cv.Mat.zeros(morph.rows, morph.cols, cv.CV_8U);
+            for (let i = 0; i < contours.size(); ++i) {
+                let cnt = contours.get(i);
+                if (cv.contourArea(cnt) > 100) { // Lower area threshold
+                    cv.drawContours(filteredContours, contours, i, new cv.Scalar(255), -1, cv.LINE_8, hierarchy, 100);
+                }
+            }
+
+            // Show results
+            cv.imshow('canvasOutput', filteredContours);
+
+            // Clean up
+            src.delete();
+            binary.delete();
+            kernel.delete();
+            morph.delete();
+            contours.delete();
+            hierarchy.delete();
+            filteredContours.delete();
+        }
+
+        // Ensure OpenCV.js is ready
+        function onOpenCvReady() {
+            console.log('OpenCV.js is ready.');
+        }
+    </script>
+</body>
+</html>

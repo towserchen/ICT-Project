@@ -10,7 +10,9 @@
                         <li :class="{active: tabActive === 1}" @click="changeTab(1)">Sample1</li>
                         <li :class="{active: tabActive === 2}" @click="changeTab(2)">Sample2</li>
                         <li :class="{active: tabActive === 3}" @click="changeTab(3)">Sample3</li>
-                        <li :class="{active: tabActive === 4}" @click="changeTab(4)">Upload</li>
+                        <li :class="{active: tabActive === 4}" @click="changeTab(4)">Sample4</li>
+                        <li :class="{active: tabActive === 5}" @click="changeTab(5)">Sample5</li>
+                        <li :class="{active: tabActive === 6}" @click="changeTab(6)">Upload</li>
                     </ul>
                 </div>
 
@@ -19,7 +21,7 @@
                     <p>Powered by Long Chen & Matthew Freak.</p>
                 </div>
 
-                <div v-if="tabActive === 4" class="upload-container">
+                <div v-if="tabActive === 6" class="upload-container">
                     <div class="upload-tip caption">
                         <p>Please select a source image:</p>
                         <input type="file" id="fileInput" name="file" accept="image/*" @change="handleFileChange">
@@ -37,28 +39,18 @@
 
         <div v-if="tabActive !== 0" v-show="showEffect" class="show-container">
             <div class="inputoutput">
-                <div class="caption">Grayscale Canvas</div>
-                <canvas ref="grayCanvas"></canvas>
+                <div class="caption">Step 1 Canvas</div>
+                <canvas ref="s1Canvas"></canvas>
             </div>
+
             <div class="inputoutput">
-                <div class="caption">Blurred Canvas</div>
-                <canvas ref="blurredCanvas"></canvas>
+                <div class="caption">Step 2 Canvas</div>
+                <canvas ref="s2Canvas"></canvas>
             </div>
-            <div class="inputoutput">
-                <div class="caption">Canny Edge Detection Canvas</div>
-                <canvas ref="edgesCanvas"></canvas>
-            </div>
-            <div class="inputoutput">
-                <div class="caption">All Contours Canvas</div>
-                <canvas ref="contoursCanvas"></canvas>
-            </div>
+
             <div class="inputoutput">
                 <div class="caption">Output Canvas</div>
                 <canvas ref="outputCanvas"></canvas>
-            </div>
-            <div class="inputoutput">
-                <div class="caption">JustFilteredContours Canvas</div>
-                <canvas ref="justFilteredContours"></canvas>
             </div>
         </div>
   </div>
@@ -133,14 +125,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { processImages } from './lib/detect';
+import { processImages } from './lib/detect_long';
 
-const grayCanvas = ref(null);
-const blurredCanvas = ref(null);
-const edgesCanvas = ref(null);
-const justFilteredContours = ref(null);
-const contoursCanvas = ref(null);
 const outputCanvas = ref(null);
+const s1Canvas = ref(null);
+const s2Canvas = ref(null);
 
 const tabActive = ref(0);
 const showEffect = ref(false);
@@ -150,7 +139,7 @@ const imgElement = ref(null);
 function changeTab(index) {
     tabActive.value = index;
 
-    if (index <= 3 && index >= 1) {
+    if (index <= 5 && index >= 1) {
         let imgFile = index + '.jpg';
         imgElement.value.src = `/sample/${imgFile}`;
         showEffect.value = true;
@@ -174,7 +163,7 @@ function handleFileChange(event) {
 onMounted(() => {
     if (imgElement.value) {
         imgElement.value.addEventListener('load', ()=>{
-            processImages(imgElement.value, outputCanvas.value);
+            processImages(imgElement.value, s1Canvas.value, s2Canvas.value, outputCanvas.value);
         });
     }
 });
