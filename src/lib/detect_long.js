@@ -13,9 +13,9 @@ export function processImages(imgElement, step1Canvas, step2Canvas, outputCanvas
 
     // gaussian blur
     //cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-    const kernelSize = new cv.Size(15, 15); // 增大核的尺寸
-    const sigmaX = 10; // 增大标准差
-    const sigmaY = 10; // 默认值是 0，表示与 sigmaX 相同
+    const kernelSize = new cv.Size(15, 15);
+    const sigmaX = 10;
+    const sigmaY = 10;
     cv.GaussianBlur(gray, blurred, kernelSize, sigmaX, sigmaY);
     cv.imshow(step1Canvas, blurred);
 
