@@ -53,6 +53,12 @@
                 <canvas ref="outputCanvas"></canvas>
             </div>
         </div>
+
+        <div class="footer">
+            © 2024 Ziptrack
+            <br>
+            Слава Україні
+        </div>
   </div>
 </template>
 
@@ -121,6 +127,14 @@
     color: #fff;
 }
 
+.footer{ 
+    position: fixed;
+    color: rgb(72, 72, 72);     
+    text-align: center;
+    left: 0px;    
+    bottom: 0px; 
+    width: 100%;
+}
 </style>
 
 <script setup>
