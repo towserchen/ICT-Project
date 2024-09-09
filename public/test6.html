@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="../src/assets/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quad Detection Prototype</title>
+    <!-- Load the OpenCV.js library -->
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+    <!-- Load main JavaScript file -->
+    <script src="./test6.js" type="module"></script>
+  </head>
+  <body>
+    <h1>Quad Detection Test</h1>
+    <p id="status">OpenCV.js is loading...</p>
+    <div>
+      <div class="inputoutput">
+        <img id="srcImage" alt="No Image" />
+        <div class="caption">
+          Source image 
+          <br>
+          <input type="file" id="fileInput" name="file" accept="image/*">
+        </div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="grayCanvas" ></canvas>
+        <div class="caption">grayscale canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="blurredCanvas" ></canvas>
+        <div class="caption">blurred canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="binaryCanvas" ></canvas>
+        <div class="caption">binary canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="edgesCanvas" ></canvas>
+        <div class="caption">Canny edges canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="morphedCanvas" ></canvas>
+        <div class="caption">morphed canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="linesCanvas" ></canvas>
+        <div class="caption">Hough lines canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="contoursCanvas" ></canvas>
+        <div class="caption">all contours canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="justFilteredContours" ></canvas>
+        <div class="caption">just filtered contours canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="edges2canvas" ></canvas>
+        <div class="caption">edges2 canvas</div>
+      </div>
+      <div class="inputoutput">
+        <canvas id="outputCanvas" ></canvas>
+        <div class="caption">Output canvas</div>
+      </div>
+    </div>
+  </body>
+</html>

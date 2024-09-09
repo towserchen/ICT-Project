@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Corner Detection with Contour Filtering and OpenCV.js</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="../src/assets/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Load the OpenCV.js library -->
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <h2>Corner Detection with Contour Filtering and OpenCV.js</h2>
+    <input type="file" id="uploadImage" onchange="loadImage()" />
+    <label for="threshold">Threshold (0-255): </label>
+    <input type="range" id="threshold" min="0" max="255" value="150" oninput="updateThreshold(this.value)" />
+    <span id="thresholdValue">150</span>
+    <div class="inputoutput">
+        <canvas id="grayCanvas" ></canvas>
+        <div class="caption">grayscale canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="blurredCanvas" ></canvas>
+        <div class="caption">blurred canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="edgesCanvas" ></canvas>
+        <div class="caption">Canny edges canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="morphedCanvas" ></canvas>
+        <div class="caption">morphed canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="linesCanvas" ></canvas>
+        <div class="caption">Hough lines canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="contoursCanvas" ></canvas>
+        <div class="caption">all contours canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="justFilteredContours" ></canvas>
+        <div class="caption">just filtered contours canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="edges2canvas" ></canvas>
+        <div class="caption">edges2 canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="outputCanvas" ></canvas>
+        <div class="caption">Output canvas</div>
+    </div>
+    <div class="inputoutput">
+        <canvas id="cornerCanvas" ></canvas>
+        <div class="caption">corner canvas</div>
+    </div>
+
+    <script>
+        let src, dst, gray, cornerStrength;
+        let currentThreshold = 150;
+
+        function loadImage() {
+            const input = document.getElementById('uploadImage').files[0];
+            const img = new Image();
+            img.src = URL.createObjectURL(input);
+            img.onload = function () {
+                // Preprocessing: Grayscale, Blur, and Edge Detection
+                src = cv.imread(img);
+                gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert to grayscale
+
+                // Gaussian blur to reduce noise
+                let blurred = new cv.Mat();
+                let ksize = new cv.Size(7, 7);
+                cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
+
+                // Edge detection using Canny
+                let edges = new cv.Mat();
+                cv.Canny(blurred, edges, 50, 250, 3, true);
+
+                // Finding contours
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+
+                // Process contours to filter based on area and perimeter
+                let contourAreas = [];
+                for (let i = 0; i < contours.size(); i++) {
+                    let contour = contours.get(i);
+                    let area = cv.contourArea(contour);
+                    let perimeter = cv.arcLength(contour, false);
+                    let boundingBox = cv.boundingRect(contour);
+                    contourAreas.push({ index: i, area: area, boundingBox: boundingBox, perimeter: perimeter });
+                }
+                
+                // Sort by perimeter
+                contourAreas.sort((a, b) => b.perimeter - a.perimeter);
+
+                // Filter contours by minimum area and perimeter
+                let filteredContours = new cv.MatVector();
+                let minArea = 0;
+                let minPerimeter = 300;
+                for (let i = 0; i < contourAreas.length; i++) {
+                    let contour = contourAreas[i];
+                    if (contour.perimeter > minPerimeter && contour.area > minArea) {
+                    filteredContours.push_back(contours.get(contour.index));
+                    }
+                }
+
+                // Create a mask from the filtered contours
+                let justFilterContours = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3); // Black image for drawing contours
+                cv.drawContours(justFilterContours, filteredContours, -1, new cv.Scalar(255, 255, 255, 255), 0.5, cv.LINE_8);
+
+                // Convert to grayscale for corner detection
+                let gray2 = new cv.Mat();
+                cv.cvtColor(justFilterContours, gray2, cv.COLOR_RGBA2GRAY, 0);
+
+                cv.imshow('grayCanvas', gray);
+                cv.imshow('blurredCanvas', blurred);
+                cv.imshow('edgesCanvas', edges);
+                //cv.imshow('contoursCanvas', allContours);
+                cv.imshow('outputCanvas', src);
+                cv.imshow('justFilteredContours', justFilterContours);
+
+                // Proceed with Harris corner detection using filtered image
+                cornerDetection(gray2);
+            };
+        }
+
+        function cornerDetection(grayImage) {
+            cornerStrength = new cv.Mat();
+            dst = new cv.Mat();
+
+            // Harris corner detection
+            cv.cornerHarris(grayImage, cornerStrength, 2, 3, 0.04);
+
+            // Normalize the corner strength image
+            cv.normalize(cornerStrength, cornerStrength, 0, 255, cv.NORM_MINMAX);
+            cv.convertScaleAbs(cornerStrength, dst);
+
+            // Apply threshold
+            let dstThreshold = new cv.Mat();
+            cv.threshold(dst, dstThreshold, currentThreshold, 255, cv.THRESH_BINARY);
+
+            // Non-Maximum Suppression
+            let dilated = new cv.Mat();
+            let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+            cv.dilate(dst, dilated, kernel);
+            let localMax = new cv.Mat();
+            cv.compare(dst, dilated, localMax, cv.CMP_EQ);
+
+            // Combine thresholded corners with local maxima
+            let cornerMap = new cv.Mat();
+            cv.bitwise_and(dstThreshold, localMax, cornerMap);
+
+            // Manually find non-zero points (corners)
+            let points = [];
+            for (let y = 0; y < cornerMap.rows; y++) {
+                for (let x = 0; x < cornerMap.cols; x++) {
+                    if (cornerMap.ucharPtr(y, x)[0] > 0) {
+                    points.push({ x: x, y: y });
+                    }
+                }
+            }
+
+            // Draw circles at the corner points
+            let colorDst = new cv.Mat();
+            cv.cvtColor(src, colorDst, cv.COLOR_RGBA2RGB, 0);
+            for (let i = 0; i < points.length; i++) {
+                let point = new cv.Point(points[i].x, points[i].y);
+                cv.circle(colorDst, point, 5, [255, 0, 0, 255], 2);
+            }
+
+            // Display the result
+            cv.imshow('cornerCanvas', colorDst);
+
+            // Clean up
+            dstThreshold.delete();
+            dilated.delete();
+            kernel.delete();
+            localMax.delete();
+            cornerMap.delete();
+            colorDst.delete();
+        }
+
+        function updateThreshold(value) {
+            currentThreshold = parseInt(value);
+            document.getElementById('thresholdValue').textContent = value;
+            if (src) {
+                cornerDetection(gray); // Redetect corners with the new threshold
+            }
+        }
+    </script>
+  </body>
+</html>

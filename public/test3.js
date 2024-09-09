@@ -19,6 +19,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
     
     let edges = new cv.Mat();
     cv.Canny(blurred, edges, 50, 250, 3, true); // Detect edges using Canny Algorithum
+    //cv.Canny(gray, edges, 50, 150);
 
     let morphed = new cv.Mat();
     //const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5)); // creates a rectangular structuring element to be used as a kernel
@@ -56,36 +57,33 @@ imgElement.onload = function() { // Function callback when the image is loaded
     //     tmp.delete();
     // }
 
-    let filteredContours = new cv.MatVector();
-    let minArea = 10;
-    let minPerimeter = 150;
-    for (let i = 0; i < contours.size(); i++) { // Loop over all contours
+    // area and edges
+    let contourAreas = [];
+
+    for (let i = 0; i < contours.size(); i++) {
         let contour = contours.get(i);
+        let area = cv.contourArea(contour);
+        let perimeter = cv.arcLength(contour, false);
+        let boundingBox = cv.boundingRect(contour);
+        contourAreas.push({ index: i, area: area, boundingBox: boundingBox, perimeter: perimeter });
+    }
 
-        let firstPoint = new cv.Point(contour.data32S[0], contour.data32S[1]);
-        let lastPoint = new cv.Point(contour.data32S[(contour.data32S.length - 2)], contour.data32S[(contour.data32S.length - 1)]);
+    // sort by areas
+    contourAreas.sort((a, b) => b.perimeter - a.perimeter);
 
-        // Check if the contour is closed
-        let distance = Math.sqrt(Math.pow(firstPoint.x - lastPoint.x, 2) + Math.pow(firstPoint.y - lastPoint.y, 2));
-        let isClosed = distance < 1.0;
+    console.log(contourAreas);
 
-        if (isClosed) {
-            console.log(`Contour ${i} is closed.`);
-            let area = cv.contourArea(contour, false);
-            console.log(`Contour ${i} area is ${area}`);
-            if(area > minArea) {
-                filteredContours.push_back(contour);
-            }
-        } else {
-            console.log(`Contour ${i} is open.`);
-            let perimeter = cv.arcLength(contour, false);
-            console.log(`Contour ${i} perimeter is ${perimeter}`);
-            if(perimeter > minPerimeter) {
-                filteredContours.push_back(contour);
-            }
+    let filteredContours = new cv.MatVector();
+    let minArea = 0;
+    let minPerimeter = 300;
+    for (let i = 0; i < contourAreas.length; i++) { // Loop over all contours
+        let contour = contourAreas[i];
+
+        if(contour.perimeter > minPerimeter && contour.area > minArea) {
+            filteredContours.push_back(contours.get(contour.index));
+            console.log(`Contour ${contour.index} area is ${contour.area}`);
+            console.log(`Contour ${contour.index} perimeter is ${contour.perimeter}`);
         }
-
-        contour.delete();
     }
 
     for (let i = 0; i < filteredContours.size(); i++) {
@@ -115,7 +113,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
         let y0 = b * rho;
 
         // Draw the origin point
-        cv.circle(src, new cv.Point(Math.round(x0), Math.round(y0)), 5, new cv.Scalar(0, 0, 255, 255), -1); // Blue dot for the origin
+        //cv.circle(src, new cv.Point(Math.round(x0), Math.round(y0)), 5, new cv.Scalar(0, 0, 255, 255), -1); // Blue dot for the origin
 
         let scale = 2500; // Extend the lines across the image
         let x1 = Math.round(x0 + scale * (-b));

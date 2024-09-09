@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/png" href="../src/assets/icon.png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- Load the OpenCV.js library -->
+        <script async src="./libs/opencv.js" type="text/javascript"></script>
+        <title>HSV Threshold</title>
+    </head>
+    <body>
+        <h2>Adjust HSV Values</h2>
+        
+        <!-- Sliders for Hue, Saturation, and Value -->
+        <label for="hMin">HMin</label>
+        <input type="range" id="hMin" min="0" max="180" value="85">
+        <label for="hMax">HMax</label>
+        <input type="range" id="hMax" min="0" max="180" value="180"><br>
+        
+        <label for="sMin">SMin</label>
+        <input type="range" id="sMin" min="0" max="255" value="15">
+        <label for="sMax">SMax</label>
+        <input type="range" id="sMax" min="0" max="255" value="255"><br>
+        
+        <label for="vMin">VMin</label>
+        <input type="range" id="vMin" min="0" max="255" value="196">
+        <label for="vMax">VMax</label>
+        <input type="range" id="vMax" min="0" max="255" value="255"><br><br>
+        
+        <!-- File input to upload image -->
+        <input type="file" id="fileInput" accept="image/*">
+        
+        <!-- Canvases for image input and output -->
+        <canvas id="canvasInput" style="display:none;"></canvas>
+        <canvas id="canvasOutput"></canvas>
+
+        <script>
+            let inputCanvas = document.getElementById('canvasInput');
+            let outputCanvas = document.getElementById('canvasOutput');
+            let fileInput = document.getElementById('fileInput');
+
+            // Initialize HSV values
+            let hMin = 85, hMax = 180, sMin = 15, sMax = 255, vMin = 196, vMax = 255;
+
+            // Event listeners for sliders
+            document.getElementById('hMin').addEventListener('input', updateHSV);
+            document.getElementById('hMax').addEventListener('input', updateHSV);
+            document.getElementById('sMin').addEventListener('input', updateHSV);
+            document.getElementById('sMax').addEventListener('input', updateHSV);
+            document.getElementById('vMin').addEventListener('input', updateHSV);
+            document.getElementById('vMax').addEventListener('input', updateHSV);
+
+            // Handle file input change
+            fileInput.addEventListener('change', function (e) {
+                let file = e.target.files[0];
+                let img = new Image();
+                img.onload = function () {
+                    inputCanvas.width = img.width;
+                    inputCanvas.height = img.height;
+                    let ctx = inputCanvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    processImage();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+
+            function updateHSV() {
+                hMin = parseInt(document.getElementById('hMin').value);
+                hMax = parseInt(document.getElementById('hMax').value);
+                sMin = parseInt(document.getElementById('sMin').value);
+                sMax = parseInt(document.getElementById('sMax').value);
+                vMin = parseInt(document.getElementById('vMin').value);
+                vMax = parseInt(document.getElementById('vMax').value);
+
+                processImage();  // Re-process the image whenever HSV values are updated
+            }
+
+            function processImage() {
+                // Load the image from the canvas
+                let src = cv.imread(inputCanvas);
+                let hsv = new cv.Mat();
+
+                // Convert the image to HSV
+                cv.cvtColor(src, hsv, cv.COLOR_RGB2HSV);
+
+                // Create lower and upper bounds for the color
+                let lower = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [hMin, sMin, vMin, 0]);
+                let upper = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [hMax, sMax, vMax, 0]);
+
+                // Apply the threshold to filter colors within the HSV range
+                let mask = new cv.Mat();
+                cv.inRange(hsv, lower, upper, mask);
+
+                // Display the result on the output canvas
+                cv.imshow('canvasOutput', mask);
+
+                // Clean up
+                src.delete();
+                hsv.delete();
+                lower.delete();
+                upper.delete();
+                mask.delete();
+            }
+        </script>
+    </body>
+</html>
