@@ -1,4 +1,4 @@
-export function processImages(imgElement, step1Canvas, step2Canvas, outputCanvas) {
+export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas, outputCanvas) {
     const mat = cv.imread(imgElement);
     const gray = new cv.Mat();
     const edges = new cv.Mat();
@@ -8,23 +8,23 @@ export function processImages(imgElement, step1Canvas, step2Canvas, outputCanvas
     const binary = new cv.Mat();
 
     // gray
-    cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+    cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY, 0);
     cv.imshow(step1Canvas, gray);
 
     // gaussian blur
     //cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-    const kernelSize = new cv.Size(15, 15);
-    const sigmaX = 10;
-    const sigmaY = 10;
+    const kernelSize = new cv.Size(7, 7);
+    const sigmaX = 0;
+    const sigmaY = 0;
     cv.GaussianBlur(gray, blurred, kernelSize, sigmaX, sigmaY);
     cv.imshow(step1Canvas, blurred);
 
     // binaryzation
-    cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+    //cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
 
     // canny detect
-    cv.Canny(gray, edges, 50, 150);
-
+    //cv.Canny(gray, edges, 30, 250);
+    cv.Canny(blurred, edges, 30, 250, 5, true);
     cv.imshow(step2Canvas, edges);
 
     cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
@@ -70,6 +70,11 @@ export function processImages(imgElement, step1Canvas, step2Canvas, outputCanvas
         groupedContours.push(group);
     }
 
+    // @todo Here has 2 bugs
+    // 1, groupedContours not be used for rect filter
+    // 2, index = 1991 and 1002 did not been mergerd
+    console.log(groupedContours);
+
     // keet the largist one
     let maxContours = [];
     for (let group of groupedContours) {
@@ -80,7 +85,9 @@ export function processImages(imgElement, step1Canvas, step2Canvas, outputCanvas
     // retaine similar area
     let filteredContours = [];
     let maxArea = maxContours[0]?.area || 0;
-    let minAreaThreshold = maxArea * 0.5;
+    let minAreaThreshold = maxArea * 0.3;
+
+    
 
     for (let contour of contourAreas) {
         if (contour.area >= minAreaThreshold) {

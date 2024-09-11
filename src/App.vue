@@ -49,6 +49,11 @@
             </div>
 
             <div class="inputoutput">
+                <div class="caption">Step 3 Canvas</div>
+                <canvas ref="s3Canvas"></canvas>
+            </div>
+
+            <div class="inputoutput">
                 <div class="caption">Output Canvas</div>
                 <canvas ref="outputCanvas"></canvas>
             </div>
@@ -144,6 +149,7 @@ import { processImages } from './lib/detect_long';
 const outputCanvas = ref(null);
 const s1Canvas = ref(null);
 const s2Canvas = ref(null);
+const s3Canvas = ref(null);
 
 const tabActive = ref(0);
 const showEffect = ref(false);
@@ -177,7 +183,7 @@ function handleFileChange(event) {
 onMounted(() => {
     if (imgElement.value) {
         imgElement.value.addEventListener('load', ()=>{
-            processImages(imgElement.value, s1Canvas.value, s2Canvas.value, outputCanvas.value);
+            processImages(imgElement.value, s1Canvas.value, s2Canvas.value, s3Canvas.value, outputCanvas.value);
         });
     }
 });

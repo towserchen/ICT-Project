@@ -1,82 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>OpenCV.js Example</title>
-    <link rel="icon" type="image/png" href="../src/assets/icon.png" />
-    <script src="/libs/opencv.js"></script>
+    <meta charset="UTF-8">
+    <title>检测图片中的直角</title>
+    <script async src="/libs/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
     <style>
-        #canvasOutput {
+        canvas {
             border: 1px solid black;
         }
     </style>
 </head>
 <body>
-    <h2>Remove Small Objects from Binary Image</h2>
-    <input type="file" id="imageInput" accept="image/*">
+    <h1>检测图片中的直角</h1>
+    <input type="file" id="fileInput" accept="image/*">
     <canvas id="canvasOutput"></canvas>
-
-    <script>
-        let inputElement = document.getElementById('imageInput');
-        let canvas = document.getElementById('canvasOutput');
-        let ctx = canvas.getContext('2d');
-        let img = new Image();
-
-        inputElement.addEventListener('change', (e) => {
-            let file = e.target.files[0];
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                img.onload = function() {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0, img.width, img.height);
-                    processImage();
+    <script type="text/javascript">
+        function onOpenCvReady() {
+            document.getElementById('fileInput').addEventListener('change', (e) => {
+                let file = e.target.files[0];
+                let reader = new FileReader();
+                reader.onload = function(event) {
+                    let img = new Image();
+                    img.onload = function() {
+                        let canvas = document.getElementById('canvasOutput');
+                        let ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0, img.width, img.height);
+                        detectRightAngles(canvas);
+                    };
+                    img.src = event.target.result;
                 };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+                reader.readAsDataURL(file);
+            });
+        }
 
-        function processImage() {
+        function detectRightAngles(canvas) {
             let src = cv.imread(canvas);
-            let binary = new cv.Mat();
-            cv.cvtColor(src, binary, cv.COLOR_RGBA2GRAY, 0); // Ensure it's grayscale
+            let gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+            let edges = new cv.Mat();
+            cv.Canny(gray, edges, 50, 150, 3, false);
 
-            // Apply morphological operations with smaller kernel to remove noise
-            let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-            let morph = new cv.Mat();
-            cv.morphologyEx(binary, morph, cv.MORPH_CLOSE, kernel);
-            cv.morphologyEx(morph, morph, cv.MORPH_OPEN, kernel);
+            let lines = new cv.Mat();
+            cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, 50, 10);
 
-            // Find contours
-            let contours = new cv.MatVector();
-            let hierarchy = new cv.Mat();
-            cv.findContours(morph, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            let ctx = canvas.getContext('2d');
+            ctx.lineWidth = 2;
 
-            // Filter contours with lower area threshold
-            let filteredContours = new cv.Mat.zeros(morph.rows, morph.cols, cv.CV_8U);
-            for (let i = 0; i < contours.size(); ++i) {
-                let cnt = contours.get(i);
-                if (cv.contourArea(cnt) > 100) { // Lower area threshold
-                    cv.drawContours(filteredContours, contours, i, new cv.Scalar(255), -1, cv.LINE_8, hierarchy, 100);
+            // 检测直角
+            for (let i = 0; i < lines.rows; ++i) {
+                for (let j = i + 1; j < lines.rows; ++j) {
+                    let x1 = lines.data32S[i * 4];
+                    let y1 = lines.data32S[i * 4 + 1];
+                    let x2 = lines.data32S[i * 4 + 2];
+                    let y2 = lines.data32S[i * 4 + 3];
+                    let x3 = lines.data32S[j * 4];
+                    let y3 = lines.data32S[j * 4 + 1];
+                    let x4 = lines.data32S[j * 4 + 2];
+                    let y4 = lines.data32S[j * 4 + 3];
+
+                    // 计算两条线段的方向向量
+                    let v1 = [x2 - x1, y2 - y1];
+                    let v2 = [x4 - x3, y4 - y3];
+
+                    // 计算向量的点积
+                    let dotProduct = v1[0] * v2[0] + v1[1] * v2[1];
+                    let length1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+                    let length2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+
+                    // 判断是否为直角
+                    if (Math.abs(dotProduct) < 1e-2 && length1 > 50 && length2 > 50) {
+                        ctx.strokeStyle = 'blue';
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.moveTo(x3, y3);
+                        ctx.lineTo(x4, y4);
+                        ctx.stroke();
+                    }
                 }
             }
 
-            // Show results
-            cv.imshow('canvasOutput', filteredContours);
-
-            // Clean up
             src.delete();
-            binary.delete();
-            kernel.delete();
-            morph.delete();
-            contours.delete();
-            hierarchy.delete();
-            filteredContours.delete();
-        }
-
-        // Ensure OpenCV.js is ready
-        function onOpenCvReady() {
-            console.log('OpenCV.js is ready.');
+            gray.delete();
+            edges.delete();
+            lines.delete();
         }
     </script>
 </body>
