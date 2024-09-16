@@ -51,7 +51,22 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
                  box2.y + box2.height < box1.y);
     }
 
-    // merge contour
+    // whether a small contour inside a big contour
+    function isInside(box1, box2) {
+        console.log(box2.boundingBox.x, box1.boundingBox.x);
+        console.log(box2.boundingBox.y, box1.boundingBox.y);
+        console.log(box2.boundingBox.x + box2.boundingBox.width, box1.boundingBox.x + box1.boundingBox.width);
+        console.log(box2.boundingBox.y + box2.boundingBox.height, box1.boundingBox.y + box1.boundingBox.height);
+
+        return (
+            box2.x >= box1.x &&
+            box2.y >= box1.y &&
+            box2.x + box2.width <= box1.x + box1.width &&
+            box2.y + box2.height <= box1.y + box1.height
+        );
+    }
+
+    // merge small contours to a big contour
     let groupedContours = [];
     let used = new Array(contourAreas.length).fill(false);
 
@@ -60,9 +75,12 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         let group = [contourAreas[i]];
         used[i] = true;
 
+        // {x: 532, y: 275, width: 120, height: 297}
         for (let j = i + 1; j < contourAreas.length; j++) {
             if (used[j]) continue;
             if (areConnected(group[0].boundingBox, contourAreas[j].boundingBox)) {
+                let largerBox = group[0].boundingBox;
+                let smallerBox = contourAreas[j].boundingBox;
                 group.push(contourAreas[j]);
                 used[j] = true;
             }
@@ -70,9 +88,6 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         groupedContours.push(group);
     }
 
-    // @todo Here has 2 bugs
-    // 1, groupedContours not be used for rect filter
-    // 2, index = 1991 and 1002 did not been mergerd
     console.log(groupedContours);
 
     // keet the largist one
@@ -85,9 +100,8 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
     // retaine similar area
     let filteredContours = [];
     let maxArea = maxContours[0]?.area || 0;
-    let minAreaThreshold = maxArea * 0.3;
+    let minAreaThreshold = maxArea * 0.1;
 
-    
 
     for (let contour of contourAreas) {
         if (contour.area >= minAreaThreshold) {
@@ -95,8 +109,24 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         }
     }
 
+    console.log(filteredContours);
+    let finalContours = [];
+
+    for (let small of filteredContours) {
+        for (let big of filteredContours) {
+            if (small === big) {
+                continue;
+            }
+
+            if (!isInside(big, small)) {
+                console.log(big, small);
+                finalContours.push(small);
+            }
+        }
+    }
+
     // output
-    for (let contour of filteredContours) {
+    for (let contour of finalContours) {
         let approx = new cv.Mat();
         let c = contours.get(contour.index);
         cv.approxPolyDP(c, approx, 0.02 * cv.arcLength(c, true), true);
