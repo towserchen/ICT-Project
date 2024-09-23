@@ -58,12 +58,14 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         console.log(box2.boundingBox.x + box2.boundingBox.width, box1.boundingBox.x + box1.boundingBox.width);
         console.log(box2.boundingBox.y + box2.boundingBox.height, box1.boundingBox.y + box1.boundingBox.height);
 
-        return (
-            box2.x >= box1.x &&
-            box2.y >= box1.y &&
-            box2.x + box2.width <= box1.x + box1.width &&
-            box2.y + box2.height <= box1.y + box1.height
+        let result = (
+            box2.boundingBox.x >= box1.boundingBox.x &&
+            box2.boundingBox.y >= box1.boundingBox.y &&
+            box2.boundingBox.x + box2.boundingBox.width <= box1.boundingBox.x + box1.boundingBox.width &&
+            box2.boundingBox.y + box2.boundingBox.height <= box1.boundingBox.y + box1.boundingBox.height
         );
+
+        return result;
     }
 
     // merge small contours to a big contour
