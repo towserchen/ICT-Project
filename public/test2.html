@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Video Capture with Canvas</title>
+    <title>Video Stream Capture with Canvas</title>
     <style>
         body {
             display: flex;
@@ -36,31 +36,28 @@
         const context = canvas.getContext('2d');
 
         async function startVideo() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: {
-                        facingMode: 'environment' // rear canera
-                    }
-                });
-                video.srcObject = stream;
-            } catch (error) {
-                alert(error);
-                console.error('Cannot access the camera:', error);
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' }
+                    });
+                    video.srcObject = stream;
+                } catch (error) {
+                    console.error('Cannot access the camera:', error);
+                }
+            } else {
+                alert('Browser doesn\'t support');
             }
         }
-
 
         function drawToCanvas() {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
                 const frame = context.getImageData(0, 0, canvas.width, canvas.height);
                 detect(frame);
             }
-
             requestAnimationFrame(drawToCanvas);
         }
 
@@ -71,6 +68,7 @@
         startCaptureBtn.addEventListener('click', () => {
             const canvasStream = canvas.captureStream();
             streamOutput.srcObject = canvasStream;
+            drawToCanvas();
         });
 
         video.addEventListener('loadeddata', () => {
