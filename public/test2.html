@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Stream Capture with Canvas</title>
+    <title>Video Stream Capture</title>
     <style>
         body {
             display: flex;
@@ -25,7 +25,7 @@
 <body>
     <video id="video" autoplay playsinline style="display: none;"></video>
     <canvas id="canvas"></canvas>
-    <button id="startCapture">Start Canvas Capture</button>
+    <button id="startCapture">Start Capture</button>
     <video id="streamOutput" autoplay playsinline controls></video>
 
     <script>
@@ -38,31 +38,27 @@
         async function startVideo() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' }
-                    });
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                     video.srcObject = stream;
                 } catch (error) {
-                    console.error('Cannot access the camera:', error);
+                    console.error('Error accessing camera:', error);
                 }
             } else {
-                alert('Browser doesn\'t support');
+                alert('Browser does not support camera access.');
             }
         }
 
         function drawToCanvas() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-                detect(frame);
-            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+            detect(frame);
             requestAnimationFrame(drawToCanvas);
         }
 
         function detect(imageData) {
-            console.log('test...');
+            console.log('Frame processed');
         }
 
         startCaptureBtn.addEventListener('click', () => {
@@ -72,6 +68,7 @@
         });
 
         video.addEventListener('loadeddata', () => {
+            console.log('load and draw');
             drawToCanvas();
         });
 
