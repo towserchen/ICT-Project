@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Video Frame Processing</title>
+    <title>Mobile Video Capture with Canvas</title>
     <style>
         body {
             display: flex;
@@ -13,56 +13,73 @@
             height: 100vh;
             margin: 0;
         }
-        video {
+        video, canvas {
             max-width: 100%;
             border: 1px solid black;
         }
-        canvas {
-            display: none; /* 隐藏 canvas，除非需要可视化输出 */
+        button {
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <video id="video" autoplay></video>
+    <video id="video" autoplay playsinline style="display: none;"></video>
     <canvas id="canvas"></canvas>
+    <button id="startCapture">Start Canvas Capture</button>
+    <video id="streamOutput" autoplay playsinline controls></video>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const streamOutput = document.getElementById('streamOutput');
+        const startCaptureBtn = document.getElementById('startCapture');
         const context = canvas.getContext('2d');
 
-        // get video stream
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
+        async function startVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        facingMode: 'environment' // rear canera
+                    }
+                });
                 video.srcObject = stream;
-            })
-            .catch(error => console.error('Error accessing camera:', error));
-
-        function captureFrame() {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            return context.getImageData(0, 0, canvas.width, canvas.height);
+            } catch (error) {
+                alert(error);
+                console.error('Cannot access the camera:', error);
+            }
         }
 
+
+        function drawToCanvas() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+                detect(frame);
+            }
+
+            requestAnimationFrame(drawToCanvas);
+        }
 
         function detect(imageData) {
-            // @todo
-            console.log('Processing frame...');
+            console.log('test...');
         }
 
-
-        function processFrame() {
-            const frame = captureFrame();
-            detect(frame);
-            requestAnimationFrame(processFrame);
-        }
-
+        startCaptureBtn.addEventListener('click', () => {
+            const canvasStream = canvas.captureStream();
+            streamOutput.srcObject = canvasStream;
+        });
 
         video.addEventListener('loadeddata', () => {
-            processFrame();
+            drawToCanvas();
         });
+
+        window.onload = () => {
+            startVideo();
+        };
     </script>
 </body>
 </html>
