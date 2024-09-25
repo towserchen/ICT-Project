@@ -1,15 +1,11 @@
 function loadImageFromURL(url, callback) {
-    // Create a new image element
     let img = new Image();
     img.crossOrigin = "Anonymous";  // Prevent CORS issues when fetching the image
 
-    // Set up the onload event to handle when the image is fully loaded
     img.onload = function () {
-        // Image is loaded, pass it to the callback
         callback(img);
     };
 
-    // Set the image source to load it
     img.src = url;
 }
 
@@ -257,10 +253,13 @@ function autoDetectBlindOpenings(image) {
         let approx = new cv.Mat();
         cv.approxPolyDP(contour, approx, 0.01 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
 
+        temp = []
         for (let i = 0; i < approx.rows && i < 4; i++) {
-            coordinates.push(approx.data32S[i * 2]);
-            coordinates.push(approx.data32S[(i * 2) + 1])
+            temp.push(approx.data32S[i * 2]);
+            temp.push(approx.data32S[(i * 2) + 1])
         }
+
+        coordinates.push(temp);
     }
 
     return coordinates;
