@@ -57,7 +57,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
     }
 
     // sort by areas
-    contourAreas.sort((a, b) => b.perimeter - a.perimeter);
+    contourAreas.sort((a, b) => b.area - a.area);
 
     //console.log(contourAreas);
 
