@@ -53,17 +53,15 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
 
     // whether a small contour inside a big contour
     function isInside(box1, box2) {
-        console.log(box2.boundingBox.x, box1.boundingBox.x);
-        console.log(box2.boundingBox.y, box1.boundingBox.y);
-        console.log(box2.boundingBox.x + box2.boundingBox.width, box1.boundingBox.x + box1.boundingBox.width);
-        console.log(box2.boundingBox.y + box2.boundingBox.height, box1.boundingBox.y + box1.boundingBox.height);
 
-        return (
-            box2.x >= box1.x &&
-            box2.y >= box1.y &&
-            box2.x + box2.width <= box1.x + box1.width &&
-            box2.y + box2.height <= box1.y + box1.height
+        let result = (
+            box2.boundingBox.x >= box1.boundingBox.x &&
+            box2.boundingBox.y >= box1.boundingBox.y &&
+            box2.boundingBox.x + box2.boundingBox.width <= box1.boundingBox.x + box1.boundingBox.width &&
+            box2.boundingBox.y + box2.boundingBox.height <= box1.boundingBox.y + box1.boundingBox.height
         );
+
+        return result;
     }
 
     // merge small contours to a big contour
@@ -79,16 +77,12 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         for (let j = i + 1; j < contourAreas.length; j++) {
             if (used[j]) continue;
             if (areConnected(group[0].boundingBox, contourAreas[j].boundingBox)) {
-                let largerBox = group[0].boundingBox;
-                let smallerBox = contourAreas[j].boundingBox;
                 group.push(contourAreas[j]);
                 used[j] = true;
             }
         }
         groupedContours.push(group);
     }
-
-    console.log(groupedContours);
 
     // keet the largist one
     let maxContours = [];
@@ -108,9 +102,8 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
             filteredContours.push(contour);
         }
     }
-
-    console.log(filteredContours);
-    let finalContours = [];
+    
+    let combinedContourList = [];
 
     for (let small of filteredContours) {
         for (let big of filteredContours) {
@@ -119,23 +112,51 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
             }
 
             if (!isInside(big, small)) {
-                console.log(big, small);
-                finalContours.push(small);
+                combinedContourList.push(small);
             }
         }
     }
 
+    let finalContourList = [];
+
     // output
-    for (let contour of finalContours) {
+    for (let contour of combinedContourList) {
         let approx = new cv.Mat();
         let c = contours.get(contour.index);
         cv.approxPolyDP(c, approx, 0.02 * cv.arcLength(c, true), true);
+
         if (approx.rows === 4) {
-            let colour = new cv.Scalar(255, 0, 0, 255);
-            cv.drawContours(mat, contours, contour.index, colour, 2, cv.LINE_8, hierarchy, 0);
+            let found = false;
+
+            for (let _contour of finalContourList) {
+                if (_contour.index == contour.index) {
+                    found = true;
+                    break;
+                }
+                else {
+                    if ( _contour.boundingBox.x == contour.boundingBox.x
+                        && _contour.boundingBox.y == contour.boundingBox.y
+                        && _contour.boundingBox.width == contour.boundingBox.width
+                        && _contour.boundingBox.height == contour.boundingBox.height
+                    ) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!found) {
+                let colour = new cv.Scalar(255, 0, 0, 255);
+                cv.drawContours(mat, contours, contour.index, colour, 2, cv.LINE_8, hierarchy, 0);
+
+                finalContourList.push(contour);
+            }
         }
+
         approx.delete();
     }
+
+    console.log(finalContourList);
 
     cv.imshow(outputCanvas, mat);
     
