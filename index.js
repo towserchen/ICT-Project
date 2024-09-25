@@ -1,6 +1,12 @@
 import cv from "@techstark/opencv-js"
 
 module.exports = {
+    /**
+     * Detect opinings of an image
+     * 
+     * @param {HTMLElement} image 
+     * @return {array} rectangleList
+     */
     autoDetectBlindOpenings(image) {
         const mat = cv.imread(imgElement);
         const gray = new cv.Mat();
@@ -125,7 +131,7 @@ module.exports = {
             let approx = new cv.Mat();
             let c = contours.get(contour.index);
             cv.approxPolyDP(c, approx, 0.02 * cv.arcLength(c, true), true);
-            
+
             if (approx.rows === 4) {
                 let colour = new cv.Scalar(255, 0, 0, 255);
                 cv.drawContours(mat, contours, contour.index, colour, 2, cv.LINE_8, hierarchy, 0);
@@ -141,5 +147,19 @@ module.exports = {
         edges.delete();
         contours.delete();
         hierarchy.delete();
+    },
+
+    /**
+     * Detect openings of an image based on user input
+     * 
+     * @param {HTMLElement} image 
+     * @param {coordinate} markLT 
+     * @param {coordinate} markRT 
+     * @param {coordinate} markLB 
+     * @param {coordinate} markRB
+     * @return {array} rectangleList
+     */
+    manualDetectBlindOpenings(image, markLT, markRT, markLB, markRB) {
+
     }
 }
