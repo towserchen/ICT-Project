@@ -3,78 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Stream Capture</title>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        video, canvas {
-            max-width: 100%;
-            border: 1px solid black;
-        }
-        button {
-            margin-top: 10px;
-        }
-    </style>
+    <title>OpenCV.js Video Processing</title>
+    <script src="/libs/opencv.js" async></script>
 </head>
 <body>
-    <video id="video" autoplay playsinline style="display: none;"></video>
-    <canvas id="canvas"></canvas>
-    <button id="startCapture">Start Capture</button>
-    <video id="streamOutput" autoplay playsinline controls></video>
+    <video id="videoInput" width="640" height="480" controls>
+        <source src="/sample/1.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <canvas id="canvasOutput" width="640" height="480"></canvas>
+    
+<script>
+function processImages(imgElement) {
+    const mat = cv.imread(imgElement);
+    const gray = new cv.Mat();
+    const edges = new cv.Mat();
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    const blurred = new cv.Mat();
+    const binary = new cv.Mat();
 
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const streamOutput = document.getElementById('streamOutput');
-        const startCaptureBtn = document.getElementById('startCapture');
-        const context = canvas.getContext('2d');
+    // gray
+    cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY, 0);
 
-        async function startVideo() {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    video.srcObject = stream;
-                } catch (error) {
-                    console.error('Error accessing camera:', error);
+    // gaussian blur
+    //cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+    const kernelSize = new cv.Size(7, 7);
+    const sigmaX = 0;
+    const sigmaY = 0;
+    cv.GaussianBlur(gray, blurred, kernelSize, sigmaX, sigmaY);
+
+    // binaryzation
+    //cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+
+    // canny detect
+    //cv.Canny(gray, edges, 30, 250);
+    cv.Canny(blurred, edges, 30, 250, 5, true);
+
+    cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+
+    // area and edges
+    let contourAreas = [];
+    let boundingBoxes = [];
+
+    for (let i = 0; i < contours.size(); i++) {
+        let contour = contours.get(i);
+        let area = cv.contourArea(contour);
+        let boundingBox = cv.boundingRect(contour);
+        contourAreas.push({ index: i, area: area, boundingBox: boundingBox });
+    }
+
+    // sort by areas
+    contourAreas.sort((a, b) => b.area - a.area);
+
+    // whether there are contours connected
+    function areConnected(box1, box2) {
+        return !(box1.x + box1.width < box2.x || 
+                 box2.x + box2.width < box1.x || 
+                 box1.y + box1.height < box2.y || 
+                 box2.y + box2.height < box1.y);
+    }
+
+    // whether a small contour inside a big contour
+    function isInside(box1, box2) {
+
+        let result = (
+            box2.boundingBox.x >= box1.boundingBox.x &&
+            box2.boundingBox.y >= box1.boundingBox.y &&
+            box2.boundingBox.x + box2.boundingBox.width <= box1.boundingBox.x + box1.boundingBox.width &&
+            box2.boundingBox.y + box2.boundingBox.height <= box1.boundingBox.y + box1.boundingBox.height
+        );
+
+        return result;
+    }
+
+    // merge small contours to a big contour
+    let groupedContours = [];
+    let used = new Array(contourAreas.length).fill(false);
+
+    for (let i = 0; i < contourAreas.length; i++) {
+        if (used[i]) continue;
+        let group = [contourAreas[i]];
+        used[i] = true;
+
+        // {x: 532, y: 275, width: 120, height: 297}
+        for (let j = i + 1; j < contourAreas.length; j++) {
+            if (used[j]) continue;
+            if (areConnected(group[0].boundingBox, contourAreas[j].boundingBox)) {
+                group.push(contourAreas[j]);
+                used[j] = true;
+            }
+        }
+        groupedContours.push(group);
+    }
+
+    // keet the largist one
+    let maxContours = [];
+    for (let group of groupedContours) {
+        let maxContour = group.reduce((max, curr) => curr.area > max.area ? curr : max, group[0]);
+        maxContours.push(maxContour);
+    }
+
+    // retaine similar area
+    let filteredContours = [];
+    let maxArea = maxContours[0]?.area || 0;
+    let minAreaThreshold = maxArea * 0.1;
+
+
+    for (let contour of contourAreas) {
+        if (contour.area >= minAreaThreshold) {
+            filteredContours.push(contour);
+        }
+    }
+    
+    let combinedContourList = [];
+
+    for (let small of filteredContours) {
+        for (let big of filteredContours) {
+            if (small === big) {
+                continue;
+            }
+
+            if (!isInside(big, small)) {
+                combinedContourList.push(small);
+            }
+        }
+    }
+
+    let finalContourList = [];
+
+    // output
+    for (let contour of combinedContourList) {
+        let approx = new cv.Mat();
+        let c = contours.get(contour.index);
+        cv.approxPolyDP(c, approx, 0.02 * cv.arcLength(c, true), true);
+
+        if (approx.rows === 4) {
+            let found = false;
+
+            for (let _contour of finalContourList) {
+                if (_contour.index == contour.index) {
+                    found = true;
+                    break;
                 }
-            } else {
-                alert('Browser does not support camera access.');
+                else {
+                    console.log(_contour);
+                    console.log(contour);
+                    console.log('------------------');
+                    if ( _contour.boundingBox.x == contour.boundingBox.x
+                        && _contour.boundingBox.y == contour.boundingBox.y
+                        && _contour.boundingBox.width == contour.boundingBox.width
+                        && _contour.boundingBox.height == contour.boundingBox.height
+                    ) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!found) {
+                let colour = new cv.Scalar(255, 0, 0, 255);
+                cv.drawContours(mat, contours, contour.index, colour, 2, cv.LINE_8, hierarchy, 0);
+
+                finalContourList.push(contour);
             }
         }
 
-        function drawToCanvas() {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-            detect(frame);
-            requestAnimationFrame(drawToCanvas);
+        approx.delete();
+    }
+    
+    mat.delete();
+    gray.delete();
+    edges.delete();
+    contours.delete();
+    hierarchy.delete();
+
+    return finalContourList.map(c=>c.boundingBox);
+}
+
+
+let video = document.getElementById('videoInput');
+let canvas = document.getElementById('canvasOutput');
+let ctx = canvas.getContext('2d');
+
+
+function detect(frame) {
+    return processImages(frame);
+}
+
+
+video.addEventListener('play', function () {
+    const processFrame = () => {
+        if (!video.paused && !video.ended) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            let detections = detect(canvas);
+
+            detections.forEach(rect => {
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+            });
+
+
+            requestAnimationFrame(processFrame);
         }
+    };
 
-        function detect(imageData) {
-            console.log('Frame processed');
-        }
 
-        startCaptureBtn.addEventListener('click', () => {
-            const canvasStream = canvas.captureStream();
-            streamOutput.srcObject = canvasStream;
-            drawToCanvas();
-        });
+    requestAnimationFrame(processFrame);
+});
 
-        video.addEventListener('loadeddata', () => {
-            console.log('load and draw');
-            drawToCanvas();
-        });
-
-        window.onload = () => {
-            startVideo();
-        };
     </script>
 </body>
 </html>
