@@ -1,0 +1,35 @@
+{
+  "name": "ziptrak-opening-detection",
+  "version": "1.0.0",
+  "description": "Opening detection for Ziptrak",
+  "main": "index.js",
+  "dependencies": {
+    "@techstark/opencv-js": "^4.10.0-release.1",
+    "csstype": "^3.1.3",
+    "entities": "^4.5.0",
+    "esbuild": "^0.21.5",
+    "estree-walker": "^2.0.2",
+    "magic-string": "^0.30.11",
+    "nanoid": "^3.3.7",
+    "picocolors": "^1.0.1",
+    "postcss": "^8.4.41",
+    "rollup": "^4.21.0",
+    "source-map-js": "^1.2.0",
+    "to-fast-properties": "^2.0.0",
+    "vite": "^5.4.2",
+    "vue": "^3.4.38"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/towserchen/ict-project.git"
+  },
+  "author": "Long Chen, Matthew Freak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/towserchen/ict-project/issues"
+  },
+  "homepage": "https://github.com/towserchen/ict-project#readme"
+}
