@@ -36,7 +36,6 @@ export function autoDetectBlindOpenings(image) {
     
     // area and edges
     let contourAreas = [];
-    let boundingBoxes = [];
     
     for (let i = 0; i < contours.size(); i++) {
         let contour = contours.get(i);
@@ -164,7 +163,18 @@ export function autoDetectBlindOpenings(image) {
     contours.delete();
     hierarchy.delete();
     
-    return finalContourList.map(c=>c.boundingBox);
+    return finalContourList.map(c=>{
+        return {
+            x1: c.boundingBox.x,
+            y1: c.boundingBox.y,
+            x2: c.boundingBox.x + c.boundingBox.width,
+            y2: c.boundingBox.y,
+            x3: c.boundingBox.x,
+            y3: c.boundingBox.y + c.boundingBox.x.height,
+            x4: c.boundingBox.x + c.boundingBox.width,
+            y4: c.boundingBox.y + c.boundingBox.height
+        };
+    });
 };
 
 /**
