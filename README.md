@@ -36,3 +36,7 @@ let image = document.getElementById('image');
 // [[x1, y1, x2, y2, x3, y3, x4, y4]], Represents the coordinates of the four corners of the detected opening
 let cornorCoordinates = autoDetectBlindOpenings(image);
 ```
+
+## Doc
+
+For more detail please click [Documentation](docs/index.md).
