@@ -1,5 +1,5 @@
 {
-  "name": "ziptrak-opening-detection",
+  "name": "ziptrak-opening-detector",
   "version": "1.0.0",
   "description": "Opening detection for Ziptrak",
   "type": "module",
@@ -15,7 +15,7 @@
     "url": "git+https://github.com/towserchen/ict-project.git"
   },
   "author": "Long Chen, Matthew Freak",
-  "license": "ISC",
+  "license": "Proprietary License",
   "bugs": {
     "url": "https://github.com/towserchen/ict-project/issues"
   },
