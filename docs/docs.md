@@ -2,12 +2,31 @@
 **Documentation**
 
 ## Contents
+- [Installation](#installation)
 - [Functions](#functions)  
   1. [autoDetectBlindOpenings(image)](#1-autodetectblindopeningsimage)  
   2. [manualDetectBlindOpenings(userCoordinates)](#2-manualdetectblindopeningsusercoordinates)
 - [Appendices](#appendices)  
   - [Appendix A](#appendix-a)  
   - [Appendix B](#appendix-b)
+
+---
+
+## Installation
+
+Our package can be installed with either of the following commands:
+
+```bash
+npm install ziptrak-opening-detector
+```
+or
+```bash
+npm install github:towserchen/ICT-Project#release
+```
+Our module can then be imported with:
+```javascript
+import { autoDetectBlindOpenings, manualDetectBlindOpenings } from "ziptrak-opening-detector";
+```
 
 ---
 
@@ -19,7 +38,7 @@ This function will automatically detect openings from a user-uploaded photo.
 This function is intended to be called when a user uploads a photo. `autoDetectBlindOpenings` is intended to be called immediately after the photo is uploaded. The function will return the coordinates of all detected openings. The returned coordinates will not be scaled to the `renderCanvas` (see Appendix A for more details).
 
 #### Parameters
-- **image**: The user-uploaded image file as a `HTMLImageElement` using an `Image()` object.
+- **image**: The user-uploaded image file as an `Image()` object.
 
 #### Returns
 - The return value is an array of arrays, where each inner array contains the coordinates of one detected opening. The format will be:  
@@ -74,4 +93,3 @@ function scaleCoordinates(originalCoords, originalImage, renderCanvas) {
 
     return scaledCoords;
 }
->>>>>>> 187087b1c0e8ff5556ca789f12ba920a50cdfec8

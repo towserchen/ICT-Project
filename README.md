@@ -1,6 +1,6 @@
 # Ziptrak Opening Detector
 
-Used to detect any openings present in images or videos, providing coordinate references for placing blinds over them.
+Used to detect any blind openings present in images or videos, providing the corner coordinates of the detected quadrilateral.
 
 ## Author
 
@@ -15,6 +15,19 @@ Towser Chen (towserchen@gmail.com)
 
 ## Usage
 
+### Auto Detect
+```javascript
+import { autoDetectBlindOpenings } from ziptrak-opening-detector;
+
+let cornerCoordinates;
+let image = new Image();
+image.src = "path/to/user/image";
+image.onload = function () {
+  // [[x1, y1, x2, y2, x3, y3, x4, y4]], Represents the coordinates of the four corners of the detected opening
+    cornerCoordinates = autoDetectBlindOpenings(image);
+};
+```
+
 ### Manual Detect
 
 ```javascript
@@ -22,21 +35,10 @@ import { manualDetectBlindOpenings } from ziptrak-opening-detector;
 
 let userInputCoordinates = [100, 100, 200, 200, 300, 300, 400, 400];
 
-// [[x1, y1, x2, y2, x3, y3, x4, y4]], Represents the coordinates of the four corners of the detected opening
+// [x1, y1, x2, y2, x3, y3, x4, y4], Represents the approximate coordinates of the four corners of the intended opening
 let cornorCoordinates = manualDetectBlindOpenings(userInputCoordinates);
 ```
 
+## Documentation
 
-### Auto Detect
-```javascript
-import { autoDetectBlindOpenings } from ziptrak-opening-detector;
-
-let image = document.getElementById('image');
-
-// [[x1, y1, x2, y2, x3, y3, x4, y4]], Represents the coordinates of the four corners of the detected opening
-let cornorCoordinates = autoDetectBlindOpenings(image);
-```
-
-## Doc
-
-For more detail please click [Documentation](docs/index.md).
+For more detail please click [Documentation](docs/docs.md).
