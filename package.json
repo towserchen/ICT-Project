@@ -2,6 +2,7 @@
   "name": "ziptrak-opening-detection",
   "version": "1.0.0",
   "description": "Opening detection for Ziptrak",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "@techstark/opencv-js": "^4.10.0-release.1"
