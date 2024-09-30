@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenCV.js Video Processing</title>
-    <script src="/libs/opencv.js" async></script>
+    <script src="/libs/opencv.js"></script>
+    <script src="/test2.js"></script>
 </head>
 <body>
     <video id="videoInput" width="640" height="480" controls>
@@ -188,6 +189,8 @@ let ctx = canvas.getContext('2d');
 
 
 function detect(frame) {
+    //console.log(frame);
+    //let result = autoDetectBlindOpenings(frame);
     return processImages(frame);
 }
 
@@ -199,12 +202,13 @@ video.addEventListener('play', function () {
 
             let detections = detect(canvas);
 
-            detections.forEach(rect => {
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            });
-
+            if (detections.length > 0) {
+                detections.forEach(rect => {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                });
+            }
 
             requestAnimationFrame(processFrame);
         }
