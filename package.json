@@ -1,6 +1,6 @@
 {
   "name": "ziptrak-opening-detector",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Opening detection for Ziptrak",
   "type": "module",
   "main": "index.js",
