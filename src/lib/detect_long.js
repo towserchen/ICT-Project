@@ -117,6 +117,8 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
         }
     }
 
+    console.log(combinedContourList);
+
     let finalContourList = [];
 
     // output
