@@ -13,10 +13,11 @@ function loadImageFromURL(url, callback) {
 window.onload = function() {
     cv['onRuntimeInitialized'] = () => {
         // Load the image from a URL
-        let imageUrl = '/sample/1.jpg';  // Replace with your image URL
+        let imageUrl = '/sample/5.jpg';  // Replace with your image URL
         loadImageFromURL(imageUrl, (img) => {
             // Process the image after it has been loaded
             console.log(autoDetectBlindOpenings(img));
+            console.log(manualDetectBlindOpenings([74, 101, 592, 183, 89, 590, 593, 452]))
         });
     };
 };
@@ -396,7 +397,6 @@ function processBottomBoxes(bottomBoxes) {
         srcRoi.copyTo(blankRoi);       // Copy the ROI from the source to the corresponding blank region
 
         srcRoi.delete();
-        roi.delete();
         blankRoi.delete();
     }
     
