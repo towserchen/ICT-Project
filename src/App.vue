@@ -38,7 +38,7 @@
         </div>
 
         <div v-if="tabActive !== 0" v-show="showEffect" class="show-container">
-            <div class="inputoutput">
+            <!---<div class="inputoutput">
                 <div class="caption">Step 1 Canvas</div>
                 <canvas ref="s1Canvas"></canvas>
             </div>
@@ -51,7 +51,7 @@
             <div class="inputoutput">
                 <div class="caption">Step 3 Canvas</div>
                 <canvas ref="s3Canvas"></canvas>
-            </div>
+            </div>-->
 
             <div class="inputoutput">
                 <div class="caption">Output Canvas</div>
@@ -146,6 +146,8 @@
 import { ref, onMounted } from 'vue';
 import { processImages } from './lib/detect_long';
 
+import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+
 const outputCanvas = ref(null);
 const s1Canvas = ref(null);
 const s2Canvas = ref(null);
@@ -180,10 +182,44 @@ function handleFileChange(event) {
     }
 }
 
+// draw an rectangle
+function drawRectangle(imgElement, outputCanvas, coordinateList) {
+    console.log(imgElement.src);
+    let mat = cv.imread(imgElement);
+    console.log("Image Size:", mat.size());
+    console.log("Coordinate List:", coordinateList);
+    
+    if (coordinateList.length >= 1) {
+        for (let coordinate of coordinateList) {
+            if (coordinate.length != 8) {
+                console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+                continue;
+            }
+        
+            let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
+            console.log("Points Matrix:", points.data32S);
+            
+            let contours = new cv.MatVector();
+            contours.push_back(points);
+            
+            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 2);
+
+            points.delete();
+        }
+        
+        cv.imshow(outputCanvas, mat);
+        
+        mat.delete();
+    } else {
+        console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+    }
+}
+
 onMounted(() => {
     if (imgElement.value) {
         imgElement.value.addEventListener('load', ()=>{
-            processImages(imgElement.value, s1Canvas.value, s2Canvas.value, s3Canvas.value, outputCanvas.value);
+            let result = autoDetectBlindOpenings(imgElement.value);
+            drawRectangle(imgElement.value, outputCanvas.value, result);
         });
     }
 });
