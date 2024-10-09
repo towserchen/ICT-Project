@@ -92,7 +92,8 @@ const startVideoStream = async () => {
         streaming.value = true;
         captureFrames();
     } catch (err) {
-        alert('aaa' + err);
+        alert(err);
+        console.log(err);
     }
 };
   
