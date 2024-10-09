@@ -30,10 +30,8 @@ const width = 480;
 const height = 640;
 
 const drawRectangle = function(frame, coordinateList) {
-    console.log(imgElement.src);
     let mat = cv.imread(frame);
-    console.log("Image Size:", mat.size());
-    console.log("Coordinate List:", coordinateList);
+    alert("Coordinate List:", coordinateList);
   
     if (coordinateList.length >= 1) {
         for (let coordinate of coordinateList) {
@@ -43,7 +41,6 @@ const drawRectangle = function(frame, coordinateList) {
             }
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
-            console.log("Points Matrix:", points.data32S);
           
             let contours = new cv.MatVector();
             contours.push_back(points);
@@ -62,7 +59,7 @@ const drawRectangle = function(frame, coordinateList) {
   
 const startVideoStream = async () => {
     alert('Start1');
-    
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
