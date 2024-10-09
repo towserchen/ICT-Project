@@ -1,6 +1,4 @@
 import cv from "@techstark/opencv-js"
-
-let src = null;
   
 // Function to get the bottom two boxes based on their vertical position (y-coordinate)
 function getBottomTwoBoxes(boxes) {
@@ -366,7 +364,7 @@ export function manualDetectBlindOpenings(userCoordinates) {
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
 export function autoDetectBlindOpenings(image) {
-    src = cv.matFromImageData(image); // Read the image from the canvas as a cv.Mat
+    let src = cv.matFromImageData(image); // Read the image from the canvas as a cv.Mat
 
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
