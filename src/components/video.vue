@@ -1,0 +1,111 @@
+<template>
+    <h2>Live Video Detection</h2>
+
+    <div>
+        <a class="btn" @click.prevent="startVideoStream">Start</a>
+    </div>
+
+    <div>
+      <video ref="video" autoplay playsinline></video>
+      <canvas ref="canvas"></canvas>
+    </div>
+</template>
+
+<style scoped>
+.btn {
+    padding: 10px 25px;
+    background-color: #2a42af;
+    color: #fff;
+}
+</style>
+  
+<script setup>
+import { ref, onMounted } from 'vue';
+import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+
+const video = ref(null);
+const canvas = ref(null);
+const streaming = ref(false);
+const width = 480;
+const height = 640;
+
+const drawRectangle = function(frame, coordinateList) {
+    console.log(imgElement.src);
+    let mat = cv.imread(frame);
+    console.log("Image Size:", mat.size());
+    console.log("Coordinate List:", coordinateList);
+  
+    if (coordinateList.length >= 1) {
+        for (let coordinate of coordinateList) {
+            if (coordinate.length != 8) {
+                console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+                continue;
+            }
+      
+            let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
+            console.log("Points Matrix:", points.data32S);
+          
+            let contours = new cv.MatVector();
+            contours.push_back(points);
+          
+            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 2);
+
+            points.delete();
+        }
+        mat.delete();
+
+        return new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
+    } else {
+        console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+    }
+}
+  
+const startVideoStream = async () => {
+    alert('Start1');
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: "environment", 
+                width: { ideal: width },
+                height: { ideal: height }
+            }
+        });
+
+        video.value.srcObject = stream;
+
+        video.value.onloadedmetadata = () => {
+            video.value.play();
+            streaming.value = true;
+            captureFrames();
+        };
+    } catch (err) {
+        alert(err);
+        console.error("Error accessing the camera: ", err);
+    }
+};
+  
+const captureFrames = () => {
+    if (streaming.value) {
+        const context = canvas.value.getContext('2d');
+        canvas.value.width = width;
+        canvas.value.height = height;
+
+        context.drawImage(video.value, 0, 0, width, height);
+        const frame = context.getImageData(0, 0, width, height);
+  
+        const processedFrame = detect(frame);
+        context.putImageData(processedFrame, 0, 0);
+  
+        requestAnimationFrame(captureFrames);
+    }
+};
+  
+const detect = (frame) => {
+    let result = autoDetectBlindOpenings(frame);
+    
+    return drawRectangle(frame, result);
+};
+</script>
+  
