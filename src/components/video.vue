@@ -55,8 +55,10 @@ const drawRectangle = function(frame, coordinateList) {
 
             points.delete();
         }
-        mat.delete();
 
+        alert('Get');
+
+        mat.delete();
         return new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
     } else {
         console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
@@ -111,9 +113,7 @@ const captureFrames = () => {
 };
   
 const detect = (frame) => {
-    return frame;
     let result = autoDetectBlindOpenings(frame);
-    
     return drawRectangle(frame, result);
 };
 </script>
