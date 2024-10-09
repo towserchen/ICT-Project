@@ -36,10 +36,10 @@ const streaming = ref(false);
 const width = 480;
 const height = 640;
 
-const drawRectangle = function(frame, coordinateList) {
-    let mat = cv.matFromImageData(frame);
-  
+const drawRectangle = function(frame, coordinateList) {  
     if (coordinateList.length >= 1) {
+        let mat = cv.matFromImageData(frame);
+
         for (let coordinate of coordinateList) {
             if (coordinate.length != 8) {
                 console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
@@ -111,6 +111,7 @@ const captureFrames = () => {
 };
   
 const detect = (frame) => {
+    return frame;
     let result = autoDetectBlindOpenings(frame);
     
     return drawRectangle(frame, result);
