@@ -65,7 +65,7 @@ const drawRectangle = function(frame, coordinateList) {
 }
   
 const startVideoStream = async () => {
-    alert('Start2');
+    alert('Start3');
 
     canvas.value.width = width;
     canvas.value.height = height;
@@ -92,8 +92,7 @@ const startVideoStream = async () => {
         streaming.value = true;
         captureFrames();
     } catch (err) {
-        alert(err);
-        console.error("Error accessing the camera: ", err);
+        alert('aaa' + err);
     }
 };
   
