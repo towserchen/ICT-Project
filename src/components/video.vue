@@ -6,14 +6,14 @@
     </div>
 
     <div>
-      <video ref="video" autoplay playsinline></video>
+        <video ref="video" autoplay playsinline></video>
 
-      <video ref="staticVideo" id="videoInput" width="640" height="480" controls>
-        <source src="/sample/1.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+        <!--<video ref="staticVideo" id="videoInput" width="640" height="480" controls>
+            <source src="/sample/1.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>-->
     
-      <canvas ref="canvas"></canvas>
+        <canvas ref="canvas"></canvas>
     </div>
 </template>
 
@@ -27,7 +27,7 @@
   
 <script setup>
 import { ref, onMounted } from 'vue';
-import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+import { autoDetectBlindOpenings } from '../lib/detect';
 
 const video = ref(null);
 const staticVideo = ref(null);
@@ -37,8 +37,7 @@ const width = 480;
 const height = 640;
 
 const drawRectangle = function(frame, coordinateList) {
-    let mat = cv.imread(frame);
-    alert("Coordinate List:", coordinateList);
+    let mat = cv.matFromImageData(frame);
   
     if (coordinateList.length >= 1) {
         for (let coordinate of coordinateList) {
@@ -61,17 +60,17 @@ const drawRectangle = function(frame, coordinateList) {
         return new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
     } else {
         console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+
+        return frame;
     }
 }
   
 const startVideoStream = async () => {
-    alert('Start4');
-
     canvas.value.width = width;
     canvas.value.height = height;
 
     try {
-        /*const stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 facingMode: "environment", 
@@ -86,11 +85,11 @@ const startVideoStream = async () => {
             video.value.play();
             streaming.value = true;
             captureFrames();
-        };*/
+        };
 
-        staticVideo.value.play();
+        /*staticVideo.value.play();
         streaming.value = true;
-        captureFrames();
+        captureFrames();*/
     } catch (err) {
         alert(err);
         console.log(err);
@@ -101,7 +100,7 @@ const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
         
-        context.drawImage(staticVideo.value, 0, 0, width, height);
+        context.drawImage(video.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
   
         const processedFrame = detect(frame);
@@ -113,8 +112,6 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     let result = autoDetectBlindOpenings(frame);
-
-    alert(result);
     
     return drawRectangle(frame, result);
 };

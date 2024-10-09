@@ -48,8 +48,6 @@ function processBottomBoxes(bottomBoxes) {
     let lines = new cv.Mat();
     cv.HoughLines(blank, lines, 1, Math.PI / 180, 30);
 
-    console.log(lines);
-
     cv.cvtColor(blank, blank, cv.COLOR_GRAY2RGBA); // Not sure this is needed anymore
 
     // Define the center points of both bottom boxes
@@ -236,7 +234,6 @@ function getOutermostIntersections(intersections, topBoxes, bottomBoxes) {
         }
     
         if (isPointInBox(point, topBoxes[1])) {
-            console.log(point);
             if (!outermostIntersections.topRight || 
                 (point.x >= outermostIntersections.topRight.x - 1 && point.y <= outermostIntersections.topRight.y)) {
             outermostIntersections.topRight = point;
@@ -369,8 +366,7 @@ export function manualDetectBlindOpenings(userCoordinates) {
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
 export function autoDetectBlindOpenings(image) {
-
-    src = cv.imread(image); // Read the image from the canvas as a cv.Mat
+    src = cv.matFromImageData(image); // Read the image from the canvas as a cv.Mat
 
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
