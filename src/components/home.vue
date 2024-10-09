@@ -1,4 +1,6 @@
 <template>
+  <h2>Image Detection</h2>
+
   <div>
       <div class="header">
           <div class="select-container">
