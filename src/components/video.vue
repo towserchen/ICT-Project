@@ -65,7 +65,7 @@ const drawRectangle = function(frame, coordinateList) {
 }
   
 const startVideoStream = async () => {
-    alert('Start3');
+    alert('Start4');
 
     canvas.value.width = width;
     canvas.value.height = height;
@@ -100,7 +100,7 @@ const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
         
-        context.drawImage(video.value, 0, 0, width, height);
+        context.drawImage(staticVideo.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
   
         const processedFrame = detect(frame);
