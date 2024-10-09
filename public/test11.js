@@ -69,13 +69,8 @@ imgElement.onload = function() { // Function callback when the image is loaded
         tmp2.delete();
     }
 
-    console.log(sizeFilteredContours.size());
-    console.log(approx.size());
-
     let contourCornerSpecs = [];
-
     let cornerFilteredContours = new cv.MatVector();
-
     for (let i = 0; i < sizeFilteredContours.size(); i++) {
         if((approx.get(i).rows === 5 || approx.get(i).rows === 4) && approxPrecise.get(i).rows < 10) {
             contourCornerSpecs.push(contourSizeSpecs[i]);
@@ -83,21 +78,91 @@ imgElement.onload = function() { // Function callback when the image is loaded
         }
     }
 
-    console.log(cornerFilteredContours);
+    let cornerContourImg = cv.imread(imgElement);
+    for (let i = 0; i < cornerFilteredContours.size(); i++) {
+        let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);        
+        cv.drawContours(cornerContourImg, cornerFilteredContours, i, colour, 2, cv.LINE_8);
+
+        let contour = cornerFilteredContours.get(i);
+        let point = new cv.Point(contour.data32S[0], contour.data32S[1]);  // Get the x, y of the first point
+        
+        // Add text label (the index) near the contour
+        cv.putText(cornerContourImg, i.toString(), point, cv.FONT_HERSHEY_SIMPLEX, 0.5, new cv.Scalar(255, 255, 255, 255), 1);
+    }
+
+    console.log(cornerFilteredContours.size());
+
+    function drawContourSlowly(contour, canvasId, delay = 50, colour, onComplete = () => {}) {
+        let numPoints = contour.data32S.length / 2;  // Number of points in the contour
+        let currentIndex = 0;
+    
+        // Get the canvas and create a Mat to draw on
+        let img = cv.imread(imgElement);  // Read the current image from the canvas
+        cv.imshow(canvasId, img);
+    
+        // Set up the interval to draw points
+        let intervalId = setInterval(() => {
+            if (currentIndex >= numPoints - 1) {
+                clearInterval(intervalId);  // Stop the interval when all points are drawn
+                return;
+            }
+    
+            // Get the current point and the next point to draw a segment
+            let point1 = contour.data32S.slice(currentIndex * 2, currentIndex * 2 + 2);
+            let point2 = contour.data32S.slice((currentIndex + 1) * 2, (currentIndex + 1) * 2 + 2);
+    
+            // Draw the line segment on the image
+            cv.line(img, new cv.Point(point1[0], point1[1]), new cv.Point(point2[0], point2[1]), colour, 2);
+    
+            // Show the updated image on the canvas
+            cv.imshow(canvasId, img);
+            console.log("Im here");
+    
+            currentIndex++;  // Move to the next point
+        }, delay);  // Delay in milliseconds between drawing each line segment
+    }
+
+    // Example usage
+    let contour1 = cornerFilteredContours.get(2);  // Replace with your first contour
+    let contour2 = cornerFilteredContours.get(3);  // Replace with your second contour
+
+    // Draw the first contour, then the second one when it's complete
+    drawContourSlowly(contour1, 'drawContourCanvas', 500, new cv.Scalar(0, 255, 0, 255), () => {
+        // When the first contour is complete, start drawing the second one
+        drawContourSlowly(contour2, 'drawContourCanvas', 500, new cv.Scalar(255, 0, 0, 255));
+    });
 
     function isContourClosed(contour, threshold = 10) {
         // Get the first and last points of the contour
         let firstPoint = contour.data32S.slice(0, 2);  // First point [x, y]
         let lastPoint = contour.data32S.slice(-2);     // Last point [x, y]
-        console.log("first point", firstPoint);
-        console.log("last point", lastPoint);
-        
+    
+        // Visualise points for debugging
+        //cv.circle(cornerContourImg, new cv.Point(firstPoint[0], firstPoint[1]), 3, new cv.Scalar(255, 0, 0, 255), 1);
+        //cv.circle(cornerContourImg, new cv.Point(lastPoint[0], lastPoint[1]), 3, new cv.Scalar(0, 255, 0, 255), 1);
+    
         // Calculate the Euclidean distance between the first and last points
-        let distance = Math.sqrt(Math.pow(firstPoint[0] - lastPoint[0], 2) + 
-                                 Math.pow(firstPoint[1] - lastPoint[1], 2));
-        
-        // Check if the distance is within the threshold (default 5 pixels)
-        return distance <= threshold && cv.contourArea(contour) >= cv.arcLength(contour, false);
+        let distance = Math.sqrt(
+            Math.pow(firstPoint[0] - lastPoint[0], 2) + 
+            Math.pow(firstPoint[1] - lastPoint[1], 2)
+        );
+
+        console.log("First point:", firstPoint);
+        console.log("Last point:", lastPoint);
+        console.log("Distance between first and last point:", distance);
+
+        // Check if the distance is within the threshold (default 10 pixels)
+        if (distance <= threshold && cv.contourArea(contour) >= cv.arcLength(contour, false)) {
+            return true;  // The contour is considered closed
+        }
+
+        // If the distance is greater than the threshold, check for x or y coordinate match
+        if ((firstPoint[0] === lastPoint[0] || firstPoint[1] === lastPoint[1]) && cv.contourArea(contour) >= cv.arcLength(contour, false)) {
+            return true;  // The contour is considered closed if x or y coordinates match
+        }
+
+        // If neither condition is met, the contour is considered open
+        return false;
     }
     
     let contourClosedSpecs = [];
@@ -107,6 +172,21 @@ imgElement.onload = function() { // Function callback when the image is loaded
             contourClosedSpecs.push(contourCornerSpecs[i]);
             closedContours.push_back(cornerFilteredContours.get(i));
         }
+    }
+
+    console.log(contourClosedSpecs.length);
+    console.log(closedContours.size());
+
+    let closedContoursImg = cv.imread(imgElement);
+    for (let i = 0; i < closedContours.size(); i++) {
+        let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);        
+        cv.drawContours(closedContoursImg, closedContours, i, colour, 2, cv.LINE_8);
+
+        let contour = closedContours.get(i);
+        let point = new cv.Point(contour.data32S[0], contour.data32S[1]);  // Get the x, y of the first point
+        
+        // Add text label (the index) near the contour
+        cv.putText(closedContoursImg, i.toString(), point, cv.FONT_HERSHEY_SIMPLEX, 0.5, new cv.Scalar(255, 255, 255, 255), 1);
     }
 
     function boundingBoxIntersect(rectA, rectB) {
@@ -130,7 +210,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
         return false;  // No points are close enough
     }
     
-    function filterContours(matVector, contourClosedSpecs) {
+    function filterContours(matVector, contourClosedSpecs) { // By overlapping
         let n = matVector.size();
         let toKeep = new cv.MatVector();
         let keptIndices = [];  // List to store the original indices of the kept contours
@@ -177,7 +257,6 @@ imgElement.onload = function() { // Function callback when the image is loaded
                 keptIndices.push(contourClosedSpecs[i].index);  // Store the original index
             }
         }
-        console.log(toKeep);
         
         let returns = [toKeep, keptIndices];
         return returns;
@@ -282,10 +361,10 @@ imgElement.onload = function() { // Function callback when the image is loaded
         return insideContours;
     }
     
-    let contoursInsideWindow = getContoursInsideWindow(sizeFilteredContours, finalContours.get(0));
+    //let contoursInsideWindow = getContoursInsideWindow(sizeFilteredContours, finalContours.get(0));
 
     let windowContours = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-    cv.drawContours(windowContours, contoursInsideWindow, -1, new cv.Scalar(255,255,255,255), 0.5, cv.LINE_8);
+    //cv.drawContours(windowContours, contoursInsideWindow, -1, new cv.Scalar(255,255,255,255), 0.5, cv.LINE_8);
 
     let gray2 = new cv.Mat();
     cv.cvtColor(windowContours, gray2, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
@@ -326,8 +405,8 @@ imgElement.onload = function() { // Function callback when the image is loaded
         cv.drawContours(approxPolys, approx, i, colour, 1, 8, hierarchy, 0);
     }
 
-    let justFilterContours = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3); // 3-channel black image (RGB)
-    cv.drawContours(justFilterContours, sizeFilteredContours, -1, new cv.Scalar(255,255,255,255), 0.5, cv.LINE_8);
+    let sizeFilterContoursImg = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3); // 3-channel black image (RGB)
+    cv.drawContours(sizeFilterContoursImg, sizeFilteredContours, -1, new cv.Scalar(255,255,255,255), 0.5, cv.LINE_8);
 
     cv.imshow('grayCanvas', gray); // Display the outputs
     cv.imshow('blurredCanvas', blurred);
@@ -336,7 +415,9 @@ imgElement.onload = function() { // Function callback when the image is loaded
     //cv.imshow('linesCanvas', lines);
     cv.imshow('contoursCanvas', allContours);
     cv.imshow('outputCanvas', src);
-    cv.imshow('justFilteredContours', justFilterContours);
+    cv.imshow('sizeFilteredContours', sizeFilterContoursImg);
+    cv.imshow('cornerFilteredContours', cornerContourImg)
+    cv.imshow('closedFilteredContours', closedContoursImg);
     cv.imshow('approxPolyCanvas', approxPolys);
     cv.imshow('windowContoursCanvas', windowContours);
 }
