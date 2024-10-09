@@ -28,10 +28,49 @@ const canvas = ref(null);
 const streaming = ref(false);
 const width = 640;
 const height = 480;
+
+const drawRectangle = function(imgElement, outputCanvas, coordinateList) {
+  console.log(imgElement.src);
+  let mat = cv.imread(imgElement);
+  console.log("Image Size:", mat.size());
+  console.log("Coordinate List:", coordinateList);
+  
+  if (coordinateList.length >= 1) {
+      for (let coordinate of coordinateList) {
+          if (coordinate.length != 8) {
+              console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+              continue;
+          }
+      
+          let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
+          console.log("Points Matrix:", points.data32S);
+          
+          let contours = new cv.MatVector();
+          contours.push_back(points);
+          
+          cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 2);
+
+          points.delete();
+      }
+      
+      cv.imshow(outputCanvas, mat);
+      
+      mat.delete();
+  } else {
+      console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+  }
+}
   
 const startVideoStream = async () => {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: {
+                facingMode: "environment", 
+                width: { ideal: width },
+                height: { ideal: height }
+            }
+        });
         video.value.srcObject = stream;
         video.value.onloadedmetadata = () => {
             video.value.play();
@@ -61,7 +100,7 @@ const captureFrames = () => {
 };
   
 const detect = (frame) => {
-    frame = autoDetectBlindOpenings(frame);
+    //frame = autoDetectBlindOpenings(frame);
 
     // @todo mark objects that were detected
     return frame;
