@@ -101,6 +101,8 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     let result = autoDetectBlindOpenings(frame);
+
+    alert(result);
     
     return drawRectangle(frame, result);
 };
