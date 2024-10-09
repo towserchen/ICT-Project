@@ -8,7 +8,7 @@
     <div>
         <video ref="video" autoplay playsinline></video>
 
-        <!----><video ref="staticVideo" id="videoInput" width="640" height="480" controls webkit-playsinline playsinline>
+        <!--<video ref="staticVideo" id="videoInput" width="640" height="480" controls webkit-playsinline playsinline>
             <source src="/sample/1.mp4" type="video/mp4">
             Your browser does not support the video tag.
         </video>-->
