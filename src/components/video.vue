@@ -8,10 +8,10 @@
     <div>
         <video ref="video" autoplay playsinline></video>
 
-        <video ref="staticVideo" id="videoInput" width="640" height="480" controls webkit-playsinline playsinline>
+        <!----><video ref="staticVideo" id="videoInput" width="640" height="480" controls webkit-playsinline playsinline>
             <source src="/sample/1.mp4" type="video/mp4">
             Your browser does not support the video tag.
-        </video>
+        </video>-->
     
         <canvas ref="canvas"></canvas>
     </div>
@@ -71,7 +71,7 @@ const startVideoStream = async () => {
     canvas.value.height = height;
 
     try {
-        /*const stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 facingMode: "environment", 
@@ -86,11 +86,11 @@ const startVideoStream = async () => {
             video.value.play();
             streaming.value = true;
             captureFrames();
-        };*/
+        };
 
-        staticVideo.value.play();
+        /*staticVideo.value.play();
         streaming.value = true;
-        captureFrames();
+        captureFrames();*/
     } catch (err) {
         alert(err);
         console.log(err);
@@ -101,7 +101,7 @@ const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
         
-        context.drawImage(staticVideo.value, 0, 0, width, height);
+        context.drawImage(video.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
   
         const processedFrame = detect(frame);
