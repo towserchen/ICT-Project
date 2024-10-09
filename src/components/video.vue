@@ -7,6 +7,12 @@
 
     <div>
       <video ref="video" autoplay playsinline></video>
+
+      <video ref="staticVideo" id="videoInput" width="640" height="480" controls>
+        <source src="/sample/1.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
       <canvas ref="canvas"></canvas>
     </div>
 </template>
@@ -24,6 +30,7 @@ import { ref, onMounted } from 'vue';
 import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
 
 const video = ref(null);
+const staticVideo = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
 const width = 480;
@@ -58,10 +65,13 @@ const drawRectangle = function(frame, coordinateList) {
 }
   
 const startVideoStream = async () => {
-    alert('Start1');
+    alert('Start2');
+
+    canvas.value.width = width;
+    canvas.value.height = height;
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        /*const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 facingMode: "environment", 
@@ -76,7 +86,11 @@ const startVideoStream = async () => {
             video.value.play();
             streaming.value = true;
             captureFrames();
-        };
+        };*/
+
+        staticVideo.value.play();
+        streaming.value = true;
+        captureFrames();
     } catch (err) {
         alert(err);
         console.error("Error accessing the camera: ", err);
@@ -86,9 +100,7 @@ const startVideoStream = async () => {
 const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
-        canvas.value.width = width;
-        canvas.value.height = height;
-
+        
         context.drawImage(video.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
   
