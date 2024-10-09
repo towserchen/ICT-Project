@@ -26,8 +26,8 @@ import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
 const video = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
-const width = 640;
-const height = 480;
+const width = 480;
+const height = 640;
 
 const drawRectangle = function(frame, coordinateList) {
     console.log(imgElement.src);
@@ -61,6 +61,8 @@ const drawRectangle = function(frame, coordinateList) {
 }
   
 const startVideoStream = async () => {
+    alert('Start1');
+    
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
