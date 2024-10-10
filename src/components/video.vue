@@ -96,6 +96,12 @@ const startVideoStream = async () => {
             captureFrames();
         };
 
+        video.value.onresize = () => {
+            alert('Resize');
+            streaming.value = true;
+            captureFrames();
+        };
+
         /*staticVideo.value.play();
         streaming.value = true;
         captureFrames();*/
@@ -121,7 +127,6 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     let result = autoDetectBlindOpenings(frame);
-    return frame;
     return drawRectangle(frame, result);
 };
 </script>
