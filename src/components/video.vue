@@ -6,8 +6,14 @@
     </div>
 
     <div>
-      <video ref="video" autoplay playsinline></video>
-      <canvas ref="canvas"></canvas>
+        <video ref="video" autoplay playsinline></video>
+
+        <!--<video ref="staticVideo" id="videoInput" width="640" height="480" controls webkit-playsinline playsinline>
+            <source src="/sample/1.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>-->
+    
+        <canvas ref="canvas"></canvas>
     </div>
 </template>
 
@@ -21,21 +27,20 @@
   
 <script setup>
 import { ref, onMounted } from 'vue';
-import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+import { autoDetectBlindOpenings } from '../lib/detect';
 
 const video = ref(null);
+const staticVideo = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
+const detected = ref(null);
 const width = 480;
 const height = 640;
 
-const drawRectangle = function(frame, coordinateList) {
-    console.log(imgElement.src);
-    let mat = cv.imread(frame);
-    console.log("Image Size:", mat.size());
-    console.log("Coordinate List:", coordinateList);
-  
+const drawRectangle = function(frame, coordinateList) {  
     if (coordinateList.length >= 1) {
+        let mat = cv.matFromImageData(frame);
+
         for (let coordinate of coordinateList) {
             if (coordinate.length != 8) {
                 console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
@@ -43,26 +48,28 @@ const drawRectangle = function(frame, coordinateList) {
             }
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
-            console.log("Points Matrix:", points.data32S);
           
             let contours = new cv.MatVector();
             contours.push_back(points);
           
-            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 2);
+            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 5);
 
             points.delete();
         }
-        mat.delete();
 
-        return new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
+        //cv.imshow(detected.value, mat);
+        let newFrame = new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
+        mat.delete();
+        return newFrame;
     } else {
-        console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+        return frame;
     }
 }
   
 const startVideoStream = async () => {
-    alert('Start1');
-    
+    canvas.value.width = width;
+    canvas.value.height = height;
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
@@ -80,18 +87,20 @@ const startVideoStream = async () => {
             streaming.value = true;
             captureFrames();
         };
+
+        /*staticVideo.value.play();
+        streaming.value = true;
+        captureFrames();*/
     } catch (err) {
         alert(err);
-        console.error("Error accessing the camera: ", err);
+        console.log(err);
     }
 };
   
 const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
-        canvas.value.width = width;
-        canvas.value.height = height;
-
+        
         context.drawImage(video.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
   
@@ -104,7 +113,6 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     let result = autoDetectBlindOpenings(frame);
-    
     return drawRectangle(frame, result);
 };
 </script>
