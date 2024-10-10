@@ -126,9 +126,13 @@ const captureFrames = () => {
 };
   
 const detect = (frame) => {
-    return frame;
-    let result = autoDetectBlindOpenings(frame);
-    return drawRectangle(frame, result);
+    try {
+        let result = autoDetectBlindOpenings(frame);
+        return drawRectangle(frame, result);
+    }
+    catch(e) {
+        alert(e);
+    }
 };
 </script>
   
