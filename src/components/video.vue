@@ -28,16 +28,17 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { autoDetectBlindOpenings } from '../lib/detect';
+import { processImages } from '../lib/detect_long';
 
 const video = ref(null);
 const staticVideo = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
-const detected = ref(null);
+//const detected = ref(null);
 const width = 480;
 const height = 640;
 
-const drawRectangle = function(frame, coordinateList) {  
+const drawRectangle = function(frame, coordinateList) {
     if (coordinateList.length >= 1) {
         let mat = cv.matFromImageData(frame);
 
@@ -48,16 +49,16 @@ const drawRectangle = function(frame, coordinateList) {
             }
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
-          
             let contours = new cv.MatVector();
+
             contours.push_back(points);
           
-            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 5);
+            cv.polylines(mat, contours, true, new cv.Scalar(0, 0, 255), 2);
 
             points.delete();
+            contours.delete();
         }
 
-        //cv.imshow(detected.value, mat);
         let newFrame = new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
         mat.delete();
         return newFrame;
@@ -105,6 +106,8 @@ const captureFrames = () => {
         const frame = context.getImageData(0, 0, width, height);
   
         const processedFrame = detect(frame);
+
+        console.log(processedFrame)
         context.putImageData(processedFrame, 0, 0);
   
         requestAnimationFrame(captureFrames);
@@ -112,8 +115,14 @@ const captureFrames = () => {
 };
   
 const detect = (frame) => {
-    let result = autoDetectBlindOpenings(frame);
-    return drawRectangle(frame, result);
+    try {
+        let result = autoDetectBlindOpenings(frame);
+        return drawRectangle(frame, result);
+    }
+    catch(e) {
+        alert(e);
+        alert(e.stack);
+    }
 };
 </script>
   
