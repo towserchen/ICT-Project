@@ -58,6 +58,8 @@ const drawRectangle = function(frame, coordinateList) {
             contours.delete();
         }
 
+        alert('Got');
+
         let newFrame = new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
         mat.delete();
         return newFrame;
