@@ -1,5 +1,5 @@
 export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas, outputCanvas) {
-    const mat = cv.imread(imgElement);
+    const mat = cv.matFromImageData(imgElement);
     const gray = new cv.Mat();
     const edges = new cv.Mat();
     const contours = new cv.MatVector();
