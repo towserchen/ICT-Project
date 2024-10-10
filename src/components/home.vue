@@ -54,6 +54,16 @@
           </div>
 
           <div class="inputoutput">
+              <div class="caption">Step 4 Canvas</div>
+              <canvas ref="s5Canvas"></canvas>
+          </div>
+
+          <div class="inputoutput">
+              <div class="caption">Step 5 Canvas</div>
+              <canvas ref="s6Canvas"></canvas>
+          </div>
+
+          <div class="inputoutput">
               <div class="caption">Output Canvas</div>
               <canvas ref="outputCanvas"></canvas>
           </div>
@@ -145,12 +155,14 @@ const outputCanvas = ref(null);
 const s1Canvas = ref(null);
 const s2Canvas = ref(null);
 const s3Canvas = ref(null);
+const s4Canvas = ref(null);
+const s5Canvas = ref(null);
 
 const tabActive = ref(0);
 const showEffect = ref(false);
 const imgElement = ref(null);
 
-const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas];
+const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas, s4Canvas, s5Canvas];
 
 // switch the tab
 function changeTab(index) {
