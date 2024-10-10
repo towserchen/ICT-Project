@@ -69,16 +69,176 @@ imgElement.onload = function() { // Function callback when the image is loaded
         tmp2.delete();
     }
 
+    let cornerContourImg = cv.imread(imgElement);
     let contourCornerSpecs = [];
     let cornerFilteredContours = new cv.MatVector();
     for (let i = 0; i < sizeFilteredContours.size(); i++) {
         if((approx.get(i).rows === 5 || approx.get(i).rows === 4) && approxPrecise.get(i).rows < 10) {
+
+            let poly = approxPrecise.get(i);
+            console.log(poly);
+            let corners = extractQuadrilateralCorners(poly);
+            
+            for (let j = 0; j < corners.length; j++) {
+                let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+                let thickness = 1;  // Thickness of the circle
+                let radius = 4;  // Radius of the circle
+
+                // Draw a circle at (x, y) on the image
+                cv.circle(cornerContourImg, new cv.Point(corners[j].x, corners[j].y), radius, colour, thickness);
+            }
+
+            // for (let j = 0; j < poly.rows; j++) {
+            //     let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+            //     let thickness = 1;  // Thickness of the circle
+            //     let radius = 4;  // Radius of the circle
+
+            //     // Draw a circle at (x, y) on the image
+            //     cv.circle(cornerContourImg, new cv.Point(poly.data32S[j * 2], poly.data32S[(j * 2) + 1]), radius, colour, thickness);
+            // }
+
             contourCornerSpecs.push(contourSizeSpecs[i]);
             cornerFilteredContours.push_back(sizeFilteredContours.get(i));
         }
     }
 
-    let cornerContourImg = cv.imread(imgElement);
+    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) {
+        const points = contour.data32S; // Assuming the contour is in Int32Array format from OpenCV.js
+        const corners = [];
+    
+        // Convert the contour points into an array of {x, y}
+        const contourPoints = [];
+        for (let i = 0; i < points.length; i += 2) {
+            contourPoints.push({ x: points[i], y: points[i + 1] });
+        }
+    
+        // Helper function to calculate angle between three points (A-B-C)
+        function calculateAngle(A, B, C) {
+            const AB = { x: B.x - A.x, y: B.y - A.y };
+            const BC = { x: C.x - B.x, y: C.y - B.y };
+            const dotProduct = AB.x * BC.x + AB.y * BC.y;
+            const magnitudeAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
+            const magnitudeBC = Math.sqrt(BC.x * BC.x + BC.y * BC.y);
+            const angle = Math.acos(dotProduct / (magnitudeAB * magnitudeBC));
+            return (angle * 180) / Math.PI; // Convert to degrees
+        }
+    
+        // Detect potential corners based on the angle threshold
+        for (let i = 0; i < contourPoints.length; i++) {
+            const A = contourPoints[(i - 1 + contourPoints.length) % contourPoints.length];
+            const B = contourPoints[i];
+            const C = contourPoints[(i + 1) % contourPoints.length];
+    
+            const angle = calculateAngle(A, B, C);
+            if (angle > angleThreshold) {
+                corners.push(B);
+            }
+        }
+    
+        // Calculate the bounding box of the contour
+        const minX = Math.min(...contourPoints.map(p => p.x));
+        const maxX = Math.max(...contourPoints.map(p => p.x));
+        const minY = Math.min(...contourPoints.map(p => p.y));
+        const maxY = Math.max(...contourPoints.map(p => p.y));
+    
+        // Cluster nearby points using the distance threshold and classify them
+        const clusteredCorners = [];
+        const visited = new Array(corners.length).fill(false);
+    
+        function distance(point1, point2) {
+            return Math.sqrt(
+                Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2)
+            );
+        }
+    
+        for (let i = 0; i < corners.length; i++) {
+            if (visited[i]) continue;
+    
+            const cluster = [corners[i]];
+            visited[i] = true;
+    
+            for (let j = i + 1; j < corners.length; j++) {
+                if (!visited[j] && distance(corners[i], corners[j]) < distanceThreshold) {
+                    cluster.push(corners[j]);
+                    visited[j] = true;
+                }
+            }
+    
+            clusteredCorners.push(cluster);
+        }
+
+        console.log(clusteredCorners);
+    
+        // Function to find the most extreme point for a given cluster and corner type
+        function findExtremePoint(cluster, type) {
+            if (type === 'top-left') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x < extreme.x && point.y < extreme.y ? point : extreme,
+                    { x: Infinity, y: Infinity }
+                );
+            } else if (type === 'top-right') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x > extreme.x && point.y < extreme.y ? point : extreme,
+                    { x: -Infinity, y: Infinity }
+                );
+            } else if (type === 'bottom-left') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x < extreme.x && point.y > extreme.y ? point : extreme,
+                    { x: Infinity, y: -Infinity }
+                );
+            } else if (type === 'bottom-right') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x > extreme.x && point.y > extreme.y ? point : extreme,
+                    { x: -Infinity, y: -Infinity }
+                );
+            }
+        }
+    
+        // Classify clusters into each corner type and find the extreme point for each
+        const cornerPoints = {
+            'top-left': null,
+            'top-right': null,
+            'bottom-left': null,
+            'bottom-right': null,
+        };
+    
+        clusteredCorners.forEach(cluster => {
+            const center = cluster.reduce(
+                (acc, point) => ({
+                    x: acc.x + point.x / cluster.length,
+                    y: acc.y + point.y / cluster.length,
+                }),
+                { x: 0, y: 0 }
+            );
+    
+            // Determine the corner type based on the cluster's center position relative to the bounding box
+            if (center.x < (minX + maxX) / 2 && center.y < (minY + maxY) / 2) {
+                cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
+            } else if (center.x >= (minX + maxX) / 2 && center.y < (minY + maxY) / 2) {
+                cornerPoints['top-right'] = findExtremePoint(cluster, 'top-right');
+            } else if (center.x < (minX + maxX) / 2 && center.y >= (minY + maxY) / 2) {
+                cornerPoints['bottom-left'] = findExtremePoint(cluster, 'bottom-left');
+            } else if (center.x >= (minX + maxX) / 2 && center.y >= (minY + maxY) / 2) {
+                cornerPoints['bottom-right'] = findExtremePoint(cluster, 'bottom-right');
+            }
+        });
+    
+        // Extract the identified corner points
+        const identifiedCorners = [
+            cornerPoints['top-left'],
+            cornerPoints['top-right'],
+            cornerPoints['bottom-left'],
+            cornerPoints['bottom-right']
+        ];
+    
+        // Filter out any undefined points in case a corner wasn't detected
+        return identifiedCorners.filter(point => point !== null);
+    }
+
     for (let i = 0; i < cornerFilteredContours.size(); i++) {
         let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);        
         cv.drawContours(cornerContourImg, cornerFilteredContours, i, colour, 2, cv.LINE_8);
@@ -122,15 +282,14 @@ imgElement.onload = function() { // Function callback when the image is loaded
         }, delay);  // Delay in milliseconds between drawing each line segment
     }
 
-    // Example usage
-    let contour1 = cornerFilteredContours.get(2);  // Replace with your first contour
-    let contour2 = cornerFilteredContours.get(3);  // Replace with your second contour
+    let contour1 = cornerFilteredContours.get(2);
+    let contour2 = cornerFilteredContours.get(3);
 
     // Draw the first contour, then the second one when it's complete
-    drawContourSlowly(contour1, 'drawContourCanvas', 500, new cv.Scalar(0, 255, 0, 255), () => {
-        // When the first contour is complete, start drawing the second one
-        drawContourSlowly(contour2, 'drawContourCanvas', 500, new cv.Scalar(255, 0, 0, 255));
-    });
+    // drawContourSlowly(contour1, 'drawContourCanvas', 500, new cv.Scalar(0, 255, 0, 255), () => {
+    //     // When the first contour is complete, start drawing the second one
+    //     drawContourSlowly(contour2, 'drawContourCanvas', 500, new cv.Scalar(255, 0, 0, 255));
+    // });
 
     function isContourClosed(contour, threshold = 10) {
         // Get the first and last points of the contour
