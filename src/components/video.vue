@@ -28,6 +28,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { autoDetectBlindOpenings } from '../lib/detect';
+import processImages from '../lib/detect_long';
 
 const video = ref(null);
 const staticVideo = ref(null);
@@ -38,7 +39,6 @@ const width = 480;
 const height = 640;
 
 const drawRectangle = function(frame, coordinateList) {
-    return frame;
     if (coordinateList.length >= 1) {
         let mat = cv.matFromImageData(frame);
 
@@ -128,7 +128,8 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     try {
-        let result = autoDetectBlindOpenings(frame);
+        //let result = autoDetectBlindOpenings(frame);
+        let result = processImages(frame);
         return drawRectangle(frame, result);
     }
     catch(e) {

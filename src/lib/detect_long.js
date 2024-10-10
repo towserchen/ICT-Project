@@ -9,7 +9,7 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
 
     // gray
     cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY, 0);
-    cv.imshow(step1Canvas, gray);
+    //cv.imshow(step1Canvas, gray);
 
     // gaussian blur
     //cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
@@ -17,7 +17,7 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
     const sigmaX = 0;
     const sigmaY = 0;
     cv.GaussianBlur(gray, blurred, kernelSize, sigmaX, sigmaY);
-    cv.imshow(step1Canvas, blurred);
+    //cv.imshow(step1Canvas, blurred);
 
     // binaryzation
     //cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
@@ -25,7 +25,7 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
     // canny detect
     //cv.Canny(gray, edges, 30, 250);
     cv.Canny(blurred, edges, 30, 250, 5, true);
-    cv.imshow(step2Canvas, edges);
+    //cv.imshow(step2Canvas, edges);
 
     cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
 
@@ -160,11 +160,13 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
 
     console.log(finalContourList);
 
-    cv.imshow(outputCanvas, mat);
+    //cv.imshow(outputCanvas, mat);
     
     mat.delete();
     gray.delete();
     edges.delete();
     contours.delete();
     hierarchy.delete();
+
+    return new ImageData(new Uint8ClampedArray(contours.data), contours.cols, contours.rows);
 }
