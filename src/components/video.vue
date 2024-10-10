@@ -37,7 +37,8 @@ const streaming = ref(false);
 const width = 480;
 const height = 640;
 
-const drawRectangle = function(frame, coordinateList) {  
+const drawRectangle = function(frame, coordinateList) {
+    return frame;
     if (coordinateList.length >= 1) {
         let mat = cv.matFromImageData(frame);
 
