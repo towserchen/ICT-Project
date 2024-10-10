@@ -42,8 +42,6 @@ const drawRectangle = function(frame, coordinateList) {
     if (coordinateList.length >= 1) {
         let mat = cv.matFromImageData(frame);
 
-        alert('GotA');
-
         for (let coordinate of coordinateList) {
             if (coordinate.length != 8) {
                 console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
@@ -51,17 +49,11 @@ const drawRectangle = function(frame, coordinateList) {
             }
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
-
-            alert('GotB');
-          
             let contours = new cv.MatVector();
 
-            alert('Gotc');
             contours.push_back(points);
           
             cv.polylines(mat, contours, true, new cv.Scalar(0, 0, 255), 2);
-
-            alert('GotD');
 
             points.delete();
             contours.delete();
@@ -97,12 +89,6 @@ const startVideoStream = async () => {
             captureFrames();
         };
 
-        video.value.onresize = () => {
-            alert('Resize');
-            streaming.value = true;
-            captureFrames();
-        };
-
         /*staticVideo.value.play();
         streaming.value = true;
         captureFrames();*/
@@ -128,9 +114,7 @@ const captureFrames = () => {
   
 const detect = (frame) => {
     try {
-        //let result = autoDetectBlindOpenings(frame);
-        let result = processImages(frame);
-        return result;
+        let result = autoDetectBlindOpenings(frame);
         return drawRectangle(frame, result);
     }
     catch(e) {
