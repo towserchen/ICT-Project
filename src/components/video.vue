@@ -132,6 +132,7 @@ const detect = (frame) => {
     }
     catch(e) {
         alert(e);
+        alert(e.stack);
     }
 };
 </script>
