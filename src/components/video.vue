@@ -33,7 +33,7 @@ const video = ref(null);
 const staticVideo = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
-const detected = ref(null);
+//const detected = ref(null);
 const width = 480;
 const height = 640;
 
@@ -52,12 +52,12 @@ const drawRectangle = function(frame, coordinateList) {
             let contours = new cv.MatVector();
             contours.push_back(points);
           
-            cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 5);
+            cv.polylines(mat, contours, true, new cv.Scalar(0, 0, 255), 2);
 
             points.delete();
+            contours.delete();
         }
 
-        //cv.imshow(detected.value, mat);
         let newFrame = new ImageData(new Uint8ClampedArray(mat.data), mat.cols, mat.rows);
         mat.delete();
         return newFrame;
