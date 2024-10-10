@@ -367,9 +367,16 @@ export function manualDetectBlindOpenings(userCoordinates) {
  * Detect opinings of an image
  * 
  * @param {HTMLElement} image 
+ * @param {Array} canvasSlotList - A list of canvas, to show each detection step, can be []
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
-export function autoDetectBlindOpenings(image) {
+export function autoDetectBlindOpenings(image, canvasSlotList = []) {
+    let canvasSlot = null;
+
+    if (canvasSlotList.length > 0) {
+        canvasSlot = new CanvasSlot(canvasSlotList);
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = image.width;
     canvas.height = image.height;
