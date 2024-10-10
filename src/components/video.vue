@@ -106,6 +106,8 @@ const captureFrames = () => {
         const frame = context.getImageData(0, 0, width, height);
   
         const processedFrame = detect(frame);
+
+        console.log(processedFrame)
         context.putImageData(processedFrame, 0, 0);
   
         requestAnimationFrame(captureFrames);
