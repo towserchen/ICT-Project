@@ -130,6 +130,7 @@ const detect = (frame) => {
     try {
         //let result = autoDetectBlindOpenings(frame);
         let result = processImages(frame);
+        return result;
         return drawRectangle(frame, result);
     }
     catch(e) {
