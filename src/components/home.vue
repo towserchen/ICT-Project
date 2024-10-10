@@ -191,13 +191,11 @@ function handleFileChange(event) {
 
 // draw an rectangle
 function drawRectangle(imgElement, outputCanvas, coordinateList) {
-  console.log(imgElement.src);
   let mat = cv.imread(imgElement);
-  console.log("Image Size:", mat.size());
   console.log("Coordinate List:", coordinateList);
   
   if (coordinateList.length >= 1) {
-      for (let coordinate of coordinateList) {
+    for (let coordinate of coordinateList) {
           if (coordinate.length != 8) {
               console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
               continue;
@@ -218,7 +216,8 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
       
       mat.delete();
   } else {
-      console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+    cv.imshow(outputCanvas, mat);
+    console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
   }
 }
 
