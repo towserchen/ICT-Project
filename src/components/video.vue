@@ -28,7 +28,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { autoDetectBlindOpenings } from '../lib/detect';
-import processImages from '../lib/detect_long';
+import { processImages } from '../lib/detect_long';
 
 const video = ref(null);
 const staticVideo = ref(null);
