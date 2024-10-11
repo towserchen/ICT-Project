@@ -194,7 +194,7 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
   let mat = cv.imread(imgElement);
   console.log("Coordinate List:", coordinateList);
   
-  if (coordinateList.length >= 1) {
+  if (coordinateList.length > 0) {
     for (let coordinate of coordinateList) {
           if (coordinate.length != 8) {
               console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
@@ -225,6 +225,7 @@ onMounted(() => {
   if (imgElement.value) {
       imgElement.value.addEventListener('load', ()=>{
           let result = autoDetectBlindOpenings(imgElement.value, slotCanvasList);
+          console.log(result);
           drawRectangle(imgElement.value, outputCanvas.value, result);
       });
   }

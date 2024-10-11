@@ -1,6 +1,6 @@
 import cv from "@techstark/opencv-js"
 import CanvasSlot from './canvasSlot'
-  
+
 // Function to get the bottom two boxes based on their vertical position (y-coordinate)
 function getBottomTwoBoxes(boxes) {
     // Sort boxes by the y-coordinate (center of the box)
@@ -362,10 +362,10 @@ export function manualDetectBlindOpenings(userCoordinates) {
  * Detect opinings of an image
  * 
  * @param {HTMLElement} image 
+ * @param {Array} canvasSlotList - A list of canvas, to show each detection step, can be []
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
 export function autoDetectBlindOpenings(image, canvasSlotList = []) {
-
     let canvasSlot = null;
 
     if (canvasSlotList.length > 0) {
@@ -381,22 +381,12 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
     let ksize = new cv.Size(7, 7)
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT); // Apply Gaussian blur to reduce noise and improve edge detection
 
-    // Show this step in debug canvas
-    if (canvasSlotList.length > 0) {
-        cv.imshow(canvasSlot.getSlot(), gray);
-    }
-
     let edges = new cv.Mat();
     cv.Canny(blurred, edges, 100, 250, 5, true); // Detect edges using Canny Algorithm
 
     let contours = new cv.MatVector();
     let hierarchy = new cv.Mat();
     cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE); // Find contours
-
-    // Show this step in debug canvas
-    if (canvasSlotList.length > 0) {
-        cv.imshow(canvasSlot.getSlot(), edges);
-    }
 
     let contourSpecs = []; // area, perimeter etc.
 
@@ -440,7 +430,6 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
     }
 
     let contourCornerSpecs = [];
-
     let cornerFilteredContours = new cv.MatVector();
 
     for (let i = 0; i < sizeFilteredContours.size(); i++) {
@@ -454,13 +443,25 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
         // Get the first and last points of the contour
         let firstPoint = contour.data32S.slice(0, 2);  // First point [x, y]
         let lastPoint = contour.data32S.slice(-2);     // Last point [x, y]
-        
+    
         // Calculate the Euclidean distance between the first and last points
-        let distance = Math.sqrt(Math.pow(firstPoint[0] - lastPoint[0], 2) + 
-                                 Math.pow(firstPoint[1] - lastPoint[1], 2));
-        
-        // Check if the distance is within the threshold (default 5 pixels)
-        return distance <= threshold && cv.contourArea(contour) >= cv.arcLength(contour, false);
+        let distance = Math.sqrt(
+            Math.pow(firstPoint[0] - lastPoint[0], 2) + 
+            Math.pow(firstPoint[1] - lastPoint[1], 2)
+        );
+
+        // Check if the distance is within the threshold (default 10 pixels)
+        if (distance <= threshold && cv.contourArea(contour) >= cv.arcLength(contour, false)) {
+            return true;  // The contour is considered closed
+        }
+
+        // If the distance is greater than the threshold, check for x or y coordinate match
+        if ((firstPoint[0] === lastPoint[0] || firstPoint[1] === lastPoint[1]) && cv.contourArea(contour) >= cv.arcLength(contour, false)) {
+            return true;  // The contour is considered closed if x or y coordinates match
+        }
+
+        // If neither condition is met, the contour is considered open
+        return false;
     }
     
     let contourClosedSpecs = [];
@@ -474,9 +475,9 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
 
     function boundingBoxIntersect(rectA, rectB) {
         return !(rectA.x > rectB.x + rectB.width ||
-                 rectA.x + rectA.width < rectB.x ||
-                 rectA.y > rectB.y + rectB.height ||
-                 rectA.y + rectA.height < rectB.y);
+                    rectA.x + rectA.width < rectB.x ||
+                    rectA.y > rectB.y + rectB.height ||
+                    rectA.y + rectA.height < rectB.y);
     }
     
     function pointProximityCheck(contourA, contourB, threshold = 1) {
@@ -581,19 +582,160 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
     let finalContours = temp[0];
     let finalIndices = temp[1];
 
+    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) {
+        const points = contour.data32S;
+        const corners = [];
+    
+        // Convert the contour points into an array of {x, y}
+        const contourPoints = [];
+        for (let i = 0; i < points.length; i += 2) {
+            contourPoints.push({ x: points[i], y: points[i + 1] });
+        }
+    
+        // Helper function to calculate angle between three points (A-B-C)
+        function calculateAngle(A, B, C) {
+            const AB = { x: B.x - A.x, y: B.y - A.y };
+            const BC = { x: C.x - B.x, y: C.y - B.y };
+            const dotProduct = AB.x * BC.x + AB.y * BC.y;
+            const magnitudeAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
+            const magnitudeBC = Math.sqrt(BC.x * BC.x + BC.y * BC.y);
+            const angle = Math.acos(dotProduct / (magnitudeAB * magnitudeBC));
+            return (angle * 180) / Math.PI; // Convert to degrees
+        }
+    
+        // Detect potential corners based on the angle threshold
+        for (let i = 0; i < contourPoints.length; i++) {
+            const A = contourPoints[(i - 1 + contourPoints.length) % contourPoints.length];
+            const B = contourPoints[i];
+            const C = contourPoints[(i + 1) % contourPoints.length];
+    
+            const angle = calculateAngle(A, B, C);
+            if (angle > angleThreshold) {
+                corners.push(B);
+            }
+        }
+    
+        // Cluster nearby points using the distance threshold and classify them
+        const clusteredCorners = [];
+        const visited = new Array(corners.length).fill(false);
+    
+        function distance(point1, point2) {
+            return Math.sqrt(
+                Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2)
+            );
+        }
+    
+        for (let i = 0; i < corners.length; i++) {
+            if (visited[i]) continue;
+    
+            const cluster = [corners[i]];
+            visited[i] = true;
+    
+            for (let j = i + 1; j < corners.length; j++) {
+                if (!visited[j] && distance(corners[i], corners[j]) < distanceThreshold) {
+                    cluster.push(corners[j]);
+                    visited[j] = true;
+                }
+            }
+    
+            clusteredCorners.push(cluster);
+        }
+    
+        // Function to find the most extreme point for a given cluster and corner type
+        function findExtremePoint(cluster, type) {
+            if (type === 'top-left') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x < extreme.x && point.y < extreme.y ? point : extreme,
+                    { x: Infinity, y: Infinity }
+                );
+            } else if (type === 'top-right') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x > extreme.x && point.y < extreme.y ? point : extreme,
+                    { x: -Infinity, y: Infinity }
+                );
+            } else if (type === 'bottom-left') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x < extreme.x && point.y > extreme.y ? point : extreme,
+                    { x: Infinity, y: -Infinity }
+                );
+            } else if (type === 'bottom-right') {
+                return cluster.reduce(
+                    (extreme, point) =>
+                        point.x > extreme.x && point.y > extreme.y ? point : extreme,
+                    { x: -Infinity, y: -Infinity }
+                );
+            }
+        }
+    
+        // Classify clusters into each corner type and find the extreme point for each
+        const cornerPoints = {
+            'top-left': { x: Infinity, y: Infinity },
+            'top-right': { x: -Infinity, y: Infinity },
+            'bottom-left': { x: Infinity, y: -Infinity },
+            'bottom-right': { x: -Infinity, y: -Infinity },
+        };
+    
+        clusteredCorners.forEach(cluster => {
+            const center = cluster.reduce(
+                (acc, point) => ({
+                    x: acc.x + point.x / cluster.length,
+                    y: acc.y + point.y / cluster.length,
+                }),
+                { x: 0, y: 0 }
+            );
+    
+            // Compare and assign the cluster with the most extreme values to the respective corners
+            if (center.x <= cornerPoints['top-left'].x && center.y <= cornerPoints['top-left'].y) {
+                cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
+            } else if (center.x + center.y < cornerPoints['top-left'].x + cornerPoints['top-left'].y) {
+                cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
+            }
+            if (center.x >= cornerPoints['top-right'].x && center.y <= cornerPoints['top-right'].y) {
+                cornerPoints['top-right'] = findExtremePoint(cluster, 'top-right');
+            } else if (center.x - center.y > cornerPoints['top-right'].x - cornerPoints['top-right'].y) {
+                cornerPoints['top-right'] = findExtremePoint(cluster, 'top-right');
+            }
+            if (center.x <= cornerPoints['bottom-left'].x && center.y >= cornerPoints['bottom-left'].y) {
+                cornerPoints['bottom-left'] = findExtremePoint(cluster, 'bottom-left');
+            } else if (center.y - center.x > cornerPoints['bottom-left'].y - cornerPoints['bottom-left'].x) {
+                cornerPoints['bottom-left'] = findExtremePoint(cluster, 'bottom-left');
+            }
+            if (center.x >= cornerPoints['bottom-right'].x && center.y >= cornerPoints['bottom-right'].y) {
+                cornerPoints['bottom-right'] = findExtremePoint(cluster, 'bottom-right');
+            } else if (center.x + center.y > cornerPoints['bottom-right'].x + cornerPoints['bottom-right'].y) {
+                cornerPoints['bottom-right'] = findExtremePoint(cluster, 'bottom-right');
+            }
+        });
+    
+        // Extract the identified corner points
+        const identifiedCorners = [
+            cornerPoints['top-left'],
+            cornerPoints['top-right'],
+            cornerPoints['bottom-left'],
+            cornerPoints['bottom-right']
+        ];
+    
+        // Filter out any undefined points in case a corner wasn't detected
+        return identifiedCorners.filter(point => point !== null);
+    }
+
     let coordinates = []
 
     for (let i = 0; i < finalContours.size(); i++) {
 
         let contour = finalContours.get(i);
         
-        let approx = new cv.Mat();
-        cv.approxPolyDP(contour, approx, 0.01 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
+        let approxPrecise = new cv.Mat();
+        cv.approxPolyDP(contour, approxPrecise, 0.0008 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
 
+        let corners = extractQuadrilateralCorners(approxPrecise);
         temp = []
-        for (let i = 0; i < approx.rows && i < 4; i++) {
-            temp.push(approx.data32S[i * 2]);
-            temp.push(approx.data32S[(i * 2) + 1])
+        for (let j = 0; j < corners.length; j++) {
+            temp.push(corners[j].x);
+            temp.push(corners[j].y);
         }
 
         coordinates.push(temp);
