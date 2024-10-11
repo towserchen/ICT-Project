@@ -280,12 +280,6 @@ function autoDetectBlindOpenings(image) {
             }
         }
     
-        // Calculate the bounding box of the contour
-        const minX = Math.min(...contourPoints.map(p => p.x));
-        const maxX = Math.max(...contourPoints.map(p => p.x));
-        const minY = Math.min(...contourPoints.map(p => p.y));
-        const maxY = Math.max(...contourPoints.map(p => p.y));
-    
         // Cluster nearby points using the distance threshold and classify them
         const clusteredCorners = [];
         const visited = new Array(corners.length).fill(false);
