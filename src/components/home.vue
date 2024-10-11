@@ -13,7 +13,6 @@
                       <li :class="{active: tabActive === 4}" @click="changeTab(4)">Sample4</li>
                       <li :class="{active: tabActive === 5}" @click="changeTab(5)">Sample5</li>
                       <li :class="{active: tabActive === 6}" @click="changeTab(6)">Upload</li>
-                      <li :class="{active: tabActive === 6}" @click="changeTab(6)">Video</li>
                   </ul>
               </div>
 
@@ -39,7 +38,7 @@
       </div>
 
       <div v-if="tabActive !== 0" v-show="showEffect" class="show-container">
-          <!---<div class="inputoutput">
+          <div class="inputoutput">
               <div class="caption">Step 1 Canvas</div>
               <canvas ref="s1Canvas"></canvas>
           </div>
@@ -52,18 +51,22 @@
           <div class="inputoutput">
               <div class="caption">Step 3 Canvas</div>
               <canvas ref="s3Canvas"></canvas>
-          </div>-->
+          </div>
+
+          <div class="inputoutput">
+              <div class="caption">Step 4 Canvas</div>
+              <canvas ref="s5Canvas"></canvas>
+          </div>
+
+          <div class="inputoutput">
+              <div class="caption">Step 5 Canvas</div>
+              <canvas ref="s6Canvas"></canvas>
+          </div>
 
           <div class="inputoutput">
               <div class="caption">Output Canvas</div>
               <canvas ref="outputCanvas"></canvas>
           </div>
-      </div>
-
-      <div class="footer">
-          © 2024 Ziptrack
-          <br>
-          Слава Україні
       </div>
 </div>
 </template>
@@ -145,16 +148,21 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+//import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+import { autoDetectBlindOpenings } from '../lib/detect';
 
 const outputCanvas = ref(null);
 const s1Canvas = ref(null);
 const s2Canvas = ref(null);
 const s3Canvas = ref(null);
+const s4Canvas = ref(null);
+const s5Canvas = ref(null);
 
 const tabActive = ref(0);
 const showEffect = ref(false);
 const imgElement = ref(null);
+
+const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas, s4Canvas, s5Canvas];
 
 // switch the tab
 function changeTab(index) {
@@ -183,13 +191,11 @@ function handleFileChange(event) {
 
 // draw an rectangle
 function drawRectangle(imgElement, outputCanvas, coordinateList) {
-  console.log(imgElement.src);
   let mat = cv.imread(imgElement);
-  console.log("Image Size:", mat.size());
   console.log("Coordinate List:", coordinateList);
   
   if (coordinateList.length >= 1) {
-      for (let coordinate of coordinateList) {
+    for (let coordinate of coordinateList) {
           if (coordinate.length != 8) {
               console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
               continue;
@@ -210,14 +216,15 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
       
       mat.delete();
   } else {
-      console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+    cv.imshow(outputCanvas, mat);
+    console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
   }
 }
 
 onMounted(() => {
   if (imgElement.value) {
       imgElement.value.addEventListener('load', ()=>{
-          let result = autoDetectBlindOpenings(imgElement.value);
+          let result = autoDetectBlindOpenings(imgElement.value, slotCanvasList);
           drawRectangle(imgElement.value, outputCanvas.value, result);
       });
   }
