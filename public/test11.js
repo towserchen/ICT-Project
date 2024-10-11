@@ -75,18 +75,18 @@ imgElement.onload = function() { // Function callback when the image is loaded
     for (let i = 0; i < sizeFilteredContours.size(); i++) {
         if((approx.get(i).rows === 5 || approx.get(i).rows === 4) && approxPrecise.get(i).rows < 10) {
 
-            let poly = approxPrecise.get(i);
-            console.log(poly);
-            let corners = extractQuadrilateralCorners(poly);
+            // let poly = approxPrecise.get(i);
+            // //console.log(poly);
+            // let corners = extractQuadrilateralCorners(poly);
             
-            for (let j = 0; j < corners.length; j++) {
-                let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
-                let thickness = 1;  // Thickness of the circle
-                let radius = 4;  // Radius of the circle
+            // for (let j = 0; j < corners.length; j++) {
+            //     let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+            //     let thickness = 1;  // Thickness of the circle
+            //     let radius = 4;  // Radius of the circle
 
-                // Draw a circle at (x, y) on the image
-                cv.circle(cornerContourImg, new cv.Point(corners[j].x, corners[j].y), radius, colour, thickness);
-            }
+            //     // Draw a circle at (x, y) on the image
+            //     cv.circle(cornerContourImg, new cv.Point(corners[j].x, corners[j].y), radius, colour, thickness);
+            // }
 
             // for (let j = 0; j < poly.rows; j++) {
             //     let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
@@ -103,7 +103,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
     }
 
     function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) {
-        const points = contour.data32S; // Assuming the contour is in Int32Array format from OpenCV.js
+        const points = contour.data32S;
         const corners = [];
     
         // Convert the contour points into an array of {x, y}
@@ -130,10 +130,13 @@ imgElement.onload = function() { // Function callback when the image is loaded
             const C = contourPoints[(i + 1) % contourPoints.length];
     
             const angle = calculateAngle(A, B, C);
+            console.log(angle);
             if (angle > angleThreshold) {
                 corners.push(B);
             }
         }
+
+        console.log("corners", corners);
     
         // Calculate the bounding box of the contour
         const minX = Math.min(...contourPoints.map(p => p.x));
@@ -167,7 +170,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
             clusteredCorners.push(cluster);
         }
 
-        console.log(clusteredCorners);
+        console.log("corner clusters", clusteredCorners);
     
         // Function to find the most extreme point for a given cluster and corner type
         function findExtremePoint(cluster, type) {
@@ -200,10 +203,10 @@ imgElement.onload = function() { // Function callback when the image is loaded
     
         // Classify clusters into each corner type and find the extreme point for each
         const cornerPoints = {
-            'top-left': null,
-            'top-right': null,
-            'bottom-left': null,
-            'bottom-right': null,
+            'top-left': { x: Infinity, y: Infinity },
+            'top-right': { x: -Infinity, y: Infinity },
+            'bottom-left': { x: Infinity, y: -Infinity },
+            'bottom-right': { x: -Infinity, y: -Infinity },
         };
     
         clusteredCorners.forEach(cluster => {
@@ -214,15 +217,29 @@ imgElement.onload = function() { // Function callback when the image is loaded
                 }),
                 { x: 0, y: 0 }
             );
+
+            console.log("cluster center", center);
+            console.log("")
     
-            // Determine the corner type based on the cluster's center position relative to the bounding box
-            if (center.x < (minX + maxX) / 2 && center.y < (minY + maxY) / 2) {
+            // Compare and assign the cluster with the most extreme values to the respective corners
+            if (center.x <= cornerPoints['top-left'].x && center.y <= cornerPoints['top-left'].y) {
                 cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
-            } else if (center.x >= (minX + maxX) / 2 && center.y < (minY + maxY) / 2) {
+            } else if (center.x + center.y < cornerPoints['top-left'].x + cornerPoints['top-left'].y) {
+                cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
+            }
+            if (center.x >= cornerPoints['top-right'].x && center.y <= cornerPoints['top-right'].y) {
                 cornerPoints['top-right'] = findExtremePoint(cluster, 'top-right');
-            } else if (center.x < (minX + maxX) / 2 && center.y >= (minY + maxY) / 2) {
+            } else if (center.x - center.y > cornerPoints['top-right'].x - cornerPoints['top-right'].y) {
+                cornerPoints['top-right'] = findExtremePoint(cluster, 'top-right');
+            }
+            if (center.x <= cornerPoints['bottom-left'].x && center.y >= cornerPoints['bottom-left'].y) {
                 cornerPoints['bottom-left'] = findExtremePoint(cluster, 'bottom-left');
-            } else if (center.x >= (minX + maxX) / 2 && center.y >= (minY + maxY) / 2) {
+            } else if (center.y - center.x > cornerPoints['bottom-left'].y - cornerPoints['bottom-left'].x) {
+                cornerPoints['bottom-left'] = findExtremePoint(cluster, 'bottom-left');
+            }
+            if (center.x >= cornerPoints['bottom-right'].x && center.y >= cornerPoints['bottom-right'].y) {
+                cornerPoints['bottom-right'] = findExtremePoint(cluster, 'bottom-right');
+            } else if (center.x + center.y > cornerPoints['bottom-right'].x + cornerPoints['bottom-right'].y) {
                 cornerPoints['bottom-right'] = findExtremePoint(cluster, 'bottom-right');
             }
         });
@@ -234,6 +251,8 @@ imgElement.onload = function() { // Function callback when the image is loaded
             cornerPoints['bottom-left'],
             cornerPoints['bottom-right']
         ];
+
+        console.log("identified corners", cornerPoints);
     
         // Filter out any undefined points in case a corner wasn't detected
         return identifiedCorners.filter(point => point !== null);
@@ -250,7 +269,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
         cv.putText(cornerContourImg, i.toString(), point, cv.FONT_HERSHEY_SIMPLEX, 0.5, new cv.Scalar(255, 255, 255, 255), 1);
     }
 
-    console.log(cornerFilteredContours.size());
+    //console.log(cornerFilteredContours.size());
 
     function drawContourSlowly(contour, canvasId, delay = 50, colour, onComplete = () => {}) {
         let numPoints = contour.data32S.length / 2;  // Number of points in the contour
@@ -276,7 +295,6 @@ imgElement.onload = function() { // Function callback when the image is loaded
     
             // Show the updated image on the canvas
             cv.imshow(canvasId, img);
-            console.log("Im here");
     
             currentIndex++;  // Move to the next point
         }, delay);  // Delay in milliseconds between drawing each line segment
@@ -306,9 +324,9 @@ imgElement.onload = function() { // Function callback when the image is loaded
             Math.pow(firstPoint[1] - lastPoint[1], 2)
         );
 
-        console.log("First point:", firstPoint);
-        console.log("Last point:", lastPoint);
-        console.log("Distance between first and last point:", distance);
+        // console.log("First point:", firstPoint);
+        // console.log("Last point:", lastPoint);
+        // console.log("Distance between first and last point:", distance);
 
         // Check if the distance is within the threshold (default 10 pixels)
         if (distance <= threshold && cv.contourArea(contour) >= cv.arcLength(contour, false)) {
@@ -333,8 +351,8 @@ imgElement.onload = function() { // Function callback when the image is loaded
         }
     }
 
-    console.log(contourClosedSpecs.length);
-    console.log(closedContours.size());
+    //console.log(contourClosedSpecs.length);
+    //console.log(closedContours.size());
 
     let closedContoursImg = cv.imread(imgElement);
     for (let i = 0; i < closedContours.size(); i++) {
@@ -457,7 +475,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
     let finalContours = temp[0];
     let finalIndices = temp[1];
 
-    console.log(finalContours.get(0));
+    console.log(finalContours.size());
 
     for (let i = 0; i < finalContours.size(); i++) {
         let colour1 = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);        
@@ -470,18 +488,46 @@ imgElement.onload = function() { // Function callback when the image is loaded
         cv.putText(src, i.toString(), point, cv.FONT_HERSHEY_SIMPLEX, 0.5, new cv.Scalar(255, 255, 255, 255), 1);
 
         console.log('index:', i, cv.contourArea(contour), cv.arcLength(contour, false), contour);
-        
-        let approx = new cv.Mat();
-        cv.approxPolyDP(contour, approx, 0.01 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
 
-        for (let i = 0; i < approx.rows; i++) {
-            let color = new cv.Scalar(0, 0, 255, 255);  // blue color for the point
+        let approxPrecise = new cv.Mat();
+        let poly = new cv.MatVector();
+        cv.approxPolyDP(contour, approxPrecise, 0.0008 * cv.arcLength(sizeFilteredContours.get(i), false), false);
+        poly.push_back(approxPrecise);
+        
+        let colour2 = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+        cv.drawContours(src, poly, -1, colour2, 1, cv.LINE_8);
+        console.log("poly:", approxPrecise);
+
+        // for (let j = 0; j < approxPrecise.rows; j++) {
+        //     let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+        //     let thickness = 1;  // Thickness of the circle
+        //     let radius = 4;  // Radius of the circle
+
+        //     // Draw a circle at (x, y) on the image
+        //     cv.circle(src, new cv.Point(approxPrecise.data32S[j * 2], approxPrecise.data32S[(j * 2) + 1]), radius, colour, thickness);
+        // }
+
+        let corners = extractQuadrilateralCorners(approxPrecise);            
+        for (let j = 0; j < corners.length; j++) {
+            let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
             let thickness = 1;  // Thickness of the circle
-            let radius = 3;  // Radius of the circle
+            let radius = 4;  // Radius of the circle
 
             // Draw a circle at (x, y) on the image
-            cv.circle(src, new cv.Point(approx.data32S[i * 2], approx.data32S[(i * 2) + 1]), radius, color, thickness);
+            cv.circle(src, new cv.Point(corners[j].x, corners[j].y), radius, colour, thickness);
         }
+        
+        // let approx = new cv.Mat();
+        // cv.approxPolyDP(contour, approx, 0.01 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
+
+        // for (let i = 0; i < approx.rows; i++) {
+        //     let color = new cv.Scalar(0, 0, 255, 255);  // blue color for the point
+        //     let thickness = 1;  // Thickness of the circle
+        //     let radius = 3;  // Radius of the circle
+
+        //     // Draw a circle at (x, y) on the image
+        //     cv.circle(src, new cv.Point(approx.data32S[i * 2], approx.data32S[(i * 2) + 1]), radius, color, thickness);
+        // }
     }
 
     function isBoundingBoxInside(boundingRectA, boundingRectB) {
