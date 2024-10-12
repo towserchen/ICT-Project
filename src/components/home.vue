@@ -200,14 +200,17 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
               console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
               continue;
           }
-      
+          let temp = []
+          temp.push(coordinate[0],coordinate[1], coordinate[2], coordinate[3], coordinate[6], coordinate[7], coordinate[4], coordinate[5]);
+          coordinate = temp;
+
           let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
           console.log("Points Matrix:", points.data32S);
           
           let contours = new cv.MatVector();
           contours.push_back(points);
           
-          cv.polylines(mat, contours, true, new cv.Scalar(255, 255, 255), 2);
+          cv.polylines(mat, contours, true, new cv.Scalar(255, 0, 0, 255), 2);
 
           points.delete();
       }
@@ -221,12 +224,44 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
   }
 }
 
+function scaleCoordinates(originalCoords, originalImage, renderCanvas) {
+    // Calculate the scaling factors
+    const scaleX = renderCanvas.width / originalImage.width;
+    const scaleY = renderCanvas.height / originalImage.height;
+    console.log(renderCanvas);
+    console.log("orignal width:", originalImage.width, "original height:", originalImage.height);
+    console.log("scaleX:", scaleX, "scaleY:", scaleY);
+
+    // Apply the scaling to each coordinate pair
+    let scaledCoords = [];
+    for (let j = 0; j < originalCoords.length; j++) {
+      let coords = originalCoords[j];
+      console.log("coords:", coords);
+      let temp = [];
+      for (let i = 0; i < coords.length; i += 2) {
+        let scaledX = coords[i] * scaleX;
+        let scaledY = coords[i + 1] * scaleY;
+        temp.push(scaledX, scaledY);
+      }
+      scaledCoords.push(temp);
+    }   
+
+    return scaledCoords;
+};
+
 onMounted(() => {
   if (imgElement.value) {
       imgElement.value.addEventListener('load', ()=>{
-          let result = autoDetectBlindOpenings(imgElement.value, slotCanvasList);
-          console.log(result);
-          drawRectangle(imgElement.value, outputCanvas.value, result);
+          let image = new Image();
+          image.crossOrigin = "Anonymous";
+          image.src = imgElement.value.src;
+          image.onload = function () {
+            let result = autoDetectBlindOpenings(image, slotCanvasList);
+            console.log(result);
+            result = scaleCoordinates(result, image, {width: imgElement.value.width, height: imgElement.value.height});
+            
+            drawRectangle(imgElement.value, outputCanvas.value, result);
+          }          
       });
   }
 });
