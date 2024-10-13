@@ -102,7 +102,7 @@ imgElement.onload = function() { // Function callback when the image is loaded
         }
     }
 
-    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) {
+    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) { // NOTE: currently will return outer bound because of find extreme method
         const points = contour.data32S;
         const corners = [];
     
@@ -138,12 +138,6 @@ imgElement.onload = function() { // Function callback when the image is loaded
 
         console.log("corners", corners);
     
-        // Calculate the bounding box of the contour
-        const minX = Math.min(...contourPoints.map(p => p.x));
-        const maxX = Math.max(...contourPoints.map(p => p.x));
-        const minY = Math.min(...contourPoints.map(p => p.y));
-        const maxY = Math.max(...contourPoints.map(p => p.y));
-    
         // Cluster nearby points using the distance threshold and classify them
         const clusteredCorners = [];
         const visited = new Array(corners.length).fill(false);
@@ -175,29 +169,49 @@ imgElement.onload = function() { // Function callback when the image is loaded
         // Function to find the most extreme point for a given cluster and corner type
         function findExtremePoint(cluster, type) {
             if (type === 'top-left') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x < extreme.x && point.y < extreme.y ? point : extreme,
-                    { x: Infinity, y: Infinity }
-                );
+                let extreme = {x: Infinity, y: Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x < extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y < extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'top-right') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x > extreme.x && point.y < extreme.y ? point : extreme,
-                    { x: -Infinity, y: Infinity }
-                );
+                let extreme = {x: -Infinity, y: Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x > extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y < extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'bottom-left') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x < extreme.x && point.y > extreme.y ? point : extreme,
-                    { x: Infinity, y: -Infinity }
-                );
+                let extreme = {x: Infinity, y: -Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x < extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y > extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'bottom-right') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x > extreme.x && point.y > extreme.y ? point : extreme,
-                    { x: -Infinity, y: -Infinity }
-                );
+                let extreme = {x: -Infinity, y: -Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x > extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y > extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             }
         }
     
@@ -208,6 +222,8 @@ imgElement.onload = function() { // Function callback when the image is loaded
             'bottom-left': { x: Infinity, y: -Infinity },
             'bottom-right': { x: -Infinity, y: -Infinity },
         };
+
+        console.log("extreme points from index 2", findExtremePoint(clusteredCorners[2], 'bottom-left'));
     
         clusteredCorners.forEach(cluster => {
             const center = cluster.reduce(
@@ -219,10 +235,9 @@ imgElement.onload = function() { // Function callback when the image is loaded
             );
 
             console.log("cluster center", center);
-            console.log("")
     
             // Compare and assign the cluster with the most extreme values to the respective corners
-            if (center.x <= cornerPoints['top-left'].x && center.y <= cornerPoints['top-left'].y) {
+            if (center.x <= cornerPoints['top-left'].x && center.y <= cornerPoints['top-left'].y) { // Potentially dangerous comparing center and extreme points
                 cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
             } else if (center.x + center.y < cornerPoints['top-left'].x + cornerPoints['top-left'].y) {
                 cornerPoints['top-left'] = findExtremePoint(cluster, 'top-left');
@@ -498,14 +513,15 @@ imgElement.onload = function() { // Function callback when the image is loaded
         cv.drawContours(src, poly, -1, colour2, 1, cv.LINE_8);
         console.log("poly:", approxPrecise);
 
-        // for (let j = 0; j < approxPrecise.rows; j++) {
-        //     let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
-        //     let thickness = 1;  // Thickness of the circle
-        //     let radius = 4;  // Radius of the circle
+        for (let j = 0; j < approxPrecise.rows; j++) {
+            let colour = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255), Math.round(Math.random() * 255), 255);
+            let thickness = 1;  // Thickness of the circle
+            let radius = 4;  // Radius of the circle
 
-        //     // Draw a circle at (x, y) on the image
-        //     cv.circle(src, new cv.Point(approxPrecise.data32S[j * 2], approxPrecise.data32S[(j * 2) + 1]), radius, colour, thickness);
-        // }
+            // Draw a circle at (x, y) on the image
+            //cv.circle(src, new cv.Point(approxPrecise.data32S[j * 2], approxPrecise.data32S[(j * 2) + 1]), radius, colour, thickness);
+            //console.log("poly:\nx:", approxPrecise.data32S[j * 2], " y:",approxPrecise.data32S[(j * 2) + 1]);
+        }
 
         let corners = extractQuadrilateralCorners(approxPrecise);            
         for (let j = 0; j < corners.length; j++) {

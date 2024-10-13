@@ -247,7 +247,7 @@ function autoDetectBlindOpenings(image) {
     let finalContours = temp[0];
     let finalIndices = temp[1];
 
-    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) {
+    function extractQuadrilateralCorners(contour, angleThreshold = 30, distanceThreshold = 25) { // NOTE: currently will return outer bound because of find extreme method
         const points = contour.data32S;
         const corners = [];
     
@@ -309,29 +309,49 @@ function autoDetectBlindOpenings(image) {
         // Function to find the most extreme point for a given cluster and corner type
         function findExtremePoint(cluster, type) {
             if (type === 'top-left') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x < extreme.x && point.y < extreme.y ? point : extreme,
-                    { x: Infinity, y: Infinity }
-                );
+                let extreme = {x: Infinity, y: Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x < extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y < extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'top-right') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x > extreme.x && point.y < extreme.y ? point : extreme,
-                    { x: -Infinity, y: Infinity }
-                );
+                let extreme = {x: -Infinity, y: Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x > extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y < extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'bottom-left') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x < extreme.x && point.y > extreme.y ? point : extreme,
-                    { x: Infinity, y: -Infinity }
-                );
+                let extreme = {x: Infinity, y: -Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x < extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y > extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             } else if (type === 'bottom-right') {
-                return cluster.reduce(
-                    (extreme, point) =>
-                        point.x > extreme.x && point.y > extreme.y ? point : extreme,
-                    { x: -Infinity, y: -Infinity }
-                );
+                let extreme = {x: -Infinity, y: -Infinity};
+                for (let i = 0; i < cluster.length; i++) {
+                    if (cluster[i].x > extreme.x) {
+                        extreme.x = cluster[i].x;
+                    }
+                    if (cluster[i].y > extreme.y) {
+                        extreme.y = cluster[i].y;
+                    }
+                }
+                return extreme;
             }
         }
     
