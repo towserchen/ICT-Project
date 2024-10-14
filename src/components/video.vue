@@ -27,8 +27,7 @@
   
 <script setup>
 import { ref, onMounted } from 'vue';
-import { autoDetectBlindOpenings } from '../lib/detect';
-import { processImages } from '../lib/detect_long';
+import { autoDetectBlindOpenings } from '../lib/detect_video';
 
 const video = ref(null);
 const staticVideo = ref(null);
@@ -68,8 +67,6 @@ const drawRectangle = function(frame, coordinateList) {
 }
   
 const startVideoStream = async () => {
-    canvas.value.width = width;
-    canvas.value.height = height;
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -84,6 +81,9 @@ const startVideoStream = async () => {
         video.value.srcObject = stream;
 
         video.value.onloadedmetadata = () => {
+            canvas.value.width = video.value.videoWidth;
+            canvas.value.height = video.value.videoHeight;
+    
             video.value.play();
             streaming.value = true;
             captureFrames();
@@ -107,21 +107,23 @@ const captureFrames = () => {
   
         const processedFrame = detect(frame);
 
-        console.log(processedFrame)
-        context.putImageData(processedFrame, 0, 0);
+        if (processedFrame instanceof ImageData) {
+            context.putImageData(processedFrame, 0, 0);
+        }
   
         requestAnimationFrame(captureFrames);
     }
 };
   
-const detect = (frame) => {
+function detect(frame){
     try {
         let result = autoDetectBlindOpenings(frame);
+        console.log(result);
         return drawRectangle(frame, result);
     }
     catch(e) {
-        alert(e);
-        alert(e.stack);
+        console.warn(e)
+        
     }
 };
 </script>
