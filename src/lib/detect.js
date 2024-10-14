@@ -754,11 +754,10 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
     for (let i = 0; i < finalContours.size(); i++) {
 
         let contour = finalContours.get(i);
-        
-        let approxPrecise = new cv.Mat();
-        cv.approxPolyDP(contour, approxPrecise, 0.0008 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
+        let anotherApproxPrecise = new cv.Mat();
+        cv.approxPolyDP(contour, anotherApproxPrecise, 0.0008 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon
 
-        let corners = extractQuadrilateralCorners(approxPrecise);
+        let corners = extractQuadrilateralCorners(anotherApproxPrecise);
         temp = []
         for (let j = 0; j < corners.length; j++) {
             temp.push(corners[j].x);
@@ -766,7 +765,29 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
         }
 
         coordinates.push(temp);
+
+        anotherApproxPrecise.delete();
     }
+
+    src.delete();
+    gray.delete();
+    blurred.delete();
+    edges.delete();
+    hierarchy.delete();
+    contours.delete();
+    sizeFilteredContours.delete();
+
+    for (let i = 0; i < approx.size(); i++) {
+        approx.get(i).delete();
+    }
+
+    approx.delete();
+
+    for (let i = 0; i < approxPrecise.size(); i++) {
+        approxPrecise.get(i).delete();
+    }
+
+    approxPrecise.delete();
 
     return coordinates;
 };
