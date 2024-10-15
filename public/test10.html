@@ -16,9 +16,10 @@
     <div>
       <div class="inputoutput">
         <img id="srcImage" alt="No Image" />
+        <div class="caption">Source image</div>
         <canvas id="imageCanvas" ></canvas>
         <div class="caption">
-          Source image 
+          Input canvas 
           <br>
           <input type="file" id="fileInput" name="file" accept="image/*">
         </div>
@@ -32,16 +33,56 @@
         <div class="caption">blurred canvas</div>
       </div>
       <div class="inputoutput">
+        We have found 7x7 to be a good size for the blurring kernal. Non symmetric kernals such as high x low y will find horizontal lines better and reduce vertical lines and vice versa.  
+        <br>
+        <label for="blurSizeSliderX">Gaussian Blur Kernel SizeX: </label>
+        <input type="range" id="blurSizeSliderX" min="1" max="21" step="2" value="7">
+        <span id="blurSizeDisplayX">7</span>
+      </div>
+      <div class="inputoutput"></div>
+        <label for="blurSizeSliderY">Gaussian Blur Kernel SizeY: </label>
+        <input type="range" id="blurSizeSliderY" min="1" max="21" step="2" value="7">
+        <span id="blurSizeDisplayY">7</span>
+      </div>
+      <br>
+      <div class="inputoutput">
         <canvas id="edgesCanvas" ></canvas>
         <div class="caption">Canny edges canvas</div>
       </div>
       <div class="inputoutput">
-        <canvas id="roi" ></canvas>
-        <div class="caption">roi canvas</div>
+        We have found min value of 50 - 100 work well with max values of 250 with an aperture size of 3 for high contrast images. If there isn't enough contract aperture size 5 will have to be used with potentially higher thresholds.
+        <br>
+        WARNING if increasing aperture size, increase Hough line threshold below first.
+        <br>
+        <label for="cannyMinSlider">Canny Min Threshold: </label>
+        <input type="range" id="cannyMinSlider" min="0" max="300" step="5" value="50">
+        <span id="cannyMinDisplay">50</span>
       </div>
       <div class="inputoutput">
+        <label for="cannyMaxSlider">Canny Max Threshold: </label>
+        <input type="range" id="cannyMaxSlider" min="100" max="400" step="5" value="250">
+        <span id="cannyMaxDisplay">250</span>
+      </div>
+      <div class="inputoutput">
+        <label for="sobelSizeSlider">Sobel Aperture Size: </label>
+        <input type="range" id="sobelSizeSlider" min="3" max="7" step="2" value="3">
+        <span id="sobelSizeDisplay">3</span>
+      </div>
+      <br>
+      <div class="inputoutput"></div>
         <canvas id="linesCanvas" ></canvas>
         <div class="caption">Hough lines canvas</div>
+      </div>
+      <div class="inputoutput">
+        The threshold can be hard to balance as it depends on the size of the image a lot as well as the previous settings.
+        <label for="houghThresholdSlider">Hough Line Threshold: </label>
+        <input type="range" id="houghThresholdSlider" min="5" max="600" step="5" value="150">
+        <span id="houghThresholdDisplay">150</span>
+      </div>
+      <br>
+      <div class="inputoutput">
+        <canvas id="roi" ></canvas>
+        <div class="caption">roi canvas</div>
       </div>
       <div class="inputoutput">
         <canvas id="contoursCanvas" ></canvas>
