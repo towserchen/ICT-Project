@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCV.js 实时视频物体检测</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        video, canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <!-- 原始摄像头画面 -->
+    <video id="videoInput" width="640" height="480" autoplay></video>
+    <!-- Canny 边缘检测后的画面 -->
+    <canvas id="canvasOutput" width="640" height="480"></canvas>
+
+    <!-- 引入 OpenCV.js -->
+    <script async src="/libs/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+
+    <script type="text/javascript">
+        let video = document.getElementById('videoInput');
+        let canvas = document.getElementById('canvasOutput');
+        let ctx = canvas.getContext('2d');
+        let streaming = false;
+
+        function onOpenCvReady() {
+        
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
+                video.srcObject = stream;
+                video.play();
+            }).catch(function (err) {
+                console.log("Error accessing the camera: " + err);
+            });
+
+            video.addEventListener('canplay', function (ev) {
+                if (!streaming) {
+                    streaming = true;
+                    processVideo();
+                }
+            }, false);
+        }
+
+        function processVideo() {
+            if (!streaming) {
+                return;
+            }
+
+        
+            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            let gray = new cv.Mat();
+            let edges = new cv.Mat();
+
+            const FPS = 30;
+
+            function detectEdges() {
+                if (!streaming) {
+                
+                    src.delete();
+                    gray.delete();
+                    edges.delete();
+                    return;
+                }
+
+            
+                ctx.drawImage(video, 0, 0, video.width, video.height);
+                let imageData = ctx.getImageData(0, 0, video.width, video.height);
+                src.data.set(imageData.data);
+
+            
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            
+                cv.Canny(gray, edges, 100, 200, 3, false);
+
+            
+                for (let i = 0; i < edges.rows; i++) {
+                    for (let j = 0; j < edges.cols; j++) {
+                        if (edges.ucharPtr(i, j)[0] === 255) {
+                            imageData.data[(i * edges.cols + j) * 4] = 255;
+                            imageData.data[(i * edges.cols + j) * 4 + 1] = 0;
+                            imageData.data[(i * edges.cols + j) * 4 + 2] = 0;
+                        }
+                    }
+                }
+
+            
+                ctx.putImageData(imageData, 0, 0);
+
+            
+                setTimeout(detectEdges, 1000 / FPS);
+            }
+
+        
+            detectEdges();
+        }
+    </script>
+</body>
+</html>
