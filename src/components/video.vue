@@ -46,6 +46,8 @@ const drawRectangle = function(frame, coordinateList) {
                 console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
                 continue;
             }
+
+            alert(coordinate);
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
             let contours = new cv.MatVector();
