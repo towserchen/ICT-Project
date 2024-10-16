@@ -22,33 +22,21 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
         return mat;
     };
 
-    console.log('1111');
-
     let src = imageDataToMat(image); // Read the image from the canvas as a cv.Mat
-
-    console.log('2222');
 
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
-
-    console.log('3333');
 
     let blurred = new cv.Mat();
     let ksize = new cv.Size(7, 7)
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT); // Apply Gaussian blur to reduce noise and improve edge detection
 
-    console.log('4444');
-
     let edges = new cv.Mat();
     cv.Canny(blurred, edges, 100, 250, 5, true); // Detect edges using Canny Algorithm
-
-    console.log('5555');
 
     let contours = new cv.MatVector();
     let hierarchy = new cv.Mat();
     cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE); // Find contours
-
-    console.log('66666');
 
     let contourSpecs = []; // area, perimeter etc.
 
@@ -59,8 +47,6 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
         let boundingBox = cv.boundingRect(contour);
         contourSpecs.push({ index: i, area: area, boundingBox: boundingBox, perimeter: perimeter });
     }
-
-    console.log('77777');
 
     // sort by area
     contourSpecs.sort((a, b) => b.area - a.area);
