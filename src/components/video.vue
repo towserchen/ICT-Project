@@ -13,11 +13,22 @@
             Your browser does not support the video tag.
         </video>-->
     
-        <canvas ref="canvas"></canvas>
+        <canvas class="processed" ref="canvas"></canvas>
     </div>
 </template>
 
 <style scoped>
+
+video {
+    width: 480px;
+    height: 640px;
+}
+
+canvas.processed {
+    width: 480px;
+    height: 640px;
+}
+
 .btn {
     padding: 10px 25px;
     background-color: #2a42af;
@@ -34,12 +45,23 @@ const staticVideo = ref(null);
 const canvas = ref(null);
 const streaming = ref(false);
 //const detected = ref(null);
+
+let devicePixelRatio = 1;
+
+alert(devicePixelRatio)
+
 const width = 480;
 const height = 640;
+
+const canvasWidth = 480 * devicePixelRatio;
+const canvasHeight = 640 * devicePixelRatio;
+
+
 
 const drawRectangle = function(frame, coordinateList) {
     if (coordinateList.length >= 1) {
         let mat = cv.matFromImageData(frame);
+        //cv.cvtColor(mat, mat, cv.COLOR_RGBA2BGR);
 
         for (let coordinate of coordinateList) {
             if (coordinate.length != 8) {
@@ -47,14 +69,14 @@ const drawRectangle = function(frame, coordinateList) {
                 continue;
             }
 
-            alert(coordinate);
+            console.log(coordinate)
       
             let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
             let contours = new cv.MatVector();
 
             contours.push_back(points);
           
-            cv.polylines(mat, contours, true, new cv.Scalar(0, 0, 255), 2);
+            cv.polylines(mat, contours, true, new cv.Scalar(255, 0, 0), 2);
 
             points.delete();
             contours.delete();
@@ -83,8 +105,8 @@ const startVideoStream = async () => {
         video.value.srcObject = stream;
 
         video.value.onloadedmetadata = () => {
-            canvas.value.width = video.value.videoWidth;
-            canvas.value.height = video.value.videoHeight;
+            canvas.value.width = canvasWidth;
+            canvas.value.height = canvasHeight;
     
             video.value.play();
             streaming.value = true;
@@ -103,6 +125,8 @@ const startVideoStream = async () => {
 const captureFrames = () => {
     if (streaming.value) {
         const context = canvas.value.getContext('2d');
+        context.clearRect(0, 0, canvas.value.width, canvas.value.height);
+        context.scale(devicePixelRatio, devicePixelRatio);
         
         context.drawImage(video.value, 0, 0, width, height);
         const frame = context.getImageData(0, 0, width, height);
