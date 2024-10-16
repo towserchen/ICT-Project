@@ -1,6 +1,5 @@
 import cv from "@techstark/opencv-js"
 import CanvasSlot from './canvasSlot'
-
 // Function to get the bottom two boxes based on their vertical position (y-coordinate)
 function getBottomTwoBoxes(boxes) {
     // Sort boxes by the y-coordinate (center of the box)
@@ -388,12 +387,22 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
     let ksize = new cv.Size(7, 7)
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT); // Apply Gaussian blur to reduce noise and improve edge detection
 
+    // Show this step in debug canvas
+    if (canvasSlotList.length > 0) {
+        cv.imshow(canvasSlot.getSlot(), gray);
+    }
+
     let edges = new cv.Mat();
     cv.Canny(blurred, edges, 100, 250, 5, true); // Detect edges using Canny Algorithm
 
     let contours = new cv.MatVector();
     let hierarchy = new cv.Mat();
     cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE); // Find contours
+
+    // Show this step in debug canvas
+    if (canvasSlotList.length > 0) {
+        cv.imshow(canvasSlot.getSlot(), edges);
+    }
 
     let contourSpecs = []; // area, perimeter etc.
 
