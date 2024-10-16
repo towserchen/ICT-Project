@@ -13,7 +13,7 @@
             Your browser does not support the video tag.
         </video>-->
     
-        <canvas ref="canvas"></canvas>
+        <canvas class="processed" ref="canvas"></canvas>
     </div>
 </template>
 
@@ -22,6 +22,16 @@
     padding: 10px 25px;
     background-color: #2a42af;
     color: #fff;
+}
+
+video {
+    width: 480px;
+    height: 640px;
+}
+
+canvas.processed {
+    width: 480px;
+    height: 640px;
 }
 </style>
   
@@ -81,8 +91,8 @@ const startVideoStream = async () => {
         video.value.srcObject = stream;
 
         video.value.onloadedmetadata = () => {
-            canvas.value.width = video.value.videoWidth;
-            canvas.value.height = video.value.videoHeight;
+            canvas.value.width = width;
+            canvas.value.height = height;
     
             video.value.play();
             streaming.value = true;
