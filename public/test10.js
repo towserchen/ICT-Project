@@ -59,11 +59,14 @@ document.addEventListener('DOMContentLoaded', function () {
     imgElement.src = URL.createObjectURL(e.target.files[0]); // Load the selected image
   }, false);
 
+  let first = true; // yuck
+
   imgElement.onload = function () {
+    first = true;
     processImage(); // Call the function to process the image when it loads
   };
 
-  let allLines = []; // yuck
+  let allLines = []; // yuck as well
 
   function processImage() {
     let src = cv.imread(imgElement); // Load the image into a Mat object
@@ -77,11 +80,62 @@ document.addEventListener('DOMContentLoaded', function () {
     let ksize = new cv.Size(ksizeValueX, ksizeValueY);
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT); // Apply Gaussian blur to reduce noise
 
+    if(first) {
+      // Compute the median pixel intensity
+      let medianValue = getMedianValue(gray);
+
+      let sigma = 0.33;
+      
+      // Calculate the lower and upper thresholds based on the median value
+      let lower = Math.max(0, (0.33) * medianValue);
+      let upper = Math.min(255, (1.45) * medianValue);
+
+      cannyMinSlider.value = lower;
+      cannyMinDisplay.textContent = cannyMinSlider.value;
+      cannyMaxSlider.value = upper;
+      cannyMaxDisplay.textContent = cannyMaxSlider.value;
+      first = false;
+    }
+
     let edges = new cv.Mat();
     let sobelSize = parseInt(sobelSizeSlider.value);
     let cannyMinValue = parseInt(cannyMinSlider.value); // Get Canny min threshold
     let cannyMaxValue = parseInt(cannyMaxSlider.value); // Get Canny max threshold
     cv.Canny(blurred, edges, cannyMinValue, cannyMaxValue, sobelSize, true); // Detect edges using Canny
+
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+    cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE); // Find contours
+
+    // area and edges
+    let contourAreas = [];
+    for (let i = 0; i < contours.size(); i++) {
+      let contour = contours.get(i);
+      let area = cv.contourArea(contour);
+      let perimeter = cv.arcLength(contour, false);
+      let boundingBox = cv.boundingRect(contour);
+      contourAreas.push({ index: i, area: area, boundingBox: boundingBox, perimeter: perimeter });
+    }
+
+    // sort by areas
+    contourAreas.sort((a, b) => b.perimeter - a.perimeter);
+    //console.log(contourAreas);
+    let filteredContours = new cv.MatVector();
+    let minArea = 0;
+    let minPerimeter = imgElement.height / 4;
+    for (let i = 0; i < contourAreas.length; i++) { // Loop over all contours
+      let contour = contourAreas[i];
+      if(contour.perimeter > minPerimeter && contour.area > minArea) {
+        filteredContours.push_back(contours.get(contour.index));
+        console.log(`Contour ${contour.index} area is ${contour.area}`);
+        console.log(`Contour ${contour.index} perimeter is ${contour.perimeter}`);
+      }
+    }
+
+    let justFilterContours = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3); // 3-channel black image (RGB)
+    cv.drawContours(justFilterContours, filteredContours, -1, new cv.Scalar(255,255,255,255), 0.5, cv.LINE_8);
+    let gray2 = new cv.Mat();
+    cv.cvtColor(justFilterContours, gray2, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale    
 
     let lines = new cv.Mat();
     let houghThresholdValue = parseInt(houghThresholdSlider.value); // Get Hough Line threshold value
@@ -117,12 +171,14 @@ document.addEventListener('DOMContentLoaded', function () {
     cv.imshow('grayCanvas', gray);
     cv.imshow('blurredCanvas', blurred);
     cv.imshow('edgesCanvas', edges);
+    cv.imshow('gray2Canvas', gray2);
     cv.imshow('linesCanvas', lineImg);
 
     src.delete();
     gray.delete();
     blurred.delete();
     edges.delete();
+    gray2.delete();
     lineImg.delete();
 
     // Set the image canvas size
@@ -130,6 +186,27 @@ document.addEventListener('DOMContentLoaded', function () {
     imageCanvas.height = imgElement.height;
     ctx.drawImage(imgElement, 0, 0); // Draw the image on the canvas
 
+  };
+
+  function getMedianValue(grayMat) {
+    // Get pixel values in array
+    let pixels = [];
+    for (let i = 0; i < grayMat.rows; i++) {
+        for (let j = 0; j < grayMat.cols; j++) {
+            pixels.push(grayMat.ucharPtr(i, j)[0]);
+        }
+    }
+    
+    // Sort the pixel values
+    pixels.sort((a, b) => a - b);
+    
+    // Return the median pixel value
+    let middle = Math.floor(pixels.length / 2);
+    if (pixels.length % 2 === 0) {
+        return (pixels[middle - 1] + pixels[middle]) / 2.0;
+    } else {
+        return pixels[middle];
+    }
   };
 
   // Function to get the bottom two boxes based on their vertical position (y-coordinate)
