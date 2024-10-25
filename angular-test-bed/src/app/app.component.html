@@ -179,7 +179,7 @@
 
 <main class="main">
   <div class="content">
-    <img [src]="imagePath" (load)="onImageLoad($event)" alt="Test Image" />
+    <img [src]="imagePath" (load)="onImageLoad($event)" #testImg alt="Test Image" />
     <div class="left-side">
       <svg
         xmlns="http://www.w3.org/2000/svg"

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild, ElementRef } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
 
@@ -18,15 +18,24 @@ export class AppComponent {
   imagePath: string = '1.jpg';
   imageLoaded: boolean = false;
 
-  constructor() {
-    this.loadOpenCV();
+  @ViewChild('testImg') imageElement!: ElementRef<HTMLImageElement>;
+
+  ngAfterViewInit(): void {
+    if (this.isOpencvLoaded()) {
+      console.log('Ok');
+
+      const imageElement = this.imageElement.nativeElement;
+      this.imageLoaded = true;
+      this.testAutoDetection(imageElement);
+    }
   }
 
-  private loadOpenCV() {
+  private isOpencvLoaded(): Boolean {
     if (typeof (window as any).cv !== 'undefined') {
-      console.log('OpenCV.js has been successfully loaded!');
-    } else {
-      console.error('OpenCV.js failed to load.');
+      return true;
+    }
+    else {
+      return false;
     }
   }
 
@@ -43,8 +52,6 @@ export class AppComponent {
 
   onImageLoad(event: Event): void {
     console.log('here');
-    const imageElement = event.target as HTMLImageElement;
-    this.imageLoaded = true;
-    this.testAutoDetection(imageElement);
+    
   }
 }
