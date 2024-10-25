@@ -2,19 +2,33 @@ import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
 
+declare var cv: any;
+
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrls: ['./app.component.css']
 })
+
 export class AppComponent {
   title = 'angular-test-bed';
   detectionResult: Array<Array<number>> = [];
   imagePath: string = '1.jpg';
   imageLoaded: boolean = false;
-  //console.log("here");
+
+  constructor() {
+    this.loadOpenCV();
+  }
+
+  private loadOpenCV() {
+    if (typeof (window as any).cv !== 'undefined') {
+      console.log('OpenCV.js has been successfully loaded!');
+    } else {
+      console.error('OpenCV.js failed to load.');
+    }
+  }
 
   testAutoDetection(imageElement: HTMLImageElement): void {
     console.log('here');
