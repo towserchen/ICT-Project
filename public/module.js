@@ -27,14 +27,7 @@ window.onload = function() {
 let src = undefined;
 
 function autoDetectBlindOpenings(image) {
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
-
-    const ctx = canvas.getContext('2d'); // Draw the image onto the canvas
-    ctx.drawImage(image, 0, 0);
-
-    src = cv.imread(canvas); // Read the image from the canvas as a cv.Mat
+    src = cv.imread(image); // Read the image from the canvas as a cv.Mat
 
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
