@@ -1,4 +1,3 @@
-//import cv from "@techstark/opencv-js"
 import CanvasSlot from './canvasSlot'
 
 let src = null;
