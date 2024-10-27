@@ -5,9 +5,9 @@ declare module 'ziptrak-opening-detector' {
      *
      * @param {HTMLImageElement} image - The image element to detect openings from
      * @param {Array<HTMLCanvasElement>} canvasSlotList - A list of canvas elements to show each detection step, can be an empty array
-     * @return {Array<Array<number>>} A 2D array where each inner array represents the four corner coordinates of a quad
+     * @return {Promise<Array<Array<number>>>} A Promise that resolves to a 2D array where each inner array represents the four corner coordinates of a detected quad
      */
-    export function autoDetectBlindOpenings(image: HTMLImageElement, canvasSlotList?: Array<HTMLCanvasElement>): Array<Array<number>>;
+    export function autoDetectBlindOpenings(image: HTMLImageElement, canvasSlotList?: Array<HTMLCanvasElement>): Promise<Array<Array<number>>>;
   
     /**
      * Detect openings of an image based on user input
