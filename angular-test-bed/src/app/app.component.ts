@@ -21,22 +21,31 @@ export class AppComponent {
   @ViewChild('testImg') imageElement!: ElementRef<HTMLImageElement>;
 
   ngAfterViewInit(): void {
-    if (this.isOpencvLoaded()) {
-      console.log('Ok');
-
+    this.checkOpenCVLoaded().then(() => {
+      console.log('OpenCV.js is loaded');
       const imageElement = this.imageElement.nativeElement;
       this.imageLoaded = true;
       this.testAutoDetection(imageElement);
-    }
+    }).catch(() => {
+      console.error('OpenCV.js is not loaded');
+    });
   }
 
-  private isOpencvLoaded(): Boolean {
-    if (typeof (window as any).cv !== 'undefined') {
-      return true;
-    }
-    else {
-      return false;
-    }
+
+  private checkOpenCVLoaded(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);  // 100ms
+
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        reject();
+      }, 30000);  //Timeout after 30 seconds
+    });
   }
 
   testAutoDetection(imageElement: HTMLImageElement): void {
