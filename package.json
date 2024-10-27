@@ -5,6 +5,9 @@
   "type": "module",
   "main": "index.js",
   "types": "ziptrak-opening-detector.d.ts",
+  "dependencies": {
+    "@techstark/opencv-js": "^4.10.0-release.1"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
