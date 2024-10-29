@@ -366,16 +366,124 @@ export function manualDetectBlindOpenings(userCoordinates) {
  * Detect opinings of an image
  * 
  * @param {HTMLElement} image 
- * @param {Array} canvasSlotList - A list of canvas, to show each detection step, can be []
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
-export function autoDetectBlindOpenings(image, canvasSlotList = []) {
-    let canvasSlot = null;
+export function autoDetectBlindOpenings(image) {
+    // Get the overlay canvas if it exists
+    let overlayCanvas = document.getElementById('overlayCanvas');
+    const renderCanvas = document.getElementById('renderCanvas');
 
-    if (canvasSlotList.length > 0) {
-        canvasSlot = new CanvasSlot(canvasSlotList);
+    // Check if the overlay canvas exists; if not, create it
+    if (!overlayCanvas) {
+        overlayCanvas = createOverlayCanvas();
     }
 
+    const quads = autoDetectQuads(image);  // quads is an array of detected openings
+
+    // Draw detected blind openings on the overlay canvas
+    drawQuadsOnOverlay(quads);
+
+    // Make the overlay canvas visible
+    overlayCanvas.style.display = 'block';
+
+    return new Promise((resolve) => {
+        const onClick = (event) => {
+            const clickedQuad = detectClickedQuad(event, quads, overlayCanvas);
+            if (clickedQuad) {
+                overlayCanvas.style.display = 'none';  // Hide overlay once a quad is selected
+                overlayCanvas.removeEventListener('click', onClick);  // Clean up event listener
+                resolve(clickedQuad);  // Return the clicked quad
+            }
+        };
+
+        overlayCanvas.addEventListener('click', onClick);
+    });
+};
+
+function createOverlayCanvas() {
+    const renderCanvas = document.getElementById('renderCanvas');
+    const overlayCanvas = document.createElement('canvas');
+    overlayCanvas.id = 'overlayCanvas';
+
+    // Position and size the overlay canvas over the renderCanvas
+    resizeOverlayCanvas(overlayCanvas, renderCanvas);
+
+    overlayCanvas.style.position = 'absolute';
+    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
+    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
+    overlayCanvas.style.zIndex = '10';  // Ensure it's above the renderCanvas
+    overlayCanvas.style.pointerEvents = 'auto';  // Allow pointer events for click detection
+    overlayCanvas.style.display = 'block';  // Make it visible initially
+
+    // Append the overlay canvas to the same parent as the renderCanvas
+    renderCanvas.parentNode.appendChild(overlayCanvas);
+
+    // Ensure it resizes correctly when the window is resized
+    window.addEventListener('resize', () => resizeOverlayCanvas(overlayCanvas, renderCanvas));
+
+    // Add click event listener once (no need to add/remove later)
+    overlayCanvas.addEventListener('click', onOverlayCanvasClick);
+
+    return overlayCanvas;
+};
+
+function resizeOverlayCanvas(overlayCanvas, renderCanvas) {
+    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
+    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
+    overlayCanvas.width = renderCanvas.width;
+    overlayCanvas.height = renderCanvas.height;
+};
+
+function drawQuadsOnOverlay(quads) {
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const ctx = overlayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+
+    // Draw each detected quad
+    quads.forEach(quad => {
+        ctx.beginPath();
+        ctx.moveTo(quad[0], quad[1]);
+        ctx.lineTo(quad[2], quad[3]);
+        ctx.lineTo(quad[4], quad[5]);
+        ctx.lineTo(quad[6], quad[7]);
+        ctx.closePath();
+        ctx.stroke();
+    });
+};
+
+// Helper function to check which quad was clicked
+function detectClickedQuad(event, quads) {
+    const x = event.offsetX;
+    const y = event.offsetY;
+
+    // Loop through each quad and check if the click is inside the quad's area
+    for (let quad of quads) {
+        if (isPointInQuad(x, y, quad)) {
+            return quad;  // Return the first quad that the user clicked on
+        }
+    }
+    return null;
+};
+
+// Function to check if a point (x, y) is inside a quad (defined by four points)
+function isPointInQuad(x, y, quad) {
+    // Assuming the quads are rectangular and the points are given in order
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = quad;
+
+    // Find the bounding box of the quad
+    const minX = Math.min(x1, x2, x3, x4);
+    const maxX = Math.max(x1, x2, x3, x4);
+    const minY = Math.min(y1, y2, y3, y4);
+    const maxY = Math.max(y1, y2, y3, y4);
+
+    // Check if the point is within the bounding box of the quad
+    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+};
+
+function autoDetectQuads(image) {
     src = cv.imread(image); // Read the image as a cv.Mat
 
     let gray = new cv.Mat();
