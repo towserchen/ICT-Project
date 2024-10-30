@@ -989,3 +989,41 @@ function autoDetectQuads(image) {
 
     return coordinates;
 };
+
+
+/*
+* Detect opinings of an image by AI
+* 
+* @param {File} file
+* @param {int} isWindowDetected, 0/1
+* @param {int} saveProcessedImages, 0/1
+* @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+*/
+export async function autoDetectBlindOpeningsByAI(file, isWindowDetected, saveProcessedImages) {
+    const apiUrl = 'http://162.55.25.2/detect';
+    const formData = new FormData();
+    
+    formData.append('upload_file', file);
+    formData.append('is_window_detected', isWindowDetected);
+    formData.append('save_processed_images', saveProcessedImages);
+    
+    try {
+        const response = await axios.post(apiUrl, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            }
+        });
+
+        if (!response) {
+            return false;
+        }
+
+        if (!response.hasOwnProperty('coordinate_list')) {
+            return false;
+        }
+
+        return response.coordinate_list;
+    } catch (error) {
+        console.error('Error uploading file', error);
+    }
+}

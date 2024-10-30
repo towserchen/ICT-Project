@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/towserchen/ict-project/issues"
   },
-  "homepage": "https://github.com/towserchen/ict-project#readme"
+  "homepage": "https://github.com/towserchen/ict-project#readme",
+  "dependencies": {
+    "axios": "^1.7.7"
+  }
 }
