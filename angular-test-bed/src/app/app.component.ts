@@ -14,7 +14,7 @@ declare var cv: any;
 
 export class AppComponent {
   title = 'angular-test-bed';
-  detectionResult: Array<Array<number>> = [];
+  detectionResult: Array<number> = [];
   imagePath: string = '1.jpg';
   imageLoaded: boolean = false;
   
@@ -25,18 +25,7 @@ export class AppComponent {
     imageElement.src = this.imagePath;
   
     // Wait for the image to load before drawing it
-    imageElement.onload = () => {
-      const renderCanvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
-      const context = renderCanvas.getContext('2d');
-      
-      if (context) {
-        renderCanvas.width = imageElement.width;
-        renderCanvas.height = imageElement.height;
-        context.drawImage(imageElement, 0, 0);  // Draw the image onto the canvas
-      } else {
-        console.error('Canvas context is not available');
-      }
-  
+    imageElement.onload = () => { 
       // Once the image is loaded and drawn, run OpenCV detection
       this.checkOpenCVLoaded().then(() => {
         console.log('OpenCV.js is loaded');
@@ -73,9 +62,12 @@ export class AppComponent {
   testAutoDetection(imageElement: HTMLImageElement): void {
     console.log('here');
     if (imageElement) {
-      const result = autoDetectBlindOpenings(imageElement);
-      console.log('Detection Result:', result);
-      this.detectionResult = result;
+      autoDetectBlindOpenings(imageElement).then(coordinates => {
+        console.log('Detection Result:', coordinates);
+        this.detectionResult = coordinates;
+      }).catch(error => {
+        console.error('Error:', error);
+      });
     } else {
       console.error('Image element not found');
     }
