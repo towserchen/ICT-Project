@@ -48,8 +48,6 @@ function processBottomBoxes(bottomBoxes) {
     let lines = new cv.Mat();
     cv.HoughLines(blank, lines, 1, Math.PI / 180, 30);
 
-    console.log(lines);
-
     cv.cvtColor(blank, blank, cv.COLOR_GRAY2RGBA); // Not sure this is needed anymore
 
     // Define the center points of both bottom boxes
@@ -236,7 +234,6 @@ function getOutermostIntersections(intersections, topBoxes, bottomBoxes) {
         }
     
         if (isPointInBox(point, topBoxes[1])) {
-            console.log(point);
             if (!outermostIntersections.topRight || 
                 (point.x >= outermostIntersections.topRight.x - 1 && point.y <= outermostIntersections.topRight.y)) {
             outermostIntersections.topRight = point;
@@ -361,34 +358,90 @@ export function manualDetectBlindOpenings(userCoordinates) {
     return result;
 };
 
+/**
+ * Scale coordinates from a full size image to appear correct on a canvas
+ * 
+ * @param {Number} originalWidth - width of the original image
+ * @param {Number} originalHeight - height of the original image
+ * @param {HTMLCanvasElement} canvas - canvas that the coordinates will be scaled to
+ * @param {Array<Number>} originalCoords - the original coordinates from the full sized image
+ * @returns {Array<Number>} - An array of form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise) representing the scaled corner coordiantes of a quad
+ */
+
+export function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords) {
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    
+    const canvasAspectRatio = canvasWidth / canvasHeight;
+    const imageAspectRatio = originalWidth / originalHeight;
+
+    let scaleX, scaleY, offsetX = 0, offsetY = 0;
+
+    if (imageAspectRatio > canvasAspectRatio) {
+        // Image is wider than the canvas, so the height will fit, and we'll have horizontal padding
+        scaleX = canvasWidth / originalWidth;
+        scaleY = scaleX; // Maintain aspect ratio
+        offsetY = (canvasHeight - (originalHeight * scaleY)) / 2;
+    } else {
+        // Image is taller than the canvas, so the width will fit, and we'll have vertical padding
+        scaleY = canvasHeight / originalHeight;
+        scaleX = scaleY; // Maintain aspect ratio
+        offsetX = (canvasWidth - (originalWidth * scaleX)) / 2;
+    }
+
+    // Create a new array to store the scaled coordinates
+    const scaledCoords = [];
+
+    // Loop through the array of coordinates and apply the scaling and offset
+    for (let i = 0; i < originalCoords.length; i += 2) {
+        const x = originalCoords[i];
+        const y = originalCoords[i + 1];
+
+        const scaledX = x * scaleX + offsetX;
+        const scaledY = y * scaleY + offsetY;
+
+        scaledCoords.push(scaledX, scaledY);
+    }
+
+    return scaledCoords;
+};
 
 /**
  * Detect opinings of an image
  * 
- * @param {HTMLElement} image 
- * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+ * @param {HTMLElement} image - The image element to detect openings from
+ * @param {String} canvas - The ID of the main render canvas. Default 'renderCanvas' 
+ * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
  */
-export function autoDetectBlindOpenings(image) {
+export function autoDetectBlindOpenings(image, canvas = 'renderCanvas') {
     // Get the overlay canvas if it exists
     let overlayCanvas = document.getElementById('overlayCanvas');
-    const renderCanvas = document.getElementById('renderCanvas');
+    const renderCanvas = document.getElementById(canvas);
 
     // Check if the overlay canvas exists; if not, create it
     if (!overlayCanvas) {
-        overlayCanvas = createOverlayCanvas();
+        overlayCanvas = createOverlayCanvas(renderCanvas);
     }
 
     const quads = autoDetectQuads(image);  // quads is an array of detected openings
 
+    let scaledQuads = [];
+    for (let quad of quads) {
+        let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+        scaledQuads.push(scaledQuad);
+    }
+
+    window.addEventListener('resize', () => redrawQuads(quads, renderCanvas, image));
+
     // Draw detected blind openings on the overlay canvas
-    drawQuadsOnOverlay(quads);
+    drawQuadsOnOverlay(scaledQuads);
 
     // Make the overlay canvas visible
     overlayCanvas.style.display = 'block';
 
     return new Promise((resolve) => {
         const onClick = (event) => {
-            const clickedQuad = detectClickedQuad(event, quads, overlayCanvas);
+            const clickedQuad = detectClickedQuad(event, quads);
             if (clickedQuad) {
                 overlayCanvas.style.display = 'none';  // Hide overlay once a quad is selected
                 overlayCanvas.removeEventListener('click', onClick);  // Clean up event listener
@@ -400,8 +453,17 @@ export function autoDetectBlindOpenings(image) {
     });
 };
 
-function createOverlayCanvas() {
-    const renderCanvas = document.getElementById('renderCanvas');
+function redrawQuads(quads, renderCanvas, image){
+    let scaledQuads = [];
+    for (let quad of quads) {
+        let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+        scaledQuads.push(scaledQuad);
+    }
+
+    drawQuadsOnOverlay(scaledQuads);
+};
+
+function createOverlayCanvas(renderCanvas) {
     const overlayCanvas = document.createElement('canvas');
     overlayCanvas.id = 'overlayCanvas';
 
@@ -421,13 +483,14 @@ function createOverlayCanvas() {
     // Ensure it resizes correctly when the window is resized
     window.addEventListener('resize', () => resizeOverlayCanvas(overlayCanvas, renderCanvas));
 
-    // Add click event listener once (no need to add/remove later)
-    overlayCanvas.addEventListener('click', onOverlayCanvasClick);
-
     return overlayCanvas;
 };
 
 function resizeOverlayCanvas(overlayCanvas, renderCanvas) {
+    // Ensure the internal canvas size matches the CSS size
+    renderCanvas.width = renderCanvas.clientWidth;
+    renderCanvas.height = renderCanvas.clientHeight;
+
     overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
     overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
     overlayCanvas.width = renderCanvas.width;
@@ -459,28 +522,79 @@ function detectClickedQuad(event, quads) {
     const x = event.offsetX;
     const y = event.offsetY;
 
+    // Array to store all quads that contain the clicked point
+    let clickedQuads = [];
+
     // Loop through each quad and check if the click is inside the quad's area
     for (let quad of quads) {
         if (isPointInQuad(x, y, quad)) {
-            return quad;  // Return the first quad that the user clicked on
+            clickedQuads.push(quad);  // Add the quad to the array if the point is inside
         }
     }
-    return null;
+
+    // If no quads were clicked, return null
+    if (clickedQuads.length === 0) {
+        return null;
+    }
+
+    // If only one quad was clicked, return it
+    if (clickedQuads.length === 1) {
+        return clickedQuads[0];
+    }
+
+    // If multiple quads were clicked, find and return the smallest one
+    return getSmallestQuad(clickedQuads);
 };
 
-// Function to check if a point (x, y) is inside a quad (defined by four points)
-function isPointInQuad(x, y, quad) {
-    // Assuming the quads are rectangular and the points are given in order
+// Function to get the smallest quad by calculating the area
+function getSmallestQuad(quads) {
+    let smallestQuad = quads[0];
+    let smallestArea = calculateQuadArea(smallestQuad);
+
+    for (let i = 1; i < quads.length; i++) {
+        const area = calculateQuadArea(quads[i]);
+        if (area < smallestArea) {
+            smallestArea = area;
+            smallestQuad = quads[i];
+        }
+    }
+
+    return smallestQuad;
+};
+
+// Function to calculate the area of a quadrilateral using the Shoelace formula
+function calculateQuadArea(quad) {
     const [x1, y1, x2, y2, x3, y3, x4, y4] = quad;
 
-    // Find the bounding box of the quad
-    const minX = Math.min(x1, x2, x3, x4);
-    const maxX = Math.max(x1, x2, x3, x4);
-    const minY = Math.min(y1, y2, y3, y4);
-    const maxY = Math.max(y1, y2, y3, y4);
+    // Shoelace formula to calculate the area of a quadrilateral
+    return Math.abs(
+        (x1 * y2 + x2 * y3 + x3 * y4 + x4 * y1) -
+        (y1 * x2 + y2 * x3 + y3 * x4 + y4 * x1)
+    ) / 2;
+};
 
-    // Check if the point is within the bounding box of the quad
-    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+// Function to check if a point (x, y) is inside a quad (using Ray-Casting Algorithm)
+function isPointInQuad(px, py, quad) {
+    const polygon = [
+        { x: quad[0], y: quad[1] },
+        { x: quad[2], y: quad[3] },
+        { x: quad[4], y: quad[5] },
+        { x: quad[6], y: quad[7] }
+        
+    ];
+
+    // Ray-Casting Algorithm to check if point is in polygon
+    let isInside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+
+        const intersect = ((yi > py) !== (yj > py)) &&
+            (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) isInside = !isInside;
+    }
+
+    return isInside;
 };
 
 function autoDetectQuads(image) {
@@ -846,8 +960,8 @@ function autoDetectQuads(image) {
         const identifiedCorners = [
             cornerPoints['top-left'],
             cornerPoints['top-right'],
-            cornerPoints['bottom-left'],
-            cornerPoints['bottom-right']
+            cornerPoints['bottom-right'],
+            cornerPoints['bottom-left']
         ];
     
         // Filter out any undefined points in case a corner wasn't detected
