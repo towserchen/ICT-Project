@@ -3,11 +3,6 @@ function loadImageFromURL(url, callback) {
     img.crossOrigin = "Anonymous";  // Prevent CORS issues when fetching the image
 
     img.onload = function () {
-        const renderCanvas = document.getElementById('renderCanvas');
-        renderCanvas.width = img.width;
-        renderCanvas.height = img.height;
-        const context = renderCanvas.getContext('2d');
-        context.drawImage(img, 0, 0);  // Draw the image onto the canvas
         callback(img);
     };
 
@@ -31,27 +26,74 @@ window.onload = function() {
 
 let src = undefined;
 
+function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords) {
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    
+    const canvasAspectRatio = canvasWidth / canvasHeight;
+    const imageAspectRatio = originalWidth / originalHeight;
+
+    let scaleX, scaleY, offsetX = 0, offsetY = 0;
+
+    if (imageAspectRatio > canvasAspectRatio) {
+        // Image is wider than the canvas, so the height will fit, and we'll have horizontal padding
+        scaleX = canvasWidth / originalWidth;
+        scaleY = scaleX; // Maintain aspect ratio
+        offsetY = (canvasHeight - (originalHeight * scaleY)) / 2;
+    } else {
+        // Image is taller than the canvas, so the width will fit, and we'll have vertical padding
+        scaleY = canvasHeight / originalHeight;
+        scaleX = scaleY; // Maintain aspect ratio
+        offsetX = (canvasWidth - (originalWidth * scaleX)) / 2;
+    }
+
+    // Create a new array to store the scaled coordinates
+    const scaledCoords = [];
+
+    // Loop through the array of coordinates and apply the scaling and offset
+    for (let i = 0; i < originalCoords.length; i += 2) {
+        const x = originalCoords[i];
+        const y = originalCoords[i + 1];
+
+        const scaledX = x * scaleX + offsetX;
+        const scaledY = y * scaleY + offsetY;
+
+        scaledCoords.push(scaledX, scaledY);
+    }
+
+    return scaledCoords;
+}
+
 /**
  * Detect opinings of an image
  * 
- * @param {HTMLElement} image 
+ * @param {HTMLElement} image
+ * @param {String} canvas - The ID of the main render canvas. Default 'renderCanvas' 
  * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
  */
-function autoDetectBlindOpenings(image) {
+function autoDetectBlindOpenings(image, canvas = 'renderCanvas') {
     // Get the overlay canvas if it exists
     let overlayCanvas = document.getElementById('overlayCanvas');
-    const renderCanvas = document.getElementById('renderCanvas');
+    const renderCanvas = document.getElementById(canvas);
 
     // Check if the overlay canvas exists; if not, create it
     if (!overlayCanvas) {
-        overlayCanvas = createOverlayCanvas();
+        overlayCanvas = createOverlayCanvas(renderCanvas);
     }
 
     const quads = autoDetectQuads(image);  // quads is an array of detected openings
     console.log("detected quads: ", quads);
 
+    let scaledQuads = [];
+    for (let quad of quads) {
+        let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+        scaledQuads.push(scaledQuad);
+    }
+
+    window.addEventListener('resize', () => redrawQuads(quads, renderCanvas, image));
+
     // Draw detected blind openings on the overlay canvas
-    drawQuadsOnOverlay(quads);
+    drawQuadsOnOverlay(scaledQuads);
 
     // Make the overlay canvas visible
     overlayCanvas.style.display = 'block';
@@ -70,8 +112,17 @@ function autoDetectBlindOpenings(image) {
     });
 };
 
-function createOverlayCanvas() {
-    const renderCanvas = document.getElementById('renderCanvas');
+function redrawQuads(quads, renderCanvas, image){
+    let scaledQuads = [];
+    for (let quad of quads) {
+        let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+        scaledQuads.push(scaledQuad);
+    }
+
+    drawQuadsOnOverlay(scaledQuads);
+};
+
+function createOverlayCanvas(renderCanvas) {
     const overlayCanvas = document.createElement('canvas');
     overlayCanvas.id = 'overlayCanvas';
 
@@ -95,6 +146,10 @@ function createOverlayCanvas() {
 };
 
 function resizeOverlayCanvas(overlayCanvas, renderCanvas) {
+    // Ensure the internal canvas size matches the CSS size
+    renderCanvas.width = renderCanvas.clientWidth;
+    renderCanvas.height = renderCanvas.clientHeight;
+
     overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
     overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
     overlayCanvas.width = renderCanvas.width;
