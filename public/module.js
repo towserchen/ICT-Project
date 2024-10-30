@@ -3,6 +3,11 @@ function loadImageFromURL(url, callback) {
     img.crossOrigin = "Anonymous";  // Prevent CORS issues when fetching the image
 
     img.onload = function () {
+        const renderCanvas = document.getElementById('renderCanvas');
+        renderCanvas.width = img.width;
+        renderCanvas.height = img.height;
+        const context = renderCanvas.getContext('2d');
+        context.drawImage(img, 0, 0);  // Draw the image onto the canvas
         callback(img);
     };
 
@@ -26,8 +31,182 @@ window.onload = function() {
 
 let src = undefined;
 
+/**
+ * Detect opinings of an image
+ * 
+ * @param {HTMLElement} image 
+ * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+ */
 function autoDetectBlindOpenings(image) {
-    src = cv.imread(image); // Read the image from the canvas as a cv.Mat
+    // Get the overlay canvas if it exists
+    let overlayCanvas = document.getElementById('overlayCanvas');
+    const renderCanvas = document.getElementById('renderCanvas');
+
+    // Check if the overlay canvas exists; if not, create it
+    if (!overlayCanvas) {
+        overlayCanvas = createOverlayCanvas();
+    }
+
+    const quads = autoDetectQuads(image);  // quads is an array of detected openings
+    console.log("detected quads: ", quads);
+
+    // Draw detected blind openings on the overlay canvas
+    drawQuadsOnOverlay(quads);
+
+    // Make the overlay canvas visible
+    overlayCanvas.style.display = 'block';
+
+    return new Promise((resolve) => {
+        const onClick = (event) => {
+            const clickedQuad = detectClickedQuad(event, quads);
+            if (clickedQuad) {
+                overlayCanvas.style.display = 'none';  // Hide overlay once a quad is selected
+                overlayCanvas.removeEventListener('click', onClick);  // Clean up event listener
+                resolve(clickedQuad);  // Return the clicked quad
+            }
+        };
+
+        overlayCanvas.addEventListener('click', onClick);
+    });
+};
+
+function createOverlayCanvas() {
+    const renderCanvas = document.getElementById('renderCanvas');
+    const overlayCanvas = document.createElement('canvas');
+    overlayCanvas.id = 'overlayCanvas';
+
+    // Position and size the overlay canvas over the renderCanvas
+    resizeOverlayCanvas(overlayCanvas, renderCanvas);
+
+    overlayCanvas.style.position = 'absolute';
+    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
+    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
+    overlayCanvas.style.zIndex = '10';  // Ensure it's above the renderCanvas
+    overlayCanvas.style.pointerEvents = 'auto';  // Allow pointer events for click detection
+    overlayCanvas.style.display = 'block';  // Make it visible initially
+
+    // Append the overlay canvas to the same parent as the renderCanvas
+    renderCanvas.parentNode.appendChild(overlayCanvas);
+
+    // Ensure it resizes correctly when the window is resized
+    window.addEventListener('resize', () => resizeOverlayCanvas(overlayCanvas, renderCanvas));
+
+    return overlayCanvas;
+};
+
+function resizeOverlayCanvas(overlayCanvas, renderCanvas) {
+    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
+    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
+    overlayCanvas.width = renderCanvas.width;
+    overlayCanvas.height = renderCanvas.height;
+};
+
+function drawQuadsOnOverlay(quads) {
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const ctx = overlayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+
+    // Draw each detected quad
+    quads.forEach(quad => {
+        ctx.beginPath();
+        ctx.moveTo(quad[0], quad[1]);
+        ctx.lineTo(quad[2], quad[3]);
+        ctx.lineTo(quad[4], quad[5]);
+        ctx.lineTo(quad[6], quad[7]);        
+        ctx.closePath();
+        ctx.stroke();
+    });
+
+    console.log("attempted to draw quads");
+};
+
+// Helper function to check which quad was clicked
+function detectClickedQuad(event, quads) {
+    const x = event.offsetX;
+    const y = event.offsetY;
+
+    // Array to store all quads that contain the clicked point
+    let clickedQuads = [];
+
+    // Loop through each quad and check if the click is inside the quad's area
+    for (let quad of quads) {
+        if (isPointInQuad(x, y, quad)) {
+            clickedQuads.push(quad);  // Add the quad to the array if the point is inside
+        }
+    }
+
+    // If no quads were clicked, return null
+    if (clickedQuads.length === 0) {
+        return null;
+    }
+
+    // If only one quad was clicked, return it
+    if (clickedQuads.length === 1) {
+        return clickedQuads[0];
+    }
+
+    // If multiple quads were clicked, find and return the smallest one
+    return getSmallestQuad(clickedQuads);
+};
+
+// Function to get the smallest quad by calculating the area
+function getSmallestQuad(quads) {
+    let smallestQuad = quads[0];
+    let smallestArea = calculateQuadArea(smallestQuad);
+
+    for (let i = 1; i < quads.length; i++) {
+        const area = calculateQuadArea(quads[i]);
+        if (area < smallestArea) {
+            smallestArea = area;
+            smallestQuad = quads[i];
+        }
+    }
+
+    return smallestQuad;
+};
+
+// Function to calculate the area of a quadrilateral using the Shoelace formula
+function calculateQuadArea(quad) {
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = quad;
+
+    // Shoelace formula to calculate the area of a quadrilateral
+    return Math.abs(
+        (x1 * y2 + x2 * y3 + x3 * y4 + x4 * y1) -
+        (y1 * x2 + y2 * x3 + y3 * x4 + y4 * x1)
+    ) / 2;
+};
+
+// Function to check if a point (x, y) is inside a quad (using Ray-Casting Algorithm)
+function isPointInQuad(px, py, quad) {
+    const polygon = [
+        { x: quad[0], y: quad[1] },
+        { x: quad[2], y: quad[3] },
+        { x: quad[4], y: quad[5] },
+        { x: quad[6], y: quad[7] }
+        
+    ];
+
+    // Ray-Casting Algorithm to check if point is in polygon
+    let isInside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+
+        //console.log("index: ", i, "isInside currently: ", isInside, "Between Ys: ", (yi > py) !== (yj > py), "Less than the X intersect: ", px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        const intersect = ((yi > py) !== (yj > py)) &&
+            (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) isInside = !isInside;
+        //console.log("new isInside: ", isInside);
+    }
+
+    return isInside;
+};
+
+function autoDetectQuads(image) {
+    src = cv.imread(image); // Read the image as a cv.Mat
 
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); // Convert the image to grayscale
@@ -93,8 +272,6 @@ function autoDetectBlindOpenings(image) {
             cornerFilteredContours.push_back(sizeFilteredContours.get(i));
         }
     }
-
-    //console.log(cornerFilteredContours);
 
     function isContourClosed(contour, threshold = 10) {
         // Get the first and last points of the contour
@@ -198,7 +375,6 @@ function autoDetectBlindOpenings(image) {
                 keptIndices.push(contourClosedSpecs[i].index);  // Store the original index
             }
         }
-        //console.log(toKeep);
         
         let returns = [toKeep, keptIndices];
         return returns;
@@ -392,8 +568,8 @@ function autoDetectBlindOpenings(image) {
         const identifiedCorners = [
             cornerPoints['top-left'],
             cornerPoints['top-right'],
-            cornerPoints['bottom-left'],
-            cornerPoints['bottom-right']
+            cornerPoints['bottom-right'],
+            cornerPoints['bottom-left']
         ];
     
         // Filter out any undefined points in case a corner wasn't detected
@@ -405,8 +581,6 @@ function autoDetectBlindOpenings(image) {
     for (let i = 0; i < finalContours.size(); i++) {
 
         let contour = finalContours.get(i);
-
-        //console.log('index:', i, cv.contourArea(contour), cv.arcLength(contour, false), contour);
         
         let approxPrecise = new cv.Mat();
         cv.approxPolyDP(contour, approxPrecise, 0.0008 * cv.arcLength(sizeFilteredContours.get(i), false), false); // Approximate the contour with a polygon

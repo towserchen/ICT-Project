@@ -17,18 +17,40 @@ export class AppComponent {
   detectionResult: Array<Array<number>> = [];
   imagePath: string = '1.jpg';
   imageLoaded: boolean = false;
-
-  @ViewChild('testImg') imageElement!: ElementRef<HTMLImageElement>;
+  
+  
 
   ngAfterViewInit(): void {
-    this.checkOpenCVLoaded().then(() => {
-      console.log('OpenCV.js is loaded');
-      const imageElement = this.imageElement.nativeElement;
-      this.imageLoaded = true;
-      this.testAutoDetection(imageElement);
-    }).catch(() => {
-      console.error('OpenCV.js is not loaded');
-    });
+    const imageElement: HTMLImageElement = new Image();
+    imageElement.src = this.imagePath;
+  
+    // Wait for the image to load before drawing it
+    imageElement.onload = () => {
+      const renderCanvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
+      const context = renderCanvas.getContext('2d');
+      
+      if (context) {
+        renderCanvas.width = imageElement.width;
+        renderCanvas.height = imageElement.height;
+        context.drawImage(imageElement, 0, 0);  // Draw the image onto the canvas
+      } else {
+        console.error('Canvas context is not available');
+      }
+  
+      // Once the image is loaded and drawn, run OpenCV detection
+      this.checkOpenCVLoaded().then(() => {
+        console.log('OpenCV.js is loaded');
+        this.imageLoaded = true;
+        this.testAutoDetection(imageElement);  // Pass the loaded image to detection function
+      }).catch(() => {
+        console.error('OpenCV.js is not loaded');
+      });
+    };
+  
+    // Handle error in case the image fails to load
+    imageElement.onerror = (error) => {
+      console.error('Failed to load the image:', error);
+    };
   }
 
 
@@ -57,10 +79,5 @@ export class AppComponent {
     } else {
       console.error('Image element not found');
     }
-  }
-
-  onImageLoad(event: Event): void {
-    console.log('here');
-    
   }
 }
