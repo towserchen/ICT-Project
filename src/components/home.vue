@@ -71,7 +71,15 @@
           <div class="inputoutput">
               <div class="caption">AI Output Canvas</div>
               <div>
+                <select v-model="selectedValue">
+                <option value="" disabled>Select an option</option>
+                <option v-for="option in options" :key="option.value" :value="option.value">
+                  {{ option.text }}
+                </option>
+              </select>
+
                 <a href="javascript:void(0)" class="btn" @click="selectFile">AI Detect</a>
+                
                 <input type="file" ref="fileInput" @change="uploadFileChange" style="display: none" />
 
                 <canvas ref="AIOutputCanvas"></canvas>
@@ -176,6 +184,12 @@ const imgElement = ref(null);
 
 const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas, s4Canvas, s5Canvas];
 
+const options = [
+  { value: '1', text: 'Indoor' },
+  { value: '0', text: 'Outdoor' },
+];
+
+const selectedValue = ref('');
 
 const file = ref(null);
 const fileInput = ref(null);
@@ -191,8 +205,27 @@ const uploadFileChange = async (event) => {
     file.value = selectedFile;
     console.log('Selected file:', file.value);
 
-    setApiUrl('http://127.0.0.1:8000/detect');
-    const coordinate = await autoDetectBlindOpeningsByAI(file.value, 1, 0);
+    //setApiUrl('http://127.0.0.1:8000/detect');
+    const coordinate = await autoDetectBlindOpeningsByAI(file.value, selectedValue.value, 0);
+
+    console.log(coordinate);
+
+    const result = coordinate.map(innerArray => innerArray.flat());
+
+    console.log(result);
+
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+      const imgElement = document.createElement('img');
+      imgElement.src = e.target.result;
+      
+      imgElement.onload = function() {
+        drawRectangleForAI(imgElement, AIOutputCanvas.value, result);
+      };
+    };
+    
+    reader.readAsDataURL(selectedFile);
 
     console.log(coordinate)
   }
@@ -236,6 +269,41 @@ function drawRectangle(imgElement, outputCanvas, coordinateList) {
           }
           let temp = []
           temp.push(coordinate[0],coordinate[1], coordinate[2], coordinate[3], coordinate[6], coordinate[7], coordinate[4], coordinate[5]);
+          coordinate = temp;
+
+          let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
+          console.log("Points Matrix:", points.data32S);
+          
+          let contours = new cv.MatVector();
+          contours.push_back(points);
+          
+          cv.polylines(mat, contours, true, new cv.Scalar(255, 0, 0, 255), 2);
+
+          points.delete();
+      }
+      
+      cv.imshow(outputCanvas, mat);
+      
+      mat.delete();
+  } else {
+    cv.imshow(outputCanvas, mat);
+    console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+  }
+}
+
+
+function drawRectangleForAI(imgElement, outputCanvas, coordinateList) {
+  let mat = cv.imread(imgElement);
+  console.log("Coordinate List:", coordinateList);
+  
+  if (coordinateList.length > 0) {
+    for (let coordinate of coordinateList) {
+          if (coordinate.length != 8) {
+              console.error("Invalid coordinate format. Expected format: [x1, y1, x2, y2, x3, y3, x4, y4]");
+              continue;
+          }
+          let temp = []
+          temp.push(coordinate[0],coordinate[1], coordinate[2], coordinate[3], coordinate[4], coordinate[5], coordinate[6], coordinate[7]);
           coordinate = temp;
 
           let points = cv.matFromArray(4, 1, cv.CV_32SC2, coordinate);
