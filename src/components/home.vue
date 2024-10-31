@@ -38,7 +38,7 @@
       </div>
 
       <div v-if="tabActive !== 0" v-show="showEffect" class="show-container">
-          <div class="inputoutput">
+          <!--<div class="inputoutput" v-if="s5Canvas !== null">
               <div class="caption">Step 1 Canvas</div>
               <canvas ref="s1Canvas"></canvas>
           </div>
@@ -61,7 +61,7 @@
           <div class="inputoutput">
               <div class="caption">Step 5 Canvas</div>
               <canvas ref="s6Canvas"></canvas>
-          </div>
+          </div>-->
 
           <div class="inputoutput">
               <div class="caption">Output Canvas</div>
@@ -148,7 +148,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-//import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+import { autoDetectBlindOpeningsByAI } from 'ziptrak-opening-detector';
 import { autoDetectBlindOpenings } from '../lib/detect';
 
 const outputCanvas = ref(null);
