@@ -1,4 +1,4 @@
-import CanvasSlot from './canvasSlot'
+import axios from axios;
 
 let src = null;
   
