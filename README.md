@@ -39,6 +39,22 @@ let userInputCoordinates = [100, 100, 200, 200, 300, 300, 400, 400];
 let cornorCoordinates = manualDetectBlindOpenings(userInputCoordinates);
 ```
 
+### Auto Detect By AI
+
+```javascript
+import { autoDetectBlindOpeningsByAI } from ziptrak-opening-detector;
+
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', (event) => {
+    const files = event.target.files;
+    if (files.length > 0) {
+        const file = files[0];
+        cornerCoordinates = detect(file);
+    }
+});
+```
+
 ## Documentation
 
 For more detail please click [Documentation](docs/docs.md).
