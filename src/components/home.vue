@@ -205,7 +205,7 @@ const uploadFileChange = async (event) => {
     file.value = selectedFile;
     console.log('Selected file:', file.value);
 
-    //setApiUrl('http://127.0.0.1:8000/detect');
+    setApiUrl('https://ziptrak.ddos.la/detect');
     const coordinate = await autoDetectBlindOpeningsByAI(file.value, selectedValue.value, 0);
 
     console.log(coordinate);
