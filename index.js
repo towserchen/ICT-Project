@@ -991,6 +991,21 @@ function autoDetectQuads(image) {
 };
 
 
+
+let apiUrl = 'http://162.55.25.2/detect';
+
+
+/*
+* Reset the api url
+* 
+* @param {string} url
+* @return {void}
+*/
+export function setApiUrl(url) {
+    apiUrl = url;
+}
+
+
 /*
 * Detect opinings of an image by AI
 * 
@@ -1000,7 +1015,6 @@ function autoDetectQuads(image) {
 * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
 */
 export async function autoDetectBlindOpeningsByAI(file, isWindowDetected, saveProcessedImages) {
-    const apiUrl = 'http://162.55.25.2/detect';
     const formData = new FormData();
     
     formData.append('upload_file', file);
