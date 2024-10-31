@@ -67,6 +67,16 @@
               <div class="caption">Output Canvas</div>
               <canvas ref="outputCanvas"></canvas>
           </div>
+
+          <div class="inputoutput">
+              <div class="caption">AI Output Canvas</div>
+              <div>
+                <a href="javascript:void(0)" class="btn" @click="selectFile">AI Detect</a>
+                <input type="file" ref="fileInput" @change="uploadFileChange" style="display: none" />
+
+                <canvas ref="AIOutputCanvas"></canvas>
+              </div>
+          </div>
       </div>
 </div>
 </template>
@@ -148,10 +158,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { autoDetectBlindOpeningsByAI } from 'ziptrak-opening-detector';
+//import { autoDetectBlindOpeningsByAI, setApiUrl } from 'ziptrak-opening-detector';
 import { autoDetectBlindOpenings } from '../lib/detect';
+import { autoDetectBlindOpeningsByAI, setApiUrl } from '../lib/detect';
 
 const outputCanvas = ref(null);
+const AIOutputCanvas = ref(null);
 const s1Canvas = ref(null);
 const s2Canvas = ref(null);
 const s3Canvas = ref(null);
@@ -163,6 +175,28 @@ const showEffect = ref(false);
 const imgElement = ref(null);
 
 const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas, s4Canvas, s5Canvas];
+
+
+const file = ref(null);
+const fileInput = ref(null);
+
+const selectFile = () => {
+  fileInput.value.click();
+}
+
+const uploadFileChange = async (event) => {
+  const selectedFile = event.target.files[0];
+
+  if (selectedFile) {
+    file.value = selectedFile;
+    console.log('Selected file:', file.value);
+
+    setApiUrl('http://127.0.0.1:8000/detect');
+    const coordinate = await autoDetectBlindOpeningsByAI(file.value, 1, 0);
+
+    console.log(coordinate)
+  }
+}
 
 // switch the tab
 function changeTab(index) {

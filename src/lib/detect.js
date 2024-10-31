@@ -1,5 +1,6 @@
 import cv from "@techstark/opencv-js"
 import CanvasSlot from './canvasSlot'
+import axios from 'axios'
 
 // Function to get the bottom two boxes based on their vertical position (y-coordinate)
 function getBottomTwoBoxes(boxes) {
@@ -791,3 +792,61 @@ export function autoDetectBlindOpenings(image, canvasSlotList = []) {
 
     return coordinates;
 };
+
+let apiUrl = 'http://162.55.25.2/detect';
+
+
+/*
+* Reset the api url
+* 
+* @param {string} url
+* @return {void}
+*/
+export function setApiUrl(url) {
+    apiUrl = url;
+}
+
+
+/*
+* Detect opinings of an image by AI
+* 
+* @param {File} file
+* @param {int} isWindowDetected, 0/1
+* @param {int} saveProcessedImages, 0/1
+* @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+*/
+export async function autoDetectBlindOpeningsByAI(file, isWindowDetected, saveProcessedImages) {
+    const formData = new FormData();
+    
+    formData.append('upload_file', file);
+    formData.append('is_window_detected', isWindowDetected);
+    formData.append('save_processed_images', saveProcessedImages);
+    
+    try {
+        const response = await axios.post(apiUrl, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            }
+        });
+
+        if (!response) {
+            console.warn('Response failed');
+            return false;
+        }
+
+        if (response.status != 200) {
+            console.warn('Response failed, code=' + response.status);
+            return false;
+        }
+
+        if (!response.data.hasOwnProperty('coordinate_list')) {
+            console.warn('Response failed');
+            console.warn(response.data);
+            return false;
+        }
+
+        return response.data.coordinate_list;
+    } catch (error) {
+        console.error('Error uploading file', error);
+    }
+}
