@@ -28,5 +28,21 @@ declare module 'ziptrak-opening-detector' {
      */
     export function manualDetectBlindOpenings(userCoordinates: Array<number>): Array<number>;
 
+    /*
+    * Reset the api url
+    * 
+    * @param {string} url
+    * @return {void}
+    */
+    export function setApiUrl(url: string): void;
+
+    /*
+    * Detect opinings of an image by AI
+    * 
+    * @param {File} file
+    * @param {int} isWindowDetected, 0/1
+    * @param {int} saveProcessedImages, 0/1
+    * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+    */
     export function autoDetectBlindOpeningsByAI(file: File, isWindowDetected: number, saveProcessedImages: number): Promise<any>;
 }
