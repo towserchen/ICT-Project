@@ -67,6 +67,22 @@ This function is designed as a fallback when `autoDetectBlindOpenings` is unable
 
 ---
 
+### 3. autoDetectBlindOpeningsByAI(file)
+
+This function will automatically detect openings from a user-uploaded photo.  
+The file you selected will be uploaded to the remote API server and be detected by AI.
+
+#### Parameters
+- **file**: File object, The file selected from the HTML upload component (`<input type="file">`)
+
+#### Returns
+- The return value is an array of arrays, where each inner array contains the coordinates of one detected opening. The format will be:  
+  `[[[x1, y1], [x2, y2], [x3, y3], [x4, y4]]...]`  
+  Each inner array represents the four corners of an individual detected opening.
+- The coordinate order is clockwise, top_left, top_right, bottom_right, bottom_left.
+
+---
+
 ## Appendices
 
 ### Appendix A
