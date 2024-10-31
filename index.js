@@ -992,7 +992,7 @@ function autoDetectQuads(image) {
 
 
 
-let apiUrl = 'http://162.55.25.2/detect';
+let apiUrl = 'https://ziptrak.ddos.la/detect';
 
 
 /*

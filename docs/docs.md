@@ -81,6 +81,16 @@ The file you selected will be uploaded to the remote API server and be detected 
   Each inner array represents the four corners of an individual detected opening.
 - The coordinate order is clockwise, top_left, top_right, bottom_right, bottom_left.
 
+### 4. setApiUrl(url)
+
+Modify the AI API url as your url. Default API endpoint may not be available longer in the future.
+
+#### Parameters
+- **url**: Your API url
+
+#### Returns
+- None
+
 ---
 
 ## Appendices
