@@ -1029,14 +1029,22 @@ export async function autoDetectBlindOpeningsByAI(file, isWindowDetected, savePr
         });
 
         if (!response) {
+            console.warn('Response failed');
             return false;
         }
 
-        if (!response.hasOwnProperty('coordinate_list')) {
+        if (response.status != 200) {
+            console.warn('Response failed, code=' + response.status);
             return false;
         }
 
-        return response.coordinate_list;
+        if (!response.data.hasOwnProperty('coordinate_list')) {
+            console.warn('Response failed');
+            console.warn(response.data);
+            return false;
+        }
+
+        return response.data.coordinate_list;
     } catch (error) {
         console.error('Error uploading file', error);
     }
