@@ -4,7 +4,7 @@ import axios from '/node_modules/axios/index.js';
 window.onload = function() {
     cv['onRuntimeInitialized'] = () => {
         // Load the image from a URL
-        let imageUrl = '/sample/1.jpg';  // Replace with your image URL
+        let imageUrl = '/sample/2.jpg';  // Replace with your image URL
         console.log(autoDetectBlindOpenings(imageUrl, true));
     };
 };
@@ -123,10 +123,35 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     const response = await fetch(imageURL);
     const blob = await response.blob();
     const file = new File([blob], 'userImage.jpg', { type: blob.type });
+    const image = await imageFromURL(imageURL);
 
     console.log("File: ", file);
 
-    let AIcoordinates = autoDetectBlindOpeningsByAI(file, detectWindow, false)
+    let detectWindowValue = 0;
+
+    if(detectWindow){
+        detectWindowValue = 1;
+    }
+    
+    let scaledAIcoords = [];
+    autoDetectBlindOpeningsByAI(file, detectWindowValue, 0)
+    .then(AIcoordinates => {
+        console.log("AI coordinates:", AIcoordinates);
+        if (AIcoordinates) {
+            let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+            console.log("Flat coords: ", flattenedAIcoords);
+            for (let quad of flattenedAIcoords) {
+                let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+                scaledAIcoords.push(scaledQuad);
+            }
+
+        } else {
+            console.warn("No coordinates received or an error occurred");
+        }
+    })
+    .catch(error => {
+        console.error("An error occurred:", error);
+    });
     
     // Get the overlay canvas if it exists
     let overlayCanvas = document.getElementById('overlayCanvas');
@@ -136,8 +161,6 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     if (!overlayCanvas) {
         overlayCanvas = createOverlayCanvas(renderCanvas);
     }
-
-    let image = await imageFromURL(imageURL);
 
     const quads = autoDetectQuads(image);  // quads is an array of detected openings
     console.log("detected quads: ", quads);
@@ -153,7 +176,26 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     // Draw detected blind openings on the overlay canvas
     drawQuadsOnOverlay(scaledQuads);
 
-    console.log("AI coords: ", AIcoordinates);
+    // Add toggle button
+    const toggleButton = document.createElement('button');
+    toggleButton.innerText = 'Toggle AI Detection';
+    toggleButton.style.position = 'absolute';
+    toggleButton.style.top = '10px';
+    toggleButton.style.right = '10px';
+    toggleButton.style.zIndex = '11';
+    renderCanvas.parentNode.appendChild(toggleButton);
+
+    // Toggle functionality
+    toggleButton.addEventListener('click', () => {
+        overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        if (scaledAIcoords.length > 0 && toggleButton.innerText === 'Toggle AI Detection') {
+            drawQuadsOnOverlay(scaledAIcoords);
+            toggleButton.innerText = 'Show Non-AI Detection';
+        } else {
+            drawQuadsOnOverlay(scaledQuads);
+            toggleButton.innerText = 'Toggle AI Detection';
+        }
+    });
 
     // Make the overlay canvas visible
     overlayCanvas.style.display = 'block';
@@ -163,6 +205,7 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
             const clickedQuad = detectClickedQuad(event, quads);
             if (clickedQuad) {
                 overlayCanvas.style.display = 'none';  // Hide overlay once a quad is selected
+                toggleButton.style.display = 'none';
                 overlayCanvas.removeEventListener('click', onClick);  // Clean up event listener
                 resolve(clickedQuad);  // Return the clicked quad
             }
