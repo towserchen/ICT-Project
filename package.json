@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@techstark/opencv-js": "^4.10.0-release.1",
+    "axios": "^1.7.7",
     "vue": "^3.4.37",
     "vue-router": "^4.4.5",
     "ziptrak-opening-detector": "github:towserchen/ICT-Project#release"

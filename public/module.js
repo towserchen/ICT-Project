@@ -1,24 +1,11 @@
-function loadImageFromURL(url, callback) {
-    let img = new Image();
-    img.crossOrigin = "Anonymous";  // Prevent CORS issues when fetching the image
-
-    img.onload = function () {
-        callback(img);
-    };
-
-    img.src = url;
-}
+import axios from '/node_modules/axios/index.js';
 
 // Call the function after OpenCV is ready
 window.onload = function() {
     cv['onRuntimeInitialized'] = () => {
         // Load the image from a URL
         let imageUrl = '/sample/1.jpg';  // Replace with your image URL
-        loadImageFromURL(imageUrl, (img) => {
-            // Process the image after it has been loaded
-            console.log(autoDetectBlindOpenings(img));
-            //console.log(manualDetectBlindOpenings([74, 101, 592, 183, 89, 590, 593, 452]))
-        });
+        console.log(autoDetectBlindOpenings(imageUrl, true));
     };
 };
 
@@ -64,14 +51,83 @@ function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords)
     return scaledCoords;
 }
 
+let apiUrl = 'https://ziptrak.ddos.la/detect';
+
+
+/*
+* Reset the api url
+* 
+* @param {string} url
+* @return {void}
+*/
+function setApiUrl(url) {
+    apiUrl = url;
+}
+
+async function autoDetectBlindOpeningsByAI(file, isWindowDetected, saveProcessedImages) {
+    const formData = new FormData();
+    
+    formData.append('upload_file', file);
+    formData.append('is_window_detected', isWindowDetected);
+    formData.append('save_processed_images', saveProcessedImages);
+    
+    try {
+        const response = await axios.post(apiUrl, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            }
+        });
+
+        if (!response) {
+            console.warn('Response failed');
+            return false;
+        }
+
+        if (response.status != 200) {
+            console.warn('Response failed, code=' + response.status);
+            return false;
+        }
+
+        if (!response.data.hasOwnProperty('coordinate_list')) {
+            console.warn('Response failed');
+            console.warn(response.data);
+            return false;
+        }
+
+        return response.data.coordinate_list;
+    } catch (error) {
+        console.error('Error uploading file', error);
+    }
+}
+
+async function imageFromURL(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+
+        img.src = url;
+    });
+}
+
 /**
  * Detect opinings of an image
  * 
- * @param {HTMLElement} image
- * @param {String} canvas - The ID of the main render canvas. Default 'renderCanvas' 
- * @return {Array<Array<number>>} - A 2D array where each inner array represents the four corner coordinates of a quad
+ * @param {String} imageURL - the URL the uploaded image is stored at (example: blob:https://iv.logissoftware.com/da26a161-a81f-493a-a1c2-27f2790c8d5f)
+ * @param {Boolean} detectWindow - Used to tell the AI model if it is trying to detect a window or an outdoor setting (Can be tricky as can't be coupled to outdoor/indoor blinds as an outdoor blind over an external window will trip the model)
+ * @param {String} canvas - The ID of the main render canvas. Default 'renderCanvas'
+ * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
  */
-function autoDetectBlindOpenings(image, canvas = 'renderCanvas') {
+async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 'renderCanvas') {
+    const response = await fetch(imageURL);
+    const blob = await response.blob();
+    const file = new File([blob], 'userImage.jpg', { type: blob.type });
+
+    console.log("File: ", file);
+
+    let AIcoordinates = autoDetectBlindOpeningsByAI(file, detectWindow, false)
+    
     // Get the overlay canvas if it exists
     let overlayCanvas = document.getElementById('overlayCanvas');
     const renderCanvas = document.getElementById(canvas);
@@ -80,6 +136,8 @@ function autoDetectBlindOpenings(image, canvas = 'renderCanvas') {
     if (!overlayCanvas) {
         overlayCanvas = createOverlayCanvas(renderCanvas);
     }
+
+    let image = await imageFromURL(imageURL);
 
     const quads = autoDetectQuads(image);  // quads is an array of detected openings
     console.log("detected quads: ", quads);
@@ -94,6 +152,8 @@ function autoDetectBlindOpenings(image, canvas = 'renderCanvas') {
 
     // Draw detected blind openings on the overlay canvas
     drawQuadsOnOverlay(scaledQuads);
+
+    console.log("AI coords: ", AIcoordinates);
 
     // Make the overlay canvas visible
     overlayCanvas.style.display = 'block';
