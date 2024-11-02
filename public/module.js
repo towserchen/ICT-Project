@@ -4,8 +4,10 @@ import axios from '/node_modules/axios/index.js';
 window.onload = function() {
     cv['onRuntimeInitialized'] = () => {
         // Load the image from a URL
-        let imageUrl = '/sample/2.jpg';  // Replace with your image URL
-        console.log(autoDetectBlindOpenings(imageUrl, true));
+        let imageUrl = '/sample/2.jpg';  // Set image URL for test
+        const renderCanvas = document.getElementById('renderCanvas')
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        console.log(autoDetectBlindOpenings(imageUrl, true)); // change true or false for detection or window or detection on patio. Can change the target canvas too
     };
 };
 
@@ -22,22 +24,18 @@ function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords)
 
     let scaleX, scaleY, offsetX = 0, offsetY = 0;
 
-    if (imageAspectRatio > canvasAspectRatio) {
-        // Image is wider than the canvas, so the height will fit, and we'll have horizontal padding
+    if (imageAspectRatio > canvasAspectRatio) { // Image is wider than the canvas, so the height will fit, and it'll have horizontal padding
         scaleX = canvasWidth / originalWidth;
         scaleY = scaleX; // Maintain aspect ratio
         offsetY = (canvasHeight - (originalHeight * scaleY)) / 2;
-    } else {
-        // Image is taller than the canvas, so the width will fit, and we'll have vertical padding
+    } else { // Image is taller than the canvas, so the width will fit, and it'll have vertical padding
         scaleY = canvasHeight / originalHeight;
         scaleX = scaleY; // Maintain aspect ratio
         offsetX = (canvasWidth - (originalWidth * scaleX)) / 2;
     }
 
-    // Create a new array to store the scaled coordinates
     const scaledCoords = [];
 
-    // Loop through the array of coordinates and apply the scaling and offset
     for (let i = 0; i < originalCoords.length; i += 2) {
         const x = originalCoords[i];
         const y = originalCoords[i + 1];
@@ -112,7 +110,7 @@ async function imageFromURL(url) {
 }
 
 /**
- * Detect opinings of an image
+ * Detect blind opening from an image
  * 
  * @param {String} imageURL - the URL the uploaded image is stored at (example: blob:https://iv.logissoftware.com/da26a161-a81f-493a-a1c2-27f2790c8d5f)
  * @param {Boolean} detectWindow - Used to tell the AI model if it is trying to detect a window or an outdoor setting (Can be tricky as can't be coupled to outdoor/indoor blinds as an outdoor blind over an external window will trip the model)
@@ -122,100 +120,208 @@ async function imageFromURL(url) {
 async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 'renderCanvas') {
     const response = await fetch(imageURL);
     const blob = await response.blob();
-    const file = new File([blob], 'userImage.jpg', { type: blob.type });
-    const image = await imageFromURL(imageURL);
+    const file = new File([blob], 'userImage.jpg', { type: blob.type }); // construct file for AI detection
+    const image = await imageFromURL(imageURL); // construct image for opencv detection
 
     console.log("File: ", file);
 
-    let detectWindowValue = 0;
+    let detectWindowValue = 0; // default patio detection
 
     if(detectWindow){
-        detectWindowValue = 1;
+        detectWindowValue = 1; // set window detection
     }
     
-    let scaledAIcoords = [];
-    autoDetectBlindOpeningsByAI(file, detectWindowValue, 0)
-    .then(AIcoordinates => {
-        console.log("AI coordinates:", AIcoordinates);
-        if (AIcoordinates) {
-            let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
-            console.log("Flat coords: ", flattenedAIcoords);
-            for (let quad of flattenedAIcoords) {
-                let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
-                scaledAIcoords.push(scaledQuad);
+    let AIquads = [];
+    let runWithDetectWin; // Stores last run AI detection setting
+    let running = false; // Currently running AI detection
+    let AInothingDetected = false;
+    autoDetectQuadsAI(); // Pre-emptively start AI. Might change
+    function autoDetectQuadsAI() {
+        if (running) { // Stops mutiple detections happening at once
+            return;
+        } else {
+            running = true;
+        }
+
+        runWithDetectWin = detectWindowValue;
+
+        autoDetectBlindOpeningsByAI(file, detectWindowValue, 0)
+        .then(AIcoordinates => {
+            console.log("AI coordinates:", AIcoordinates);
+            if (AIcoordinates) {
+                let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+                console.log("Flat coords: ", flattenedAIcoords);
+                AIquads = flattenedAIcoords;
+                if (AIquads.length === 0) {
+                    AInothingDetected = true;
+                }
+                else {
+                    AInothingDetected = false;
+                }
+                
+                if (UIelements.toggleButton.innerText === 'Detecting...') { // for if they click the AI detect button before detection is finshed the first time
+                    activeQuads = AIquads
+                    scaleAndDrawQuads(activeQuads, renderCanvas, image);
+                    hideLoadingSpinner(UIelements.toggleButton);
+                    UIelements.forText.style.display = 'none';
+                    UIelements.locationToggleButton.style.display = 'none';
+                    if (AInothingDetected) {
+                        UIelements.noOpeningsModal.style.display = 'block';
+                    }                    
+                }
+
+                running = false;
+            } else {
+                console.warn("No coordinates received or an error occurred");
             }
+        })
+        .catch(error => {
+            console.error("An error occurred:", error);
+        });
+    }
+        
+    let overlayContainer = document.getElementById('overlayContainer'); // Get the overlay container if it exists
+    const renderCanvas = document.getElementById(canvas); // Get the renderCanvas
 
-        } else {
-            console.warn("No coordinates received or an error occurred");
-        }
-    })
-    .catch(error => {
-        console.error("An error occurred:", error);
-    });
-    
-    // Get the overlay canvas if it exists
-    let overlayCanvas = document.getElementById('overlayCanvas');
-    const renderCanvas = document.getElementById(canvas);
-
-    // Check if the overlay canvas exists; if not, create it
-    if (!overlayCanvas) {
-        overlayCanvas = createOverlayCanvas(renderCanvas);
+    // Check if the overlay exists; if not, create it
+    let UIelements = {};
+    if (!overlayContainer) {
+        UIelements = createUIElements(renderCanvas);
     }
 
-    const quads = autoDetectQuads(image);  // quads is an array of detected openings
-    console.log("detected quads: ", quads);
-
-    let scaledQuads = [];
-    for (let quad of quads) {
-        let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
-        scaledQuads.push(scaledQuad);
+    let stdNothingDetected = false;
+    const stdQuads = autoDetectQuads(image); // Run standard detection
+    console.log("standard detected quads: ", stdQuads);
+    if (stdQuads.length === 0) {
+        stdNothingDetected = true;
+        UIelements.noOpeningsModal.style.display = 'block';
     }
 
-    window.addEventListener('resize', () => redrawQuads(quads, renderCanvas, image));
+    let activeQuads = stdQuads; // currently displayed quads
 
-    // Draw detected blind openings on the overlay canvas
-    drawQuadsOnOverlay(scaledQuads);
+    scaleAndDrawQuads(activeQuads, renderCanvas, image);
+    const onResizeScaleAndDrawQuads = () => scaleAndDrawQuads(activeQuads, renderCanvas, image); // Makes sure quads scale when screen is moved
+    window.addEventListener('resize', onResizeScaleAndDrawQuads);
 
-    // Add toggle button
-    const toggleButton = document.createElement('button');
-    toggleButton.innerText = 'Toggle AI Detection';
-    toggleButton.style.position = 'absolute';
-    toggleButton.style.top = '10px';
-    toggleButton.style.right = '10px';
-    toggleButton.style.zIndex = '11';
-    renderCanvas.parentNode.appendChild(toggleButton);
+    // Location toggle stuff
+    if(detectWindow){
+        UIelements.locationToggleButton.innerText = 'Window';
+    }
 
-    // Toggle functionality
-    toggleButton.addEventListener('click', () => {
-        overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        if (scaledAIcoords.length > 0 && toggleButton.innerText === 'Toggle AI Detection') {
-            drawQuadsOnOverlay(scaledAIcoords);
-            toggleButton.innerText = 'Show Non-AI Detection';
+    const onLocationToggleClick = () => {
+        if (UIelements.locationToggleButton.innerText === 'Window') {
+            detectWindowValue = 0;
+            UIelements.locationToggleButton.innerText = 'Patio'
         } else {
-            drawQuadsOnOverlay(scaledQuads);
-            toggleButton.innerText = 'Toggle AI Detection';
+            detectWindowValue = 1;
+            UIelements.locationToggleButton.innerText = 'Window'
         }
-    });
+    };
+    UIelements.locationToggleButton.addEventListener('click', onLocationToggleClick);
 
-    // Make the overlay canvas visible
-    overlayCanvas.style.display = 'block';
+    // Detection method toggle stuff
+    const onToggleButtonClick = () => {
+        UIelements.overlayCanvas.getContext('2d').clearRect(0, 0, UIelements.overlayCanvas.width, UIelements.overlayCanvas.height);
+        if (runWithDetectWin !== detectWindowValue) {
+            AIquads = [];
+            AInothingDetected = false;
+            console.log("running: ", running);
+            autoDetectQuadsAI();
+        }
+
+        if ((AIquads.length > 0 || AInothingDetected) && UIelements.toggleButton.innerText === 'AI Detection') { // Case for if the AI has completed and switch TO AI from std. Also if AI has complete but nothing is detected
+            activeQuads = AIquads
+            scaleAndDrawQuads(activeQuads, renderCanvas, image);
+            UIelements.toggleButton.innerText = 'Standard Detection';
+            UIelements.forText.style.display = 'none';
+            UIelements.locationToggleButton.style.display = 'none';
+            if (AInothingDetected) {
+                UIelements.noOpeningsModal.style.display = 'block';
+            } else {
+                UIelements.noOpeningsModal.style.display = 'none';
+            }
+        } else if (AIquads.length === 0 && !AInothingDetected && (UIelements.toggleButton.innerText === 'AI Detection' || UIelements.toggleButton.innerText === 'Detecting...')) { // Case for if the AI hasn't completed and switch from std to AI
+            showLoadingSpinner(UIelements.toggleButton);
+            UIelements.locationToggleButton.disabled = true;
+            UIelements.locationToggleButton.style.backgroundColor = '#d3d3d3';
+            UIelements.locationToggleButton.style.color = '#7d7d7d';
+            UIelements.locationToggleButton.style.borderColor = '#d3d3d3';
+            UIelements.locationToggleButton.style.cursor = 'not-allowed';
+            scaleAndDrawQuads(activeQuads, renderCanvas, image);
+        } else { // Case for if AI has completed and switching TO std from AI
+            activeQuads = stdQuads;
+            scaleAndDrawQuads(activeQuads, renderCanvas, image);
+            if (!stdNothingDetected) {
+                UIelements.noOpeningsModal.style.display = 'none';
+            }
+            UIelements.toggleButton.innerText = 'AI Detection';
+            UIelements.locationToggleButton.disabled = false;
+            UIelements.locationToggleButton.style.backgroundColor = 'rgb(243, 202, 62)';
+            UIelements.locationToggleButton.style.color = 'rgb(22, 65, 108)';
+            UIelements.locationToggleButton.style.borderColor = 'rgb(243, 202, 62)';
+            UIelements.locationToggleButton.style.cursor = 'pointer';
+            UIelements.forText.style.display = 'block';
+            UIelements.locationToggleButton.style.display = 'block';
+        }
+    };
+    UIelements.toggleButton.addEventListener('click', onToggleButtonClick);
+
+    // Make the overlay visible
+    UIelements.overlayContainer.style.display = 'block';
 
     return new Promise((resolve) => {
-        const onClick = (event) => {
-            const clickedQuad = detectClickedQuad(event, quads);
+        const onExitClick = () => {
+            UIelements.exitButton.removeEventListener('click', onExitClick);
+            UIelements.overlayCanvas.removeEventListener('click', onCanvasClick);
+            window.removeEventListener('resize', onResizeScaleAndDrawQuads);
+            UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
+            UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
+            //window.removeEventListener('resize', onResizeOverlayContainer);
+            UIelements.overlayContainer.style.display = 'none';
+            resolve([]);
+        }
+        const onCanvasClick = (event) => {
+            let scaledQuads = [];
+            for (let quad of activeQuads) {
+                let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+                scaledQuads.push(scaledQuad);
+            }
+
+            const clickedQuad = detectClickedQuad(event, scaledQuads);
             if (clickedQuad) {
-                overlayCanvas.style.display = 'none';  // Hide overlay once a quad is selected
-                toggleButton.style.display = 'none';
-                overlayCanvas.removeEventListener('click', onClick);  // Clean up event listener
+                UIelements.overlayContainer.style.display = 'none';
+                UIelements.overlayCanvas.removeEventListener('click', onCanvasClick);  // Clean up event listener
+                window.removeEventListener('resize', onResizeScaleAndDrawQuads);
+                UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
+                UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
+                //window.removeEventListener('resize', onResizeOverlayContainer);
                 resolve(clickedQuad);  // Return the clicked quad
             }
         };
 
-        overlayCanvas.addEventListener('click', onClick);
+        UIelements.exitButton.addEventListener('click', onExitClick);
+        UIelements.overlayCanvas.addEventListener('click', onCanvasClick);
     });
 };
 
-function redrawQuads(quads, renderCanvas, image){
+function showLoadingSpinner(button) {
+    button.innerText = 'Detecting...';
+    const spinner = document.createElement('img');
+    spinner.src = './Spinner.svg';
+    spinner.style.width = '25px';
+    spinner.style.height = '25px';
+    spinner.style.marginLeft = '10px';
+    spinner.classList.add('spinner'); // Adding a class in case you want to remove it later
+    button.appendChild(spinner);
+};
+
+function hideLoadingSpinner(button) {
+    button.innerText = 'Standard Detection'
+    const spinner = button.querySelector('.spinner');
+    if (spinner) spinner.remove();
+};
+
+function scaleAndDrawQuads(quads, renderCanvas, image){
     let scaledQuads = [];
     for (let quad of quads) {
         let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
@@ -225,39 +331,294 @@ function redrawQuads(quads, renderCanvas, image){
     drawQuadsOnOverlay(scaledQuads);
 };
 
-function createOverlayCanvas(renderCanvas) {
+function createUIElements(renderCanvas) {
+    // Create the container div
+    const overlayContainer = document.createElement('div');
+    overlayContainer.id = 'overlayContainer';
+    overlayContainer.style.position = 'absolute';
+    overlayContainer.style.top = renderCanvas.offsetTop + 'px';
+    overlayContainer.style.left = renderCanvas.offsetLeft + 'px';
+    overlayContainer.style.zIndex = '10';
+    overlayContainer.style.display = 'none';
+    
+    //create the overlayCanvas
     const overlayCanvas = document.createElement('canvas');
     overlayCanvas.id = 'overlayCanvas';
-
-    // Position and size the overlay canvas over the renderCanvas
-    resizeOverlayCanvas(overlayCanvas, renderCanvas);
-
+    overlayCanvas.width = renderCanvas.offsetWidth;
+    overlayCanvas.height = renderCanvas.offsetHeight;
     overlayCanvas.style.position = 'absolute';
-    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
-    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
-    overlayCanvas.style.zIndex = '10';  // Ensure it's above the renderCanvas
-    overlayCanvas.style.pointerEvents = 'auto';  // Allow pointer events for click detection
-    overlayCanvas.style.display = 'block';  // Make it visible initially
+    overlayCanvas.style.top = '0';
+    overlayCanvas.style.left = '0';
+    overlayCanvas.style.width = '100%';
+    overlayCanvas.style.height = '100%';
+    overlayCanvas.style.pointerEvents = 'auto';
+    overlayCanvas.style.backgroundColor = 'white';
+    overlayCanvas.style.opacity = '0.6';
+    overlayContainer.appendChild(overlayCanvas);
+
+    resizeOverlayContainer(overlayContainer, overlayCanvas, renderCanvas);
+
+    // Create the message text box above the toggle button
+    const messageBox = document.createElement('div');
+    messageBox.id = 'messageBox';
+    messageBox.innerText = "Didn't find the opening you are looking for? Try";
+    messageBox.style.position = 'relative';
+    messageBox.style.top = '20px';
+    messageBox.style.width = '100%';
+    messageBox.style.textAlign = 'center';
+    messageBox.style.fontFamily = 'Roboto, sans-serif';
+    messageBox.style.fontSize = '16px';
+    messageBox.style.fontWeight = '400';
+    messageBox.style.marginBottom = '20px';
+    overlayContainer.appendChild(messageBox);
+
+    // Create a container for the toggle buttons and the "for:" text
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.alignItems = 'center';
+    buttonContainer.style.position = 'relative';
+    buttonContainer.style.justifyContent = 'center';
+    buttonContainer.style.top = '10px';
+
+    // Create the toggle button and center it
+    const toggleButton = document.createElement('button');
+    toggleButton.id = 'toggleButton';
+    toggleButton.innerText = 'AI detection';
+    styleButton(toggleButton);
+    buttonContainer.appendChild(toggleButton);
+
+    // Text box that says "for:"
+    const forText = document.createElement('span');
+    forText.id = 'forText'
+    forText.innerText = 'for:';
+    forText.style.fontFamily = "'Roboto', sans-serif";
+    forText.style.fontWeight = '400';
+    forText.style.fontSize = '16px';
+    forText.style.color = '#16416C';
+    forText.style.marginRight = '10px';
+    forText.style.marginLeft = '10px';
+    buttonContainer.appendChild(forText);
+
+    // Toggle button for "Window" / "Patio"
+    const locationToggleButton = document.createElement('button');
+    locationToggleButton.id = 'locationToggleButton'
+    locationToggleButton.innerText = 'Patio';
+    locationToggleButton.value = 0;
+    styleButton(locationToggleButton);
+    locationToggleButton.disabled = true;
+    locationToggleButton.style.backgroundColor = '#d3d3d3';
+    locationToggleButton.style.color = '#7d7d7d';
+    locationToggleButton.style.borderColor = '#d3d3d3';
+    locationToggleButton.style.cursor = 'not-allowed';
+    buttonContainer.appendChild(locationToggleButton);
+    
+    overlayContainer.appendChild(buttonContainer);
+
+    // Create the exit button
+    const exitButton = document.createElement('button');
+    exitButton.id = 'exitButton';
+    exitButton.style.position = 'absolute';
+    exitButton.style.top = '10px';
+    exitButton.style.right = '10px';
+    exitButton.style.width = '30px';
+    exitButton.style.height = '30px';
+    exitButton.style.border = 'none';
+    exitButton.style.background = 'transparent';
+    exitButton.style.cursor = 'pointer';
+    exitButton.style.backgroundImage = 'url("./Exit.svg")';
+    exitButton.style.backgroundSize = 'contain';
+    exitButton.style.backgroundRepeat = 'no-repeat';
+    exitButton.style.backgroundPosition = 'center';
+    
+    overlayContainer.appendChild(exitButton);
+
+    // Modal for "No Openings Detected" message
+    const modal = document.createElement('div');
+    modal.id = 'noOpeningsModal';
+    modal.innerText = 'No Openings Detected';
+    modal.style.position = 'absolute';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.width = '300px';
+    modal.style.height = '60px';
+    modal.style.padding = '20px';
+    modal.style.paddingTop = '16px';
+    modal.style.paddingBottom = '20px';
+    modal.style.paddingLeft = '20px';
+    modal.style.paddingRight = '20px';
+    modal.style.backgroundColor = '#ffffff';
+    modal.style.border = '2px solid red';
+    modal.style.borderRadius = '6px';
+    modal.style.boxShadow = 'rgba(0, 0, 0, 0.05) -2px -2px 10px 0px, rgba(0, 0, 0, 0.05) 2px 2px 10px 0px';
+    modal.style.boxSizing = 'border-box';
+    modal.style.color = 'rgb(85, 85, 85)';
+    modal.style.fontFamily = 'Roboto, sans-serif';
+    modal.style.fontSize = '16px';
+    modal.style.fontWeight = '400';
+    modal.style.textAlign = 'center';
+    modal.style.lineHeight = '24px';
+    modal.style.overflowX = 'hidden';
+    modal.style.overflowY = 'hidden';
+    modal.style.pointerEvents = 'auto';
+    modal.style.unicodeBidi = 'isolate';
+    modal.style.textSizeAdjust = '100%';
+    modal.style.webkitTapHighlightColor = 'rgba(0, 0, 0, 0)';
+    modal.style.display = 'none';
+    overlayContainer.appendChild(modal);
 
     // Append the overlay canvas to the same parent as the renderCanvas
-    renderCanvas.parentNode.appendChild(overlayCanvas);
+    renderCanvas.parentNode.appendChild(overlayContainer);
 
     // Ensure it resizes correctly when the window is resized
-    window.addEventListener('resize', () => resizeOverlayCanvas(overlayCanvas, renderCanvas));
+    const onResizeOverlayContainer = () => resizeOverlayContainer(overlayContainer, overlayCanvas, renderCanvas);
+    window.addEventListener('resize', onResizeOverlayContainer);
 
-    return overlayCanvas;
+    return {
+        overlayContainer: overlayContainer,
+        overlayCanvas: overlayCanvas,
+        messageBox: messageBox,
+        buttonContainer: buttonContainer,
+        toggleButton: toggleButton,
+        forText: forText,
+        locationToggleButton: locationToggleButton,
+        exitButton: exitButton,
+        noOpeningsModal: modal        
+    };
 };
 
-function resizeOverlayCanvas(overlayCanvas, renderCanvas) {
-    // Ensure the internal canvas size matches the CSS size
-    renderCanvas.width = renderCanvas.clientWidth;
+function resizeOverlayContainer(overlayContainer, overlayCanvas, renderCanvas) {
+    renderCanvas.width = renderCanvas.clientWidth; // Ensure the internal canvas size matches the CSS size
     renderCanvas.height = renderCanvas.clientHeight;
 
-    overlayCanvas.style.top = renderCanvas.offsetTop + 'px';
-    overlayCanvas.style.left = renderCanvas.offsetLeft + 'px';
-    overlayCanvas.width = renderCanvas.width;
-    overlayCanvas.height = renderCanvas.height;
+    overlayContainer.style.top = renderCanvas.offsetTop + 'px';
+    overlayContainer.style.left = renderCanvas.offsetLeft + 'px';
+    overlayContainer.style.width = renderCanvas.offsetWidth + 'px';
+    overlayContainer.style.height = renderCanvas.offsetHeight + 'px';
+    overlayContainer.width = renderCanvas.width;
+    overlayContainer.height = renderCanvas.height;
+
+    overlayCanvas.width = renderCanvas.offsetWidth;
+    overlayCanvas.height = renderCanvas.offsetHeight;
 };
+
+function styleButton(button) {
+    const fontStyle = document.createElement('style');
+    fontStyle.innerText = `
+        @font-face {
+            font-family: 'Roboto';
+            font-weight: 500;
+            font-style: normal;
+            src: url('./fonts/Roboto-Medium.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Roboto';
+            font-weight: 400; /* Normal weight */
+            font-style: normal;
+            src: url('./fonts/Roboto-Regular.woff2') format('woff2');
+        }
+    `;
+    document.head.appendChild(fontStyle);
+
+    // Set button display and layout styles
+    button.style.display = 'flex';
+    button.style.alignItems = 'center';
+    button.style.justifyContent = 'center';
+    button.style.cursor = 'pointer';
+
+    // Set appearance and box model
+    button.style.appearance = 'button';
+    button.style.boxSizing = 'border-box';
+
+    // Set background properties
+    button.style.backgroundColor = 'rgb(243, 202, 62)';
+    button.style.backgroundImage = 'none';
+    button.style.backgroundClip = 'border-box';
+    button.style.backgroundOrigin = 'padding-box';
+    button.style.backgroundAttachment = 'scroll';
+    button.style.backgroundPosition = '0% 0%';
+    button.style.backgroundRepeat = 'repeat';
+    button.style.backgroundSize = 'auto';
+
+    // Set border properties
+    button.style.borderTopWidth = '1px';
+    button.style.borderTopStyle = 'solid';
+    button.style.borderTopColor = 'rgb(243, 202, 62)';
+    button.style.borderBottomWidth = '1px';
+    button.style.borderBottomStyle = 'solid';
+    button.style.borderBottomColor = 'rgb(243, 202, 62)';
+    button.style.borderLeftWidth = '1px';
+    button.style.borderLeftStyle = 'solid';
+    button.style.borderLeftColor = 'rgb(243, 202, 62)';
+    button.style.borderRightWidth = '1px';
+    button.style.borderRightStyle = 'solid';
+    button.style.borderRightColor = 'rgb(243, 202, 62)';
+    button.style.borderRadius = '100px';
+
+    // Set color and text properties
+    button.style.color = 'rgb(22, 65, 108)';
+    button.style.fontFamily = 'Roboto, sans-serif';
+    button.style.fontSize = '16px';
+    button.style.fontWeight = '500';
+    button.style.textTransform = 'capitalize';
+    button.style.textAlign = 'center';
+    button.style.textRendering = 'auto';
+    button.style.textShadow = 'none';
+    button.style.lineHeight = '24px';
+    button.style.letterSpacing = 'normal';
+    button.style.wordSpacing = '0px';
+    button.style.whiteSpace = 'nowrap';
+
+    // Set padding and margin
+    button.style.paddingTop = '7px';
+    button.style.paddingBottom = '7px';
+    button.style.paddingLeft = '14px';
+    button.style.paddingRight = '14px';
+    button.style.margin = '0px';
+
+    // Set size properties
+    button.style.width = 'calc((100% - 10px) / 7)';
+    button.style.minWidth = '175px';
+    button.style.height = 'auto';
+
+    // Additional font and layout-related properties for full compatibility
+    button.style.fontKerning = 'auto';
+    button.style.fontFeatureSettings = 'normal';
+    button.style.fontOpticalSizing = 'auto';
+    button.style.fontStretch = '100%';
+    button.style.fontVariantAlternates = 'normal';
+    button.style.fontVariantCaps = 'normal';
+    button.style.fontVariantEastAsian = 'normal';
+    button.style.fontVariantLigatures = 'normal';
+    button.style.fontVariantNumeric = 'normal';
+    button.style.fontVariantPosition = 'normal';
+    button.style.fontVariationSettings = 'normal';
+    button.style.fontSizeAdjust = 'none';
+    button.style.textSizeAdjust = '100%';
+    button.style.overflowX = 'visible';
+    button.style.overflowY = 'visible';
+
+    // Reset inherited user-agent styles that might differ
+    button.style.webkitTapHighlightColor = 'rgba(0, 0, 0, 0)';
+    button.style.textIndent = '0px';
+    button.style.textWrapMode = 'nowrap';
+    button.style.whiteSpaceCollapse = 'collapse';
+    button.style.direction = 'ltr';
+
+    button.addEventListener('mouseenter', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgb(245, 190, 9)';
+            toggleButton.style.borderColor = 'rgb(245, 190, 9)';
+        }        
+    });
+    
+    button.addEventListener('mouseleave', () => {
+        if (!button.disabled) {
+            button.style.backgroundColor = 'rgb(243, 202, 62)';
+            button.style.borderColor = 'rgb(243, 202, 62)';
+        }
+    });
+}
 
 function drawQuadsOnOverlay(quads) {
     const overlayCanvas = document.getElementById('overlayCanvas');
@@ -267,8 +628,7 @@ function drawQuadsOnOverlay(quads) {
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
 
-    // Draw each detected quad
-    quads.forEach(quad => {
+    quads.forEach(quad => { // Draw each detected quad
         ctx.beginPath();
         ctx.moveTo(quad[0], quad[1]);
         ctx.lineTo(quad[2], quad[3]);
@@ -286,17 +646,14 @@ function detectClickedQuad(event, quads) {
     const x = event.offsetX;
     const y = event.offsetY;
 
-    // Array to store all quads that contain the clicked point
     let clickedQuads = [];
 
-    // Loop through each quad and check if the click is inside the quad's area
     for (let quad of quads) {
         if (isPointInQuad(x, y, quad)) {
-            clickedQuads.push(quad);  // Add the quad to the array if the point is inside
+            clickedQuads.push(quad);
         }
     }
 
-    // If no quads were clicked, return null
     if (clickedQuads.length === 0) {
         return null;
     }
@@ -330,8 +687,7 @@ function getSmallestQuad(quads) {
 function calculateQuadArea(quad) {
     const [x1, y1, x2, y2, x3, y3, x4, y4] = quad;
 
-    // Shoelace formula to calculate the area of a quadrilateral
-    return Math.abs(
+    return Math.abs( // Shoelace formula to calculate the area of a quadrilateral
         (x1 * y2 + x2 * y3 + x3 * y4 + x4 * y1) -
         (y1 * x2 + y2 * x3 + y3 * x4 + y4 * x1)
     ) / 2;
@@ -353,7 +709,7 @@ function isPointInQuad(px, py, quad) {
         const xi = polygon[i].x, yi = polygon[i].y;
         const xj = polygon[j].x, yj = polygon[j].y;
 
-        //console.log("index: ", i, "isInside currently: ", isInside, "Between Ys: ", (yi > py) !== (yj > py), "Less than the X intersect: ", px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        //console.log("index: ", i, " (px,py): ", px,",", py, " (xi,yi): ", xi, ",", yi, " (xj,yj): ", xj, ",", yj,"isInside currently: ", isInside, "Between Ys: ", (yi > py) !== (yj > py), "Less than the X intersect: ", px < (xj - xi) * (py - yi) / (yj - yi) + xi);
         const intersect = ((yi > py) !== (yj > py)) &&
             (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
         if (intersect) isInside = !isInside;
