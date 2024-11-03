@@ -503,7 +503,10 @@ function findQuadFromCoordinates(userCoordinates, AIcoords) {
     let filteredLines = allLines.filter((line) => doesLineIntersectTwoBoxes(line, clickPoints));
     
     // process the bottom 2 boxes
-    filteredLines.push(processBottomBoxes(bottomBoxes));
+    let extraLine = processBottomBoxes(bottomBoxes)
+    if (extraLine != null) {
+        filteredLines.push(processBottomBoxes(bottomBoxes));
+    }
 
     // Detect intersections between filtered lines
     let intersections = findLineIntersections(filteredLines, clickPoints);
@@ -720,7 +723,11 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
         UIelements.toggleButton.style.display = 'flex'
         UIelements.forText.style.display = 'block'
         UIelements.toggleButton.innerText = 'AI Detection'
-        styleButton(UIelements.locationToggleButton);
+        UIelements.locationToggleButton.disabled = false;
+        UIelements.locationToggleButton.style.backgroundColor = 'rgb(243, 202, 62)';
+        UIelements.locationToggleButton.style.color = 'rgb(22, 65, 108)';
+        UIelements.locationToggleButton.style.borderColor = 'rgb(243, 202, 62)';
+        UIelements.locationToggleButton.style.cursor = 'pointer';
         UIelements.messageBox.innerText = "Didn't find the opening you are looking for? Try";
     }
 
@@ -789,7 +796,7 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
                         scaleAndDrawQuads(activeQuads, renderCanvas, image);
                         hideLoadingSpinner(UIelements.toggleButton);
                         UIelements.forText.style.display = 'none';
-                        UIelements.locationToggleButton.style.display = 'none';
+                        UIelements.locationToggleButton.style.display = 'flex';
                         if (AInothingDetectedPatio) {
                             UIelements.noOpeningsModal.style.display = 'block';
                         } else {
@@ -824,6 +831,8 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
     // Location toggle stuff
     if(detectWindow){
         UIelements.locationToggleButton.innerText = 'Window';
+    } else {
+        UIelements.locationToggleButton.innerText = 'Patio'
     }
 
     const onLocationToggleClick = () => {
