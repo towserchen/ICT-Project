@@ -278,10 +278,9 @@ function getOutermostIntersections(intersections, topBoxes, bottomBoxes) {
 
 
 /**
- * Detect openings of an image based on user input
- * 
- * @param {userCoordinates} userCoordinates should be an array of form [x1, y1, x2, y2, x3, y3, x4, y4]
- * @return {Array} an array of form [x1, y1, x2, y2, x3, y3, x4, y4] representing the corner coordinates of a detected quad
+ * Detect openings of an image based on user input. `autoDetectBlindOpening` must be called before this function is called.
+ *
+ * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
  */
 export async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily assumed that AutoDetect has been run before this. Will not work atm if it hasn't
     if (globalAIpatio !== null && globalAIpatio.length === 0) {
@@ -435,7 +434,7 @@ export async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // he
                     resetButton.removeEventListener('click', reset);
                     window.removeEventListener('resize', handleResize);
                     overlayCanvas.removeEventListener('click', handleClick);
-                    resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
+                    resolve(quad);  // Return the clicked quad
                 }
             }
         };
@@ -918,7 +917,8 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
                 window.removeEventListener('resize', onResizeScaleAndDrawQuads);
                 UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
                 UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
-                resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
+                clickedQuad = unscaleCoordinates(image.width, image.height, renderCanvas, clickedQuad);
+                resolve(clickedQuad);  // Return the clicked quad
             }
         };
 
@@ -1008,6 +1008,7 @@ function createUIElements(renderCanvas) {
     const toggleButton = document.createElement('button');
     toggleButton.id = 'toggleButton';
     toggleButton.innerText = 'AI detection';
+    toggleButton.class="mc-overview-button"
     styleButton(toggleButton);
     buttonContainer.appendChild(toggleButton);
 
@@ -1028,6 +1029,7 @@ function createUIElements(renderCanvas) {
     locationToggleButton.id = 'locationToggleButton'
     locationToggleButton.innerText = 'Patio';
     locationToggleButton.value = 0;
+    locationToggleButton.class="mc-overview-button"
     styleButton(locationToggleButton);
     buttonContainer.appendChild(locationToggleButton);
     
@@ -1053,6 +1055,7 @@ function createUIElements(renderCanvas) {
 
     // Modal for "No Openings Detected" message
     const modal = document.createElement('div');
+    modal.class="mc-modal__quiz"
     modal.id = 'noOpeningsModal';
     modal.innerText = 'No Openings Detected';
     modal.style.position = 'absolute';
