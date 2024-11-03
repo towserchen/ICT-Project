@@ -67,12 +67,12 @@
           </div>-->
 
           <div class="inputoutput">
-              <div class="caption">Output Canvas</div>
+              <div class="caption">OpenCV Detection</div>
               <canvas ref="outputCanvas"></canvas>
           </div>
 
           <div class="inputoutput">
-              <div class="caption">AI Output Canvas</div>
+              <div class="caption">AI Detection</div>
               <div>
                 <p v-if="isDetecting">Detecing...</p>
                 <canvas ref="AIOutputCanvas"></canvas>
@@ -182,7 +182,7 @@ const samplePhotoList = [
   'sample/1.jpg',
   'sample/2.jpg',
   'sample/3.jpg',
-  'sample/4.jpg',
+  'sample/11.jpg',
   'sample/5.jpg',
   'sample/13.jpg',
   'sample/14.jpg',
@@ -194,12 +194,14 @@ const isWindowDetectedOptions = [1, 1, 1, 1, 0, 0, 0, 0];
 
 const detectByAI = async (imageURL) => {
   isDetecting.value = true;
+  
+  const tabIndex = tabActive.value - 1;
 
   const response = await fetch(imageURL);
   const blob = await response.blob();
   const fileUpload = new File([blob], 'userImage.jpg', { type: blob.type });
 
-  const coordinate = await autoDetectBlindOpeningsByAI(fileUpload, 1, 0);
+  const coordinate = await autoDetectBlindOpeningsByAI(fileUpload, isWindowDetectedOptions[tabIndex], 0);
   let result = coordinate.map(innerArray => innerArray.flat());
 
   isDetecting.value = false;
