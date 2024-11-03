@@ -909,7 +909,7 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
                 scaledQuads.push(scaledQuad);
             }
 
-            const clickedQuad = detectClickedQuad(event, scaledQuads);
+            let clickedQuad = detectClickedQuad(event, scaledQuads);
             if (clickedQuad) {
                 UIelements.overlayContainer.style.display = 'none';
                 UIelements.overlayCanvas.removeEventListener('click', onCanvasClick);  // Clean up event listener

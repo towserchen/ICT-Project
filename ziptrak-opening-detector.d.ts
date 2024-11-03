@@ -19,7 +19,7 @@ declare module 'ziptrak-opening-detector' {
      * @param {String} canvas - The ID of the main render canvas. Optional, Default 'renderCanvas'
      * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
      */
-    export function autoDetectBlindOpenings(imageURL: String, detectWindow?: String, canvas?: String): Promise<Array<number>>;
+    export function autoDetectBlindOpenings(imageURL: String, detectWindow?: Boolean, canvas?: String): Promise<Array<number>>;
   
     /**
      * Detect openings of an image based on user input. `autoDetectBlindOpening` must be called before this function is called.
