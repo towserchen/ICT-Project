@@ -4,7 +4,7 @@ import axios from '/node_modules/axios/index.js';
 window.onload = function() {
     cv['onRuntimeInitialized'] = () => {
         // Load the image from a URL
-        let imageUrl = '/sample/2.jpg';  // Set image URL for test
+        let imageUrl = '/sample/5.jpg';  // Set image URL for test
         const renderCanvas = document.getElementById('renderCanvas')
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
         console.log(autoDetectBlindOpenings(imageUrl, true)); // change true or false for detection or window or detection on patio. Can change the target canvas too
@@ -124,55 +124,86 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     const image = await imageFromURL(imageURL); // construct image for opencv detection
 
     console.log("File: ", file);
-
-    let detectWindowValue = 0; // default patio detection
-
-    if(detectWindow){
-        detectWindowValue = 1; // set window detection
-    }
     
-    let AIquads = [];
-    let runWithDetectWin; // Stores last run AI detection setting
-    let running = false; // Currently running AI detection
-    let AInothingDetected = false;
-    autoDetectQuadsAI(); // Pre-emptively start AI. Might change
-    function autoDetectQuadsAI() {
-        if (running) { // Stops mutiple detections happening at once
-            return;
-        } else {
-            running = true;
-        }
+    let AIquadsWindow = [];
+    let AIquadsPatio = [];
+    let runningWindow = false; // Currently running AI detection
+    let runningPatio = false;
+    let AInothingDetectedWindow = false;
+    let AInothingDetectedPatio = false;
 
-        runWithDetectWin = detectWindowValue;
+    autoDetectQuadsAI(1);
+    autoDetectQuadsAI(0);
+    function autoDetectQuadsAI(detectWindowValue) {
+        if (detectWindowValue === 1) {
+            runningWindow = true;
+        } else {
+            runningPatio = true;
+        }
 
         autoDetectBlindOpeningsByAI(file, detectWindowValue, 0)
         .then(AIcoordinates => {
-            console.log("AI coordinates:", AIcoordinates);
-            if (AIcoordinates) {
-                let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
-                console.log("Flat coords: ", flattenedAIcoords);
-                AIquads = flattenedAIcoords;
-                if (AIquads.length === 0) {
-                    AInothingDetected = true;
-                }
-                else {
-                    AInothingDetected = false;
-                }
-                
-                if (UIelements.toggleButton.innerText === 'Detecting...') { // for if they click the AI detect button before detection is finshed the first time
-                    activeQuads = AIquads
-                    scaleAndDrawQuads(activeQuads, renderCanvas, image);
-                    hideLoadingSpinner(UIelements.toggleButton);
-                    UIelements.forText.style.display = 'none';
-                    UIelements.locationToggleButton.style.display = 'none';
-                    if (AInothingDetected) {
-                        UIelements.noOpeningsModal.style.display = 'block';
-                    }                    
+            if (detectWindowValue === 1) {
+                console.log("AI coordinates for window:", AIcoordinates);
+                if (AIcoordinates) {
+                    let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+                    console.log("Flat coords for window: ", flattenedAIcoords);
+                    AIquadsWindow = flattenedAIcoords;
+                    if (AIquadsWindow.length === 0) {
+                        AInothingDetectedWindow = true;
+                    }
+                    else {
+                        AInothingDetectedWindow = false;
+                    }
+                    
+                    if (UIelements.toggleButton.innerText === 'Detecting...' && detectWindow) { // for if they click the AI detect button before detection is finshed the first time
+                        activeQuads = AIquadsWindow
+                        scaleAndDrawQuads(activeQuads, renderCanvas, image);
+                        hideLoadingSpinner(UIelements.toggleButton);
+                        UIelements.forText.style.display = 'none';
+                        UIelements.locationToggleButton.style.display = 'none';
+                        if (AInothingDetectedWindow) {
+                            UIelements.noOpeningsModal.style.display = 'block';
+                        } else {
+                            UIelements.noOpeningsModal.style.display = 'none';
+                        }                    
+                    }
+    
+                    runningWindow = false;
+                } else {
+                    console.warn("No coordinates received or an error occurred");
                 }
 
-                running = false;
             } else {
-                console.warn("No coordinates received or an error occurred");
+                console.log("AI coordinates for patio:", AIcoordinates);
+                if (AIcoordinates) {
+                    let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+                    console.log("Flat coords for patio: ", flattenedAIcoords);
+                    AIquadsPatio = flattenedAIcoords;
+                    if (AIquadsPatio.length === 0) {
+                        AInothingDetectedPatio = true;
+                    }
+                    else {
+                        AInothingDetectedPatio = false;
+                    }
+                    
+                    if (UIelements.toggleButton.innerText === 'Detecting...' && !detectWindow) { // for if they click the AI detect button before detection is finshed the first time
+                        activeQuads = AIquadsPatio
+                        scaleAndDrawQuads(activeQuads, renderCanvas, image);
+                        hideLoadingSpinner(UIelements.toggleButton);
+                        UIelements.forText.style.display = 'none';
+                        UIelements.locationToggleButton.style.display = 'none';
+                        if (AInothingDetectedPatio) {
+                            UIelements.noOpeningsModal.style.display = 'block';
+                        } else {
+                            UIelements.noOpeningsModal.style.display = 'none';
+                        }                    
+                    }
+    
+                    runningPatio = false;
+                } else {
+                    console.warn("No coordinates received or an error occurred");
+                }
             }
         })
         .catch(error => {
@@ -210,10 +241,10 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
 
     const onLocationToggleClick = () => {
         if (UIelements.locationToggleButton.innerText === 'Window') {
-            detectWindowValue = 0;
+            detectWindow = false;
             UIelements.locationToggleButton.innerText = 'Patio'
         } else {
-            detectWindowValue = 1;
+            detectWindow = true;
             UIelements.locationToggleButton.innerText = 'Window'
         }
     };
@@ -222,36 +253,39 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     // Detection method toggle stuff
     const onToggleButtonClick = () => {
         UIelements.overlayCanvas.getContext('2d').clearRect(0, 0, UIelements.overlayCanvas.width, UIelements.overlayCanvas.height);
-        if (runWithDetectWin !== detectWindowValue) {
-            AIquads = [];
-            AInothingDetected = false;
-            console.log("running: ", running);
-            autoDetectQuadsAI();
-        }
 
-        if ((AIquads.length > 0 || AInothingDetected) && UIelements.toggleButton.innerText === 'AI Detection') { // Case for if the AI has completed and switch TO AI from std. Also if AI has complete but nothing is detected
-            activeQuads = AIquads
-            scaleAndDrawQuads(activeQuads, renderCanvas, image);
+        if (((detectWindow && AIquadsWindow.length > 0) || (detectWindow && AInothingDetectedWindow))  && UIelements.toggleButton.innerText === 'AI Detection') { // Case for if the AI for window has completed and switch TO AI from std. Also if AI for window has complete but nothing is detected
+            activeQuads = AIquadsWindow
             UIelements.toggleButton.innerText = 'Standard Detection';
             UIelements.forText.style.display = 'none';
             UIelements.locationToggleButton.style.display = 'none';
-            if (AInothingDetected) {
+            if (AInothingDetectedWindow) {
                 UIelements.noOpeningsModal.style.display = 'block';
             } else {
                 UIelements.noOpeningsModal.style.display = 'none';
             }
-        } else if (AIquads.length === 0 && !AInothingDetected && (UIelements.toggleButton.innerText === 'AI Detection' || UIelements.toggleButton.innerText === 'Detecting...')) { // Case for if the AI hasn't completed and switch from std to AI
+        } else if (((!detectWindow && AIquadsPatio.length > 0) || (!detectWindow && AInothingDetectedPatio))  && UIelements.toggleButton.innerText === 'AI Detection') { // // Case for if the AI for patio has completed and switch TO AI from std. Also if AI for patio has complete but nothing is detected
+            activeQuads = AIquadsPatio
+            UIelements.toggleButton.innerText = 'Standard Detection';
+            UIelements.forText.style.display = 'none';
+            UIelements.locationToggleButton.style.display = 'none';
+            if (AInothingDetectedPatio) {
+                UIelements.noOpeningsModal.style.display = 'block';
+            } else {
+                UIelements.noOpeningsModal.style.display = 'none';
+            }
+        } else if ( ((detectWindow && runningWindow) || (!detectWindow && runningPatio)) && (UIelements.toggleButton.innerText === 'AI Detection' || UIelements.toggleButton.innerText === 'Detecting...')) { // Case for if the AI hasn't completed and switch from std to AI
             showLoadingSpinner(UIelements.toggleButton);
             UIelements.locationToggleButton.disabled = true;
             UIelements.locationToggleButton.style.backgroundColor = '#d3d3d3';
             UIelements.locationToggleButton.style.color = '#7d7d7d';
             UIelements.locationToggleButton.style.borderColor = '#d3d3d3';
             UIelements.locationToggleButton.style.cursor = 'not-allowed';
-            scaleAndDrawQuads(activeQuads, renderCanvas, image);
         } else { // Case for if AI has completed and switching TO std from AI
             activeQuads = stdQuads;
-            scaleAndDrawQuads(activeQuads, renderCanvas, image);
-            if (!stdNothingDetected) {
+            if (stdNothingDetected) {
+                UIelements.noOpeningsModal.style.display = 'block';
+            } else {
                 UIelements.noOpeningsModal.style.display = 'none';
             }
             UIelements.toggleButton.innerText = 'AI Detection';
@@ -263,6 +297,8 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
             UIelements.forText.style.display = 'block';
             UIelements.locationToggleButton.style.display = 'block';
         }
+
+        scaleAndDrawQuads(activeQuads, renderCanvas, image);
     };
     UIelements.toggleButton.addEventListener('click', onToggleButtonClick);
 
@@ -295,7 +331,7 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
                 UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
                 UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
                 //window.removeEventListener('resize', onResizeOverlayContainer);
-                resolve(clickedQuad);  // Return the clicked quad
+                resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
             }
         };
 
@@ -405,11 +441,6 @@ function createUIElements(renderCanvas) {
     locationToggleButton.innerText = 'Patio';
     locationToggleButton.value = 0;
     styleButton(locationToggleButton);
-    locationToggleButton.disabled = true;
-    locationToggleButton.style.backgroundColor = '#d3d3d3';
-    locationToggleButton.style.color = '#7d7d7d';
-    locationToggleButton.style.borderColor = '#d3d3d3';
-    locationToggleButton.style.cursor = 'not-allowed';
     buttonContainer.appendChild(locationToggleButton);
     
     overlayContainer.appendChild(buttonContainer);
