@@ -2,18 +2,23 @@ import axios from '/node_modules/axios/index.js';
 
 // Call the function after OpenCV is ready
 window.onload = function() {
-    cv['onRuntimeInitialized'] = () => {
+    cv['onRuntimeInitialized'] = async () => {
         // Load the image from a URL
         let imageUrl = '/sample/5.jpg';  // Set image URL for test
         const renderCanvas = document.getElementById('renderCanvas')
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        console.log(autoDetectBlindOpenings(imageUrl, true)); // change true or false for detection or window or detection on patio. Can change the target canvas too
+        let result = await autoDetectBlindOpenings(imageUrl, true);
+        console.log(result); // change true or false for detection or window or detection on patio. Can change the target canvas too
+        console.log(manualDetectBlindOpenings());
     };
 };
 
 // EVERYTHING ABOVE IS FOR TESTING ONLY
 
 let src = undefined;
+let globalAIpatio = [];
+let image = null;
+let file = null;
 
 function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords) {
     const canvasWidth = canvas.clientWidth;
@@ -47,7 +52,42 @@ function scaleCoordinates(originalWidth, originalHeight, canvas, originalCoords)
     }
 
     return scaledCoords;
-}
+};
+
+function unscaleCoordinates(originalWidth, originalHeight, canvas, canvasCoords) {
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    
+    const canvasAspectRatio = canvasWidth / canvasHeight;
+    const imageAspectRatio = originalWidth / originalHeight;
+
+    let scaleX, scaleY, offsetX = 0, offsetY = 0;
+
+    if (imageAspectRatio > canvasAspectRatio) { // Image is wider than the canvas
+        scaleX = canvasWidth / originalWidth;
+        scaleY = scaleX;
+        offsetY = (canvasHeight - (originalHeight * scaleY)) / 2;
+    } else { // Image is taller than the canvas
+        scaleY = canvasHeight / originalHeight;
+        scaleX = scaleY;
+        offsetX = (canvasWidth - (originalWidth * scaleX)) / 2;
+    }
+
+    const unscaledCoords = [];
+
+    for (let i = 0; i < canvasCoords.length; i += 2) {
+        const x = canvasCoords[i];
+        const y = canvasCoords[i + 1];
+
+        // Reverse the scaling and offset to get the original image coordinates
+        const unscaledX = (x - offsetX) / scaleX;
+        const unscaledY = (y - offsetY) / scaleY;
+
+        unscaledCoords.push(unscaledX, unscaledY);
+    }
+
+    return unscaledCoords;
+};
 
 let apiUrl = 'https://ziptrak.ddos.la/detect';
 
@@ -120,8 +160,8 @@ async function imageFromURL(url) {
 async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 'renderCanvas') {
     const response = await fetch(imageURL);
     const blob = await response.blob();
-    const file = new File([blob], 'userImage.jpg', { type: blob.type }); // construct file for AI detection
-    const image = await imageFromURL(imageURL); // construct image for opencv detection
+    file = new File([blob], 'userImage.jpg', { type: blob.type }); // construct file for AI detection
+    image = await imageFromURL(imageURL); // construct image for opencv detection
 
     console.log("File: ", file);
     
@@ -182,9 +222,11 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
                     AIquadsPatio = flattenedAIcoords;
                     if (AIquadsPatio.length === 0) {
                         AInothingDetectedPatio = true;
+                        globalAIpatio = null;
                     }
                     else {
                         AInothingDetectedPatio = false;
+                        globalAIpatio = flattenedAIcoords;
                     }
                     
                     if (UIelements.toggleButton.innerText === 'Detecting...' && !detectWindow) { // for if they click the AI detect button before detection is finshed the first time
@@ -218,6 +260,10 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     let UIelements = {};
     if (!overlayContainer) {
         UIelements = createUIElements(renderCanvas);
+    } else {
+        locationToggleButton.style.display = 'block'
+        toggleButton.style.display = 'block'
+        forText.style.display = 'block'
     }
 
     let stdNothingDetected = false;
@@ -312,7 +358,6 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
             window.removeEventListener('resize', onResizeScaleAndDrawQuads);
             UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
             UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
-            //window.removeEventListener('resize', onResizeOverlayContainer);
             UIelements.overlayContainer.style.display = 'none';
             resolve([]);
         }
@@ -327,10 +372,10 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
             if (clickedQuad) {
                 UIelements.overlayContainer.style.display = 'none';
                 UIelements.overlayCanvas.removeEventListener('click', onCanvasClick);  // Clean up event listener
+                UIelements.exitButton.removeEventListener('click', onExitClick);
                 window.removeEventListener('resize', onResizeScaleAndDrawQuads);
                 UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
                 UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
-                //window.removeEventListener('resize', onResizeOverlayContainer);
                 resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
             }
         };
@@ -410,6 +455,7 @@ function createUIElements(renderCanvas) {
 
     // Create a container for the toggle buttons and the "for:" text
     const buttonContainer = document.createElement('div');
+    buttonContainer.id = 'buttonContainer';
     buttonContainer.style.display = 'flex';
     buttonContainer.style.alignItems = 'center';
     buttonContainer.style.position = 'relative';
@@ -658,6 +704,8 @@ function drawQuadsOnOverlay(quads) {
 
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
+
+    console.log("quads to draw: ", quads);
 
     quads.forEach(quad => { // Draw each detected quad
         ctx.beginPath();
@@ -1143,8 +1191,170 @@ function autoDetectQuads(image) {
     return coordinates;
 };
 
-function manualDetectBlindOpenings(userCoordinates) {
-    // userCoordinates should be an array of form [x1, y1, x2, y2, x3, y3, x4, y4]
+async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily assumed that AutoDetect has been run before this. Will not work atm if it hasn't
+    if (globalAIpatio !== null && globalAIpatio.length === 0) {
+        let AIcoordinates = await autoDetectBlindOpeningsByAI(file, 0, 0)
+        let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+        globalAIpatio = flattenedAIcoords;
+    }
+
+    let overlayContainer = document.getElementById('overlayContainer');
+    let overlayCanvas = document.getElementById('overlayCanvas');
+    let buttonContainer = document.getElementById('buttonContainer');
+    let toggleButton = document.getElementById('toggleButton');
+    let locationToggleButton = document.getElementById('locationToggleButton');
+    let forText = document.getElementById('forText');
+    let messageBox = document.getElementById('messageBox');
+    let exitButton = document.getElementById('exitButton');
+    const renderCanvas = document.getElementById(canvas); // Get the renderCanvas
+
+    const ctx = overlayCanvas.getContext('2d'); // need here or later !!!!
+    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    toggleButton.style.display = 'none';
+    locationToggleButton.style.display = 'none';
+    forText.style.display = 'none';
+    messageBox.innerText = "Select the four corner of the opening you want";
+
+    let resetButton = document.getElementById('resetButton')
+    if (!resetButton) {
+        resetButton = document.createElement('button');
+        resetButton.id = 'resetButton';
+        resetButton.innerText = 'reset';
+        styleButton(resetButton);
+        buttonContainer.appendChild(resetButton);
+    } else {
+        resetButton.style.display = 'block'
+    }
+
+    // Make the overlay visible
+    overlayContainer.style.display = 'block';
+    
+    let userCoordinates = []; // Array to store the coordinates
+    let unscaleUserCoordinates = [];
+    let quad = [];
+
+    function handleClick(event) {
+        // Calculate the scale based on the canvas dimensions and the original image dimensions
+        const canvasWidth = overlayCanvas.clientWidth;
+        const canvasHeight = overlayCanvas.clientHeight;
+        const scale = Math.min(canvasWidth / image.width, canvasHeight / image.height);
+        const scaledDiameter = 50 * scale; // Scaled diameter for the circle
+
+
+        // Get the click coordinates relative to the canvas
+        const rect = overlayCanvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        // Append the coordinates to the array
+        userCoordinates.push(x);
+        userCoordinates.push(y);
+        console.log(`Click ${userCoordinates.length}: (${x}, ${y})`);
+
+        unscaleUserCoordinates = unscaleCoordinates(image.width, image.height, renderCanvas, userCoordinates);
+
+        // Draw a translucent circle at the click location
+        ctx.beginPath();
+        ctx.arc(x, y, scaledDiameter / 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Blue with 30% opacity
+        ctx.fill();
+        ctx.closePath();
+
+        // Check if we have collected four coordinates
+        if (userCoordinates.length === 8) {
+            console.log('Collected four coordinates:', userCoordinates);
+            // Remove the event listener after four clicks
+            overlayCanvas.removeEventListener('click', handleClick);
+            userCoordinates = unscaleCoordinates(image.width, image.height, overlayCanvas, userCoordinates);
+            console.log('unscaled coordinates:', userCoordinates);
+            quad = findQuadFromCoordinates(userCoordinates, globalAIpatio);
+            console.log('returned quad: ', quad);
+            let scaledQuad = scaleCoordinates(image.width, image.height, overlayCanvas, quad);
+            console.log('rescaled quad: ', scaledQuad);
+            drawQuadsOnOverlay([scaledQuad]); // janky
+        }
+    }
+    overlayCanvas.addEventListener('click', handleClick);
+
+    // Function to scale coordinates and redraw
+    function handleResize() {
+        // Clear the canvas
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        // Calculate the scale based on the new canvas dimensions
+        const canvasWidth = overlayCanvas.clientWidth;
+        const canvasHeight = overlayCanvas.clientHeight;
+        const scale = Math.min(canvasWidth / image.width, canvasHeight / image.height);
+        const scaledDiameter = 50 * scale; // Scaled diameter for the circle
+
+        // Scale userCoordinates
+        userCoordinates = scaleCoordinates(image.width, image.height, renderCanvas, unscaleUserCoordinates);
+
+        if (userCoordinates.length < 8) {
+            // Redraw circles if userCoordinates has fewer than 8 points
+            for (let i = 0; i < userCoordinates.length; i += 2) {
+                const x = userCoordinates[i];
+                const y = userCoordinates[i + 1];
+                ctx.beginPath();
+                ctx.arc(x, y, scaledDiameter / 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Translucent blue
+                ctx.fill();
+                ctx.closePath();
+            };
+        } else if (userCoordinates.length === 8) {
+            let scaledQuad = scaleCoordinates(image.width, image.height, overlayCanvas, quad);
+            drawQuadsOnOverlay([scaledQuad]); // janky
+        }
+    }
+    window.addEventListener('resize', handleResize);
+
+    function reset() {
+        userCoordinates = [];
+        quad = [];
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayCanvas.removeEventListener('click', handleClick); // use in case
+        overlayCanvas.addEventListener('click', handleClick);
+    }
+    resetButton.addEventListener('click', reset);
+
+    // Make the overlay visible
+    overlayContainer.style.display = 'block';
+
+    return new Promise((resolve) => {
+        const onExitClick = () => {
+            exitButton.removeEventListener('click', onExitClick);
+            overlayCanvas.removeEventListener('click', onCanvasClick);
+            resetButton.removeEventListener('click', reset);
+            window.removeEventListener('resize', handleResize);
+            overlayCanvas.removeEventListener('click', handleClick);
+            resetButton.style.display = 'none'
+            overlayContainer.style.display = 'none';
+            resolve([]);
+        }
+        const onCanvasClick = (event) => {
+            if (quad.length > 0) {
+                let scaledQuad = scaleCoordinates(image.width, image.height, renderCanvas, quad);
+                const clickedQuad = detectClickedQuad(event, [scaledQuad]);
+                if (clickedQuad) {
+                    resetButton.style.display = 'none'
+                    overlayContainer.style.display = 'none';
+                    overlayCanvas.removeEventListener('click', onCanvasClick);  // Clean up event listener
+                    exitButton.removeEventListener('click', onExitClick);
+                    resetButton.removeEventListener('click', reset);
+                    window.removeEventListener('resize', handleResize);
+                    overlayCanvas.removeEventListener('click', handleClick);
+                    resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
+                }
+            }
+        };
+
+        exitButton.addEventListener('click', onExitClick);
+        overlayCanvas.addEventListener('click', onCanvasClick);
+    });
+}
+
+function findQuadFromCoordinates(userCoordinates, AIcoords) {
     let clickPoints = []; // Store coordinates of the 4 boxes
   
     // Parse user input to create boxes based on coordinates
@@ -1216,8 +1426,9 @@ function manualDetectBlindOpenings(userCoordinates) {
     result.push(
       outermostIntersections.topLeft.x, outermostIntersections.topLeft.y,
       outermostIntersections.topRight.x, outermostIntersections.topRight.y,
-      outermostIntersections.bottomLeft.x, outermostIntersections.bottomLeft.y,
-      outermostIntersections.bottomRight.x, outermostIntersections.bottomRight.y
+      outermostIntersections.bottomRight.x, outermostIntersections.bottomRight.y,
+      outermostIntersections.bottomLeft.x, outermostIntersections.bottomLeft.y
+      
     );
   
     // Clean up
@@ -1401,12 +1612,20 @@ function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
 // Function to find intersections between lines
 function findLineIntersections(lines, boxes) {
     let intersections = [];
-    for (let i = 0; i < lines.length - 1; i++) {
-        for (let j = i + 1; j < lines.length; j++) {
-            let intersection = getLineIntersection(lines[i], lines[j]);
-            if (intersection && boxes.some((box) => isPointInBox(intersection, box))) {
-            intersections.push(intersection);
+    for (let box of boxes) {
+        let intersect = false
+        for (let i = 0; i < lines.length - 1; i++) {
+            for (let j = i + 1; j < lines.length; j++) {
+                let intersection = getLineIntersection(lines[i], lines[j]);
+                if (intersection && isPointInBox(intersection, box)) {
+                    intersections.push(intersection);
+                    intersect = true;
+                }
             }
+        }
+
+        if (!intersect) {
+            intersections.push(box.center);
         }
     }
     return intersections;
