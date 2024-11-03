@@ -1,5 +1,3 @@
-import axios from '/node_modules/axios/index.js';
-
 // Call the function after OpenCV is ready
 window.onload = function() {
     cv['onRuntimeInitialized'] = async () => {
@@ -409,7 +407,7 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
 function showLoadingSpinner(button) {
     button.innerText = 'Detecting...';
     const spinner = document.createElement('img');
-    spinner.src = './Spinner.svg';
+    spinner.src = './assets/Spinner.svg';
     spinner.style.width = '25px';
     spinner.style.height = '25px';
     spinner.style.marginLeft = '10px';
@@ -523,7 +521,7 @@ function createUIElements(renderCanvas) {
     exitButton.style.border = 'none';
     exitButton.style.background = 'transparent';
     exitButton.style.cursor = 'pointer';
-    exitButton.style.backgroundImage = 'url("./Exit.svg")';
+    exitButton.style.backgroundImage = 'url("./assets/Exit.svg")';
     exitButton.style.backgroundSize = 'contain';
     exitButton.style.backgroundRepeat = 'no-repeat';
     exitButton.style.backgroundPosition = 'center';
