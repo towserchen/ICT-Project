@@ -930,7 +930,7 @@ export async function autoDetectBlindOpenings(imageURL, detectWindow = false, ca
 function showLoadingSpinner(button) {
     button.innerText = 'Detecting...';
     const spinner = document.createElement('img');
-    spinner.src = './assets/Spinner.svg';
+    spinner.src = './spinner.svg';
     spinner.style.width = '25px';
     spinner.style.height = '25px';
     spinner.style.marginLeft = '10px';
@@ -1046,7 +1046,7 @@ function createUIElements(renderCanvas) {
     exitButton.style.border = 'none';
     exitButton.style.background = 'transparent';
     exitButton.style.cursor = 'pointer';
-    exitButton.style.backgroundImage = 'url("./assets/Exit.svg")';
+    exitButton.style.backgroundImage = 'url("./icon-close.svg")';
     exitButton.style.backgroundSize = 'contain';
     exitButton.style.backgroundRepeat = 'no-repeat';
     exitButton.style.backgroundPosition = 'center';
@@ -1131,13 +1131,13 @@ function styleButton(button) {
             font-family: 'Roboto';
             font-weight: 500;
             font-style: normal;
-            src: url('./assets/fonts/Roboto-Medium.woff2') format('woff2');
+            src: url('./Roboto-Medium.woff2') format('woff2');
         }
         @font-face {
             font-family: 'Roboto';
             font-weight: 400; /* Normal weight */
             font-style: normal;
-            src: url('./assets/fonts/Roboto-Regular.woff2') format('woff2');
+            src: url('./Roboto-Regular.woff2') format('woff2');
         }
     `;
     document.head.appendChild(fontStyle);
