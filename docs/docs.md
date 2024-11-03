@@ -20,7 +20,7 @@ The package can be installed with either of the following commands:
 ```bash
 npm install ziptrak-opening-detector
 ```
-latest version 1.2.4
+latest version 1.2.5
 
 The module can then be imported with:
 ```javascript
