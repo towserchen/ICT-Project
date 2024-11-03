@@ -7,8 +7,14 @@ window.onload = function() {
         let imageUrl = '/sample/5.jpg';  // Set image URL for test
         const renderCanvas = document.getElementById('renderCanvas')
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        let result = await autoDetectBlindOpenings(imageUrl, true);
-        console.log(result); // change true or false for detection or window or detection on patio. Can change the target canvas too
+        let result = await autoDetectBlindOpenings(imageUrl, false); // change true or false for detection or window or detection on patio. Can change the target canvas too
+        console.log(result); 
+        console.log(await manualDetectBlindOpenings());
+
+        imageUrl = '/sample/1.jpg';
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl, true);
+        console.log(result);
         console.log(manualDetectBlindOpenings());
     };
 };
@@ -164,7 +170,35 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     image = await imageFromURL(imageURL); // construct image for opencv detection
 
     console.log("File: ", file);
+
+    let overlayContainer = document.getElementById('overlayContainer'); // Get the overlay container if it exists
+    const renderCanvas = document.getElementById(canvas); // Get the renderCanvas
+
+    // Check if the overlay exists; if not, create it
+    let UIelements = {};
+    if (!overlayContainer) {
+        UIelements = createUIElements(renderCanvas);
+    } else {
+        UIelements = {overlayContainer: document.getElementById('overlayContainer'),
+            overlayCanvas: document.getElementById('overlayCanvas'),
+            messageBox: document.getElementById('messageBox'),
+            buttonContainer: document.getElementById('buttonContainer'),
+            toggleButton: document.getElementById('toggleButton'),
+            forText: document.getElementById('forText'),
+            locationToggleButton: document.getElementById('locationToggleButton'),
+            exitButton: document.getElementById('exitButton'),
+            noOpeningsModal: document.getElementById('noOpeningsModal')
+        }
+        UIelements.locationToggleButton.style.display = 'flex'
+        UIelements.toggleButton.style.display = 'flex'
+        UIelements.forText.style.display = 'block'
+        UIelements.toggleButton.innerText = 'AI Detection'
+        styleButton(UIelements.locationToggleButton);
+        UIelements.messageBox.innerText = "Didn't find the opening you are looking for? Try";
+    }
     
+    console.log(UIelements);
+
     let AIquadsWindow = [];
     let AIquadsPatio = [];
     let runningWindow = false; // Currently running AI detection
@@ -251,19 +285,6 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
         .catch(error => {
             console.error("An error occurred:", error);
         });
-    }
-        
-    let overlayContainer = document.getElementById('overlayContainer'); // Get the overlay container if it exists
-    const renderCanvas = document.getElementById(canvas); // Get the renderCanvas
-
-    // Check if the overlay exists; if not, create it
-    let UIelements = {};
-    if (!overlayContainer) {
-        UIelements = createUIElements(renderCanvas);
-    } else {
-        locationToggleButton.style.display = 'block'
-        toggleButton.style.display = 'block'
-        forText.style.display = 'block'
     }
 
     let stdNothingDetected = false;
