@@ -12,6 +12,7 @@ Towser Chen (towserchen@gmail.com)
 ## Install
 
 `npm install ziptrak-opening-detector`
+latest version 1.2.0
 
 ## Usage
 
@@ -19,13 +20,7 @@ Towser Chen (towserchen@gmail.com)
 ```javascript
 import { autoDetectBlindOpenings } from ziptrak-opening-detector;
 
-let cornerCoordinates;
-let image = new Image();
-image.src = "path/to/user/image";
-image.onload = function () {
-  // [[x1, y1, x2, y2, x3, y3, x4, y4]], Represents the coordinates of the four corners of the detected opening
-    cornerCoordinates = autoDetectBlindOpenings(image);
-};
+let cornorCoordinates = await autoDetectBlindOpenings('blob:https://iv.logissoftware.com/da26a161-a81f-493a-a1c2-27f2790c8d5f', true, 'renderCanvas');
 ```
 
 ### Manual Detect
@@ -33,27 +28,10 @@ image.onload = function () {
 ```javascript
 import { manualDetectBlindOpenings } from ziptrak-opening-detector;
 
-let userInputCoordinates = [100, 100, 200, 200, 300, 300, 400, 400];
 
-// [x1, y1, x2, y2, x3, y3, x4, y4], Represents the approximate coordinates of the four corners of the intended opening
-let cornorCoordinates = manualDetectBlindOpenings(userInputCoordinates);
+let cornorCoordinates = await manualDetectBlindOpenings();
 ```
 
-### Auto Detect By AI
-
-```javascript
-import { autoDetectBlindOpeningsByAI } from ziptrak-opening-detector;
-
-const fileInput = document.getElementById('fileInput');
-
-fileInput.addEventListener('change', (event) => {
-    const files = event.target.files;
-    if (files.length > 0) {
-        const file = files[0];
-        cornerCoordinates = detect(file);
-    }
-});
-```
 
 ## Documentation
 

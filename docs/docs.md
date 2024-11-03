@@ -4,7 +4,7 @@
 ## Contents
 - [Installation](#installation)
 - [Functions](#functions)  
-  1. [autoDetectBlindOpenings(image)](#1-autodetectblindopeningsimage)  
+  1. [autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 'renderCanvas')](#1-autodetectblindopeningsimage)  
   2. [manualDetectBlindOpenings(userCoordinates)](#2-manualdetectblindopeningsusercoordinates)
 - [Appendices](#appendices)  
   - [Appendix A](#appendix-a)  
@@ -19,10 +19,7 @@ Our package can be installed with either of the following commands:
 ```bash
 npm install ziptrak-opening-detector
 ```
-or
-```bash
-npm install github:towserchen/ICT-Project#release
-```
+
 Our module can then be imported with:
 ```javascript
 import { autoDetectBlindOpenings, manualDetectBlindOpenings } from "ziptrak-opening-detector";
@@ -32,7 +29,7 @@ import { autoDetectBlindOpenings, manualDetectBlindOpenings } from "ziptrak-open
 
 ## Functions
 
-### 1. autoDetectBlindOpenings(image)
+### 1. autoDetectBlindOpenings(imageURL, detectWindow, canvas)
 
 This function will automatically detect openings from a user-uploaded photo.  
 This function is intended to be called when a user uploads a photo. `autoDetectBlindOpenings` is intended to be called immediately after the photo is uploaded. The function will return the coordinates of all detected openings. The returned coordinates will not be scaled to the `renderCanvas` (see Appendix A for more details).
