@@ -1214,9 +1214,11 @@ function autoDetectQuads(image) {
 
 async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily assumed that AutoDetect has been run before this. Will not work atm if it hasn't
     if (globalAIpatio !== null && globalAIpatio.length === 0) {
-        let AIcoordinates = await autoDetectBlindOpeningsByAI(file, 0, 0)
-        let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
-        globalAIpatio = flattenedAIcoords;
+        autoDetectBlindOpeningsByAI(file, 0, 0).then(AIcoordinates => {
+            let flattenedAIcoords = AIcoordinates.map(quad => quad.flat());
+            globalAIpatio = flattenedAIcoords;
+        })
+        
     }
 
     let overlayContainer = document.getElementById('overlayContainer');
@@ -1227,6 +1229,7 @@ async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily a
     let forText = document.getElementById('forText');
     let messageBox = document.getElementById('messageBox');
     let exitButton = document.getElementById('exitButton');
+    let noOpeningsModal = document.getElementById('noOpeningsModal');
     const renderCanvas = document.getElementById(canvas); // Get the renderCanvas
 
     const ctx = overlayCanvas.getContext('2d'); // need here or later !!!!
@@ -1235,6 +1238,7 @@ async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily a
     toggleButton.style.display = 'none';
     locationToggleButton.style.display = 'none';
     forText.style.display = 'none';
+    noOpeningsModal.style.display = 'none';
     messageBox.innerText = "Select the four corner of the opening you want";
 
     let resetButton = document.getElementById('resetButton')
