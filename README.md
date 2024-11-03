@@ -12,7 +12,7 @@ Towser Chen (towserchen@gmail.com)
 ## Install
 
 `npm install ziptrak-opening-detector`
-latest version 1.2.0
+latest version 1.2.1
 
 ## Usage
 
