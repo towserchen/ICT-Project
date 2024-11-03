@@ -135,6 +135,17 @@ function detect(frame){
 
         message.value += result.join(',') + "\r\n";
 
+        let tempA = result[6];
+        let tempB = result[7];
+
+        result[6] = result[4];
+        result[7] = result[5];
+
+        result[4] = tempA;
+        result[5] = tempB;
+
+        message.value += result.join(',') + "\r\n";
+
         return drawRectangle(frame, result);
     }
     catch(e) {

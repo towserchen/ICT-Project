@@ -12,7 +12,10 @@
                       <li :class="{active: tabActive === 3}" @click="changeTab(3)">Sample3</li>
                       <li :class="{active: tabActive === 4}" @click="changeTab(4)">Sample4</li>
                       <li :class="{active: tabActive === 5}" @click="changeTab(5)">Sample5</li>
-                      <li :class="{active: tabActive === 6}" @click="changeTab(6)">Upload</li>
+                      <li :class="{active: tabActive === 6}" @click="changeTab(6)">Sample6</li>
+                      <li :class="{active: tabActive === 7}" @click="changeTab(7)">Sample7</li>
+                      <li :class="{active: tabActive === 8}" @click="changeTab(8)">Sample8</li>
+                      <!--<li :class="{active: tabActive === 6}" @click="changeTab(6)">Upload</li>-->
                   </ul>
               </div>
 
@@ -21,7 +24,7 @@
                   <p>Powered by Long Chen & Matthew Freak.</p>
               </div>
 
-              <div v-if="tabActive === 6" class="upload-container">
+              <div v-if="tabActive === 9" class="upload-container">
                   <div class="upload-tip caption">
                       <p>Please select a source image:</p>
                       <input type="file" id="fileInput" name="file" accept="image/*" @change="handleFileChange">
@@ -71,17 +74,7 @@
           <div class="inputoutput">
               <div class="caption">AI Output Canvas</div>
               <div>
-                <select v-model="selectedValue">
-                <option value="" disabled>Select an option</option>
-                <option v-for="option in options" :key="option.value" :value="option.value">
-                  {{ option.text }}
-                </option>
-              </select>
-
-                <a href="javascript:void(0)" class="btn" @click="selectFile">AI Detect</a>
-                
-                <input type="file" ref="fileInput" @change="uploadFileChange" style="display: none" />
-
+                <p v-if="isDetecting">Detecing...</p>
                 <canvas ref="AIOutputCanvas"></canvas>
               </div>
           </div>
@@ -181,78 +174,55 @@ const s5Canvas = ref(null);
 const tabActive = ref(0);
 const showEffect = ref(false);
 const imgElement = ref(null);
+const isDetecting = ref(false);
 
 const slotCanvasList = [s1Canvas, s2Canvas, s3Canvas, s4Canvas, s5Canvas];
 
-const options = [
-  { value: '1', text: 'Indoor' },
-  { value: '0', text: 'Outdoor' },
+const samplePhotoList = [
+  'sample/1.jpg',
+  'sample/2.jpg',
+  'sample/3.jpg',
+  'sample/4.jpg',
+  'sample/5.jpg',
+  'sample/13.jpg',
+  'sample/14.jpg',
+  'sample/15.jpg',
 ];
 
-const selectedValue = ref('');
+const isWindowDetectedOptions = [1, 1, 1, 1, 0, 0, 0, 0];
 
-const file = ref(null);
-const fileInput = ref(null);
 
-const selectFile = () => {
-  fileInput.value.click();
+const detectByAI = async (imageURL) => {
+  isDetecting.value = true;
+
+  const response = await fetch(imageURL);
+  const blob = await response.blob();
+  const fileUpload = new File([blob], 'userImage.jpg', { type: blob.type });
+
+  const coordinate = await autoDetectBlindOpeningsByAI(fileUpload, 1, 0);
+  let result = coordinate.map(innerArray => innerArray.flat());
+
+  isDetecting.value = false;
+
+  return result;
 }
 
-const uploadFileChange = async (event) => {
-  const selectedFile = event.target.files[0];
-
-  if (selectedFile) {
-    file.value = selectedFile;
-    console.log('Selected file:', file.value);
-
-    setApiUrl('https://ziptrak.ddos.la/detect');
-    const coordinate = await autoDetectBlindOpeningsByAI(file.value, selectedValue.value, 0);
-
-    console.log(coordinate);
-
-    const result = coordinate.map(innerArray => innerArray.flat());
-
-    console.log(result);
-
-    const reader = new FileReader();
-    
-    reader.onload = function(e) {
-      const imgElement = document.createElement('img');
-      imgElement.src = e.target.result;
-      
-      imgElement.onload = function() {
-        drawRectangleForAI(imgElement, AIOutputCanvas.value, result);
-      };
-    };
-    
-    reader.readAsDataURL(selectedFile);
-
-    console.log(coordinate)
-  }
-}
 
 // switch the tab
 function changeTab(index) {
   tabActive.value = index;
 
-  if (index <= 5 && index >= 1) {
-      let imgFile = index + '.jpg';
-      imgElement.value.src = `/sample/${imgFile}`;
+  if (index <= 8 && index >= 1) {
+      let imgFile = samplePhotoList[index-1];
+      imgElement.value.src = imgFile;
       showEffect.value = true;
   }
   else {
       showEffect.value = false;
   }
-}
 
-// select a file
-function handleFileChange(event) {
-  const file = event.target.files[0];
-  if (file && file.type.startsWith('image/')) {
-      imgElement.value.src = URL.createObjectURL(file);
-      showEffect.value = true;
-  } else {
-      console.error('Please select an image file.');
+  if (AIOutputCanvas.value != null) {
+    AIOutputCanvas.value.getContext('2d').clearRect(0, 0, AIOutputCanvas.value.width, AIOutputCanvas.value.height);
   }
 }
 
@@ -353,16 +323,21 @@ function scaleCoordinates(originalCoords, originalImage, renderCanvas) {
 
 onMounted(() => {
   if (imgElement.value) {
-      imgElement.value.addEventListener('load', ()=>{
+      imgElement.value.addEventListener('load', async ()=>{
           let image = new Image();
           image.crossOrigin = "Anonymous";
           image.src = imgElement.value.src;
-          image.onload = function () {
+
+          image.onload = async function () {
+            const originalWidth = imgElement.value.width;
+            const originalHeight = imgElement.value.height;
             let result = autoDetectBlindOpenings(image, slotCanvasList);
-            console.log(result);
-            result = scaleCoordinates(result, image, {width: imgElement.value.width, height: imgElement.value.height});
-            
+            result = scaleCoordinates(result, image, {width: originalWidth, height: originalHeight});
             drawRectangle(imgElement.value, outputCanvas.value, result);
+
+            result = await detectByAI(imgElement.value.src);
+            result = scaleCoordinates(result, image, {width: originalWidth, height: originalHeight});
+            drawRectangleForAI(imgElement.value, AIOutputCanvas.value, result);
           }          
       });
   }
