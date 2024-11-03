@@ -133,7 +133,7 @@ function detect(frame){
     try {
         let result = autoDetectBlindOpenings(frame);
 
-        message += result.join(',');
+        message.value += result.join(',') + "\r\n";
 
         let tempA = result[6];
         let tempB = result[7];
@@ -144,7 +144,7 @@ function detect(frame){
         result[4] = tempA;
         result[5] = tempB;
 
-        message += result.join(',');
+        message.value += result.join(',') + "\r\n";
 
         return drawRectangle(frame, result);
     }
