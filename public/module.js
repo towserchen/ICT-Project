@@ -2,18 +2,42 @@
 window.onload = function() {
     cv['onRuntimeInitialized'] = async () => {
         // Load the image from a URL
-        let imageUrl = '/sample/5.jpg';  // Set image URL for test
         const renderCanvas = document.getElementById('renderCanvas')
+        let imageUrl = './sample/1.jpg';    
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        let result = await autoDetectBlindOpenings(imageUrl, false); // change true or false for detection or window or detection on patio. Can change the target canvas too
-        console.log(result); 
-        console.log(await manualDetectBlindOpenings());
-
-        imageUrl = '/sample/1.jpg';
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl, true);
+        let result = await autoDetectBlindOpenings(imageUrl, false);
         console.log(result);
-        console.log(manualDetectBlindOpenings());
+
+        imageUrl = './sample/5.jpg';    
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl, false);
+        console.log(result);
+        result = await manualDetectBlindOpenings();
+        console.log(result);
+
+        imageUrl = './sample/7.jpg';    
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl, false);
+        console.log(result);
+        result = await manualDetectBlindOpenings();
+        console.log(result);
+        
+        imageUrl = './sample/14.jpg';    
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl);
+        console.log(result);
+        result = await manualDetectBlindOpenings();
+        console.log(result);
+        
+        imageUrl = './sample/12.jpg';    
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl);
+        console.log(result);
+        
+        imageUrl = './sample/16.jpg';    
+        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        result = await autoDetectBlindOpenings(imageUrl);
+        console.log(result);
     };
 };
 
@@ -191,7 +215,11 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
         UIelements.toggleButton.style.display = 'flex'
         UIelements.forText.style.display = 'block'
         UIelements.toggleButton.innerText = 'AI Detection'
-        styleButton(UIelements.locationToggleButton);
+        UIelements.locationToggleButton.disabled = false;
+        UIelements.locationToggleButton.style.backgroundColor = 'rgb(243, 202, 62)';
+        UIelements.locationToggleButton.style.color = 'rgb(22, 65, 108)';
+        UIelements.locationToggleButton.style.borderColor = 'rgb(243, 202, 62)';
+        UIelements.locationToggleButton.style.cursor = 'pointer';
         UIelements.messageBox.innerText = "Didn't find the opening you are looking for? Try";
     }
     
@@ -302,6 +330,8 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
     // Location toggle stuff
     if(detectWindow){
         UIelements.locationToggleButton.innerText = 'Window';
+    } else {
+        UIelements.locationToggleButton.innerText = 'Patio'
     }
 
     const onLocationToggleClick = () => {
@@ -360,7 +390,7 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
             UIelements.locationToggleButton.style.borderColor = 'rgb(243, 202, 62)';
             UIelements.locationToggleButton.style.cursor = 'pointer';
             UIelements.forText.style.display = 'block';
-            UIelements.locationToggleButton.style.display = 'block';
+            UIelements.locationToggleButton.style.display = 'flex';
         }
 
         scaleAndDrawQuads(activeQuads, renderCanvas, image);
@@ -387,7 +417,7 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
                 scaledQuads.push(scaledQuad);
             }
 
-            const clickedQuad = detectClickedQuad(event, scaledQuads);
+            let clickedQuad = detectClickedQuad(event, scaledQuads);
             if (clickedQuad) {
                 UIelements.overlayContainer.style.display = 'none';
                 UIelements.overlayCanvas.removeEventListener('click', onCanvasClick);  // Clean up event listener
@@ -395,7 +425,8 @@ async function autoDetectBlindOpenings(imageURL, detectWindow = false, canvas = 
                 window.removeEventListener('resize', onResizeScaleAndDrawQuads);
                 UIelements.locationToggleButton.removeEventListener('click', onLocationToggleClick);
                 UIelements.toggleButton.removeEventListener('click', onToggleButtonClick);
-                resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
+                clickedQuad = unscaleCoordinates(image.width, image.height, renderCanvas, clickedQuad);
+                resolve(clickedQuad);  // Return the clicked quad
             }
         };
 
@@ -1367,7 +1398,7 @@ async function manualDetectBlindOpenings(canvas = 'renderCanvas') { // heavily a
                     resetButton.removeEventListener('click', reset);
                     window.removeEventListener('resize', handleResize);
                     overlayCanvas.removeEventListener('click', handleClick);
-                    resolve(clickedQuad);  // Return the clicked quad NOTE: these are scaled !!!!
+                    resolve(quad);  // Return the clicked quad
                 }
             }
         };
@@ -1435,7 +1466,10 @@ function findQuadFromCoordinates(userCoordinates, AIcoords) {
     let filteredLines = allLines.filter((line) => doesLineIntersectTwoBoxes(line, clickPoints));
     
     // process the bottom 2 boxes
-    filteredLines.push(processBottomBoxes(bottomBoxes));
+    let extraLine = processBottomBoxes(bottomBoxes)
+    if (extraLine != null) {
+        filteredLines.push(processBottomBoxes(bottomBoxes));
+    }
 
     // Detect intersections between filtered lines
     let intersections = findLineIntersections(filteredLines, clickPoints);

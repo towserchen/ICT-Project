@@ -1,6 +1,6 @@
 import { Component, ViewChild, ElementRef } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { autoDetectBlindOpenings } from 'ziptrak-opening-detector';
+import { autoDetectBlindOpenings, manualDetectBlindOpenings } from 'ziptrak-opening-detector';
 
 declare var cv: any;
 
@@ -20,26 +20,13 @@ export class AppComponent {
   
   
 
-  ngAfterViewInit(): void {
-    const imageElement: HTMLImageElement = new Image();
-    imageElement.src = this.imagePath;
-  
-    // Wait for the image to load before drawing it
-    imageElement.onload = () => { 
-      // Once the image is loaded and drawn, run OpenCV detection
-      this.checkOpenCVLoaded().then(() => {
-        console.log('OpenCV.js is loaded');
-        this.imageLoaded = true;
-        this.testAutoDetection(imageElement);  // Pass the loaded image to detection function
-      }).catch(() => {
-        console.error('OpenCV.js is not loaded');
-      });
-    };
-  
-    // Handle error in case the image fails to load
-    imageElement.onerror = (error) => {
-      console.error('Failed to load the image:', error);
-    };
+  ngAfterViewInit(): void {  
+    this.checkOpenCVLoaded().then(() => {
+      console.log('OpenCV.js is loaded');
+      this.testDetection();
+    }).catch(() => {
+      console.error('OpenCV.js is not loaded');
+    });
   }
 
 
@@ -59,17 +46,50 @@ export class AppComponent {
     });
   }
 
-  testAutoDetection(imageElement: HTMLImageElement): void {
-    console.log('here');
-    if (imageElement) {
-      autoDetectBlindOpenings(imageElement).then(coordinates => {
-        console.log('Detection Result:', coordinates);
-        this.detectionResult = coordinates;
-      }).catch(error => {
-        console.error('Error:', error);
-      });
-    } else {
-      console.error('Image element not found');
-    }
+  async testDetection(): Promise<void> {
+    const renderCanvas = document.getElementById('renderCanvas')!;
+    
+    let imageUrl = './1.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    let result = await autoDetectBlindOpenings(imageUrl, false);
+    console.log(result);
+
+    imageUrl = './5.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl, false);
+    console.log(result);
+    result = await manualDetectBlindOpenings();
+    console.log(result);
+
+    imageUrl = './7.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl, false);
+    console.log(result);
+    result = await manualDetectBlindOpenings();
+    console.log(result);
+    
+    imageUrl = './14.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl);
+    console.log(result);
+    result = await manualDetectBlindOpenings();
+    console.log(result);
+
+    imageUrl = './10.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl);
+    console.log(result);
+    
+    imageUrl = './12.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl);
+    console.log(result);
+    
+    imageUrl = './16.jpg';    
+    renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+    result = await autoDetectBlindOpenings(imageUrl);
+    console.log(result);
+    result = await manualDetectBlindOpenings();
+    console.log(result);
   }
 }
