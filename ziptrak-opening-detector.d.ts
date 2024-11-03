@@ -12,21 +12,21 @@ declare module 'ziptrak-opening-detector' {
     export function scaleCoordinates(originalWidth: Number, originalHeight: Number, canvas: HTMLCanvasElement, originalCoords: Array<Number>): Array<Number>;
 
     /**
-     * Detect opinings of an image
+     * Detect blind opening from an image
      * 
-     * @param {HTMLElement} image - The image element to detect openings from
-     * @param {String} canvas - The ID of the main render canvas. Default 'renderCanvas' 
+     * @param {String} imageURL - the URL the uploaded image is stored at (example: blob:https://iv.logissoftware.com/da26a161-a81f-493a-a1c2-27f2790c8d5f)
+     * @param {Boolean} detectWindow - Used to tell the AI model if it is trying to detect a window or an outdoor setting. Optional (Can be tricky as can't be coupled to outdoor/indoor blinds as an outdoor blind over an external window will trip the model)
+     * @param {String} canvas - The ID of the main render canvas. Optional, Default 'renderCanvas'
      * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
      */
-    export function autoDetectBlindOpenings(image: HTMLImageElement, canvas?: String): Promise<Array<number>>;
+    export function autoDetectBlindOpenings(imageURL: String, detectWindow?: String, canvas?: String): Promise<Array<number>>;
   
     /**
-     * Detect openings of an image based on user input
+     * Detect openings of an image based on user input. `autoDetectBlindOpening` must be called before this function is called.
      *
-     * @param {Array<number>} userCoordinates - An array of form [x1, y1, x2, y2, x3, y3, x4, y4] representing the coordinates of the quad
-     * @return {Array<number>} An array of form [x1, y1, x2, y2, x3, y3, x4, y4] representing the corner coordinates of the detected quad
+     * @return {Promise<Array<number>>} - A promise that resolves to an array that represents the four corner coordinates of a quad in the form [x1, y1, x2, y2, x3, y3, x4, y4] (clockwise)
      */
-    export function manualDetectBlindOpenings(userCoordinates: Array<number>): Array<number>;
+    export function manualDetectBlindOpenings(): Promise<Array<number>>;
 
     /*
     * Reset the api url
