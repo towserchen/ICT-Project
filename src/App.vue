@@ -8,6 +8,7 @@
                     <ul>
                         <li :class="{active: tabActive === 0}" @click="changeTab(0)"><router-link to="/">Image</router-link></li>
                         <li :class="{active: tabActive === 1}" @click="changeTab(1)"><router-link to="/video">Video</router-link></li>
+                        <li><a href="/module.html">Hybrid</a></li>
                     </ul>
                 </div>
             </div>
