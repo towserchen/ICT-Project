@@ -128,6 +128,9 @@ const captureFrames = () => {
 function detect(frame){
     try {
         let result = autoDetectBlindOpenings(frame);
+
+        alert(result)
+
         let tempA = result[6];
         let tempB = result[7];
 
@@ -137,7 +140,7 @@ function detect(frame){
         result[4] = tempA;
         result[5] = tempB;
 
-        console.log(result);
+        alert(result);
         return drawRectangle(frame, result);
     }
     catch(e) {
