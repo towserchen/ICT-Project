@@ -31,7 +31,6 @@ export function processImages(imgElement, step1Canvas, step2Canvas, step3Canvas,
 
     // area and edges
     let contourAreas = [];
-    let boundingBoxes = [];
 
     for (let i = 0; i < contours.size(); i++) {
         let contour = contours.get(i);
