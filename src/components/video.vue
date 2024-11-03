@@ -14,6 +14,8 @@
         </video>-->
     
         <canvas class="processed" ref="canvas"></canvas>
+
+        <textarea v-model="message" width="100%" height="150px"></textarea>
     </div>
 </template>
 
@@ -46,6 +48,8 @@ const streaming = ref(false);
 //const detected = ref(null);
 const width = 480;
 const height = 640;
+
+const message = ref('');
 
 const drawRectangle = function(frame, coordinateList) {
     if (coordinateList.length >= 1) {
@@ -129,7 +133,7 @@ function detect(frame){
     try {
         let result = autoDetectBlindOpenings(frame);
 
-        alert(result)
+        message += result.join(',');
 
         let tempA = result[6];
         let tempB = result[7];
@@ -140,12 +144,12 @@ function detect(frame){
         result[4] = tempA;
         result[5] = tempB;
 
-        alert(result);
+        message += result.join(',');
+
         return drawRectangle(frame, result);
     }
     catch(e) {
         console.warn(e)
-        
     }
 };
 </script>
