@@ -469,7 +469,7 @@ function createUIElements(renderCanvas) {
     overlayContainer.style.position = 'absolute';
     overlayContainer.style.top = renderCanvas.offsetTop + 'px';
     overlayContainer.style.left = renderCanvas.offsetLeft + 'px';
-    overlayContainer.style.zIndex = '10';
+    overlayContainer.style.zIndex = '11';
     overlayContainer.style.display = 'none';
     
     //create the overlayCanvas

@@ -19,7 +19,7 @@
         </div>
 
         <div class="footer">
-            © 2024 Ziptrack
+            © 2024 Ziptrak
             <br>
             Слава Україні
         </div>
