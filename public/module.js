@@ -15,29 +15,29 @@ window.onload = function() {
         result = await manualDetectBlindOpenings();
         console.log(result);
 
-        imageUrl = './sample/7.jpg';    
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl, false);
-        console.log(result);
-        result = await manualDetectBlindOpenings();
-        console.log(result);
+        // imageUrl = './sample/7.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // result = await autoDetectBlindOpenings(imageUrl, false);
+        // console.log(result);
+        // result = await manualDetectBlindOpenings();
+        // console.log(result);
         
-        imageUrl = './sample/14.jpg';    
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl);
-        console.log(result);
-        result = await manualDetectBlindOpenings();
-        console.log(result);
+        // imageUrl = './sample/14.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // result = await autoDetectBlindOpenings(imageUrl);
+        // console.log(result);
+        // result = await manualDetectBlindOpenings();
+        // console.log(result);
         
-        imageUrl = './sample/12.jpg';    
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl);
-        console.log(result);
+        // imageUrl = './sample/12.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // result = await autoDetectBlindOpenings(imageUrl);
+        // console.log(result);
         
-        imageUrl = './sample/16.jpg';    
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl);
-        console.log(result);
+        // imageUrl = './sample/16.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // result = await autoDetectBlindOpenings(imageUrl);
+        // console.log(result);
     };
 };
 
