@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Device Sensor Test</title>
+</head>
+<body>
+  <h1>Device Sensor Test</h1>
+  <button id="start-sensors">Enable Sensors</button>
+
+  <div id="output-orientation">
+    <h2>Device Orientation</h2>
+    <p>Alpha (Z-axis): <span id="alpha">0</span>°</p>
+    <p>Beta (X-axis): <span id="beta">0</span>°</p>
+    <p>Gamma (Y-axis): <span id="gamma">0</span>°</p>
+  </div>
+
+  <div id="output-motion">
+    <h2>Device Motion</h2>
+    <p>Acceleration X: <span id="acc-x">0</span> m/s²</p>
+    <p>Acceleration Y: <span id="acc-y">0</span> m/s²</p>
+    <p>Acceleration Z: <span id="acc-z">0</span> m/s²</p>
+    <p>Rotation Alpha: <span id="rot-alpha">0</span>°/s</p>
+    <p>Rotation Beta: <span id="rot-beta">0</span>°/s</p>
+    <p>Rotation Gamma: <span id="rot-gamma">0</span>°/s</p>
+  </div>
+
+  <script>
+    document.getElementById('start-sensors').addEventListener('click', () => {
+      // Request permissions for both DeviceMotion and DeviceOrientation
+      const requestMotionPermission = () => {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+          return DeviceMotionEvent.requestPermission();
+        }
+        return Promise.resolve('granted');
+      };
+
+      const requestOrientationPermission = () => {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          return DeviceOrientationEvent.requestPermission();
+        }
+        return Promise.resolve('granted');
+      };
+
+      Promise.all([requestMotionPermission(), requestOrientationPermission()])
+        .then((responses) => {
+          if (responses.every((response) => response === 'granted')) {
+            // Add event listeners for motion and orientation
+            setupMotionEventListener();
+            setupOrientationEventListener();
+          } else {
+            alert('Permission denied for device sensors.');
+          }
+        })
+        .catch(console.error);
+    });
+
+    function setupMotionEventListener() {
+      window.addEventListener('devicemotion', (event) => {
+        const acc = event.acceleration || {};
+        const rot = event.rotationRate || {};
+
+        document.getElementById('acc-x').innerText = (acc.x || 0).toFixed(2);
+        document.getElementById('acc-y').innerText = (acc.y || 0).toFixed(2);
+        document.getElementById('acc-z').innerText = (acc.z || 0).toFixed(2);
+
+        document.getElementById('rot-alpha').innerText = (rot.alpha || 0).toFixed(2);
+        document.getElementById('rot-beta').innerText = (rot.beta || 0).toFixed(2);
+        document.getElementById('rot-gamma').innerText = (rot.gamma || 0).toFixed(2);
+      });
+    }
+
+    function setupOrientationEventListener() {
+      window.addEventListener('deviceorientation', (event) => {
+        document.getElementById('alpha').innerText = (event.alpha || 0).toFixed(2);
+        document.getElementById('beta').innerText = (event.beta || 0).toFixed(2);
+        document.getElementById('gamma').innerText = (event.gamma || 0).toFixed(2);
+      });
+    }
+  </script>
+</body>
+</html>
