@@ -20,6 +20,7 @@
         let velocity = { x: 0, y: 0, z: 0 };
         let position = { x: 0, y: 0, z: 0 };
         let lastTimestamp = null;
+        let hasRecordedStart = false;
 
         const ACCELERATION_THRESHOLD = 0.2; // 加速度噪声阈值，单位 m/s²
 
@@ -58,6 +59,7 @@
 
             window.addEventListener('deviceorientation', function captureStart(event) {
                 initialOrientation = calculateOrientation(event);
+                hasRecordedStart = true; // 标记已记录起始数据
                 alert(`起始角度：alpha=${initialOrientation.alpha.toFixed(2)}, beta=${initialOrientation.beta.toFixed(2)}, gamma=${initialOrientation.gamma.toFixed(2)}`);
                 window.removeEventListener('deviceorientation', captureStart); // 只记录一次
             });
@@ -65,7 +67,7 @@
 
         // 监听结束数据并计算角度与距离变化
         document.getElementById('endButton').addEventListener('click', () => {
-            if (!initialOrientation || lastTimestamp === null) {
+            if (!hasRecordedStart) {
                 alert("请先点击记录起始数据。");
                 return;
             }
