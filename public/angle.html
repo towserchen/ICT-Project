@@ -1,117 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手机角度与距离变化计算</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sensor Data Demo</title>
+  <style>
+    #sensorData {
+      margin-top: 20px;
+    }
+    #output {
+      margin-top: 20px;
+    }
+  </style>
 </head>
 <body>
-    <h1>手机角度与距离变化计算</h1>
-    <p>点击按钮记录两次的传感器数据并计算角度和距离变化。</p>
-    <button id="startButton">记录起始数据</button>
-    <button id="endButton">计算角度与距离变化</button>
-    <p id="result">
-        <strong>角度变化：</strong><span id="angleChange">N/A</span><br>
-        <strong>距离变化：</strong><span id="distanceChange">N/A</span> 米
-    </p>
+  <h1>Phone Sensor Data</h1>
 
-    <script>
-        let initialOrientation = null;
-        let velocity = { x: 0, y: 0, z: 0 };
-        let position = { x: 0, y: 0, z: 0 };
-        let lastTimestamp = null;
-        let hasRecordedStart = false;
+  <button id="startBtn">Record Initial Data</button>
+  <button id="endBtn">Record End Data</button>
 
-        const ACCELERATION_THRESHOLD = 0.2; // 加速度噪声阈值，单位 m/s²
+  <div id="sensorData">
+    <h3>Real-time Sensor Data:</h3>
+    <p id="accelerationData">Acceleration: N/A</p>
+    <p id="rotationData">Rotation: N/A</p>
+    <p id="orientationData">Orientation: N/A</p>
+  </div>
 
-        function calculateOrientation(event) {
-            const { alpha, beta, gamma } = event;
-            return { alpha: alpha || 0, beta: beta || 0, gamma: gamma || 0 };
-        }
+  <div id="output">
+    <h3>Output:</h3>
+    <p id="angleChange">Angle Change: N/A</p>
+    <p id="distanceMoved">Distance Moved: N/A</p>
+  </div>
 
-        function calculateAcceleration(event, deltaTime) {
-            const { x = 0, y = 0, z = 0 } = event.acceleration || {};
+  <script>
+    let initialOrientation = null;
+    let initialAcceleration = null;
+    let initialTimestamp = null;
 
-            // 过滤噪声
-            const filteredX = Math.abs(x) > ACCELERATION_THRESHOLD ? x : 0;
-            const filteredY = Math.abs(y) > ACCELERATION_THRESHOLD ? y : 0;
-            const filteredZ = Math.abs(z) > ACCELERATION_THRESHOLD ? z : 0;
+    let angleChange = 0;
+    let distanceMoved = 0;
 
-            velocity.x += filteredX * deltaTime;
-            velocity.y += filteredY * deltaTime;
-            velocity.z += filteredZ * deltaTime;
+    // Function to update real-time sensor data
+    function updateSensorData() {
+      const accelerationData = document.getElementById("accelerationData");
+      const rotationData = document.getElementById("rotationData");
+      const orientationData = document.getElementById("orientationData");
 
-            position.x += velocity.x * deltaTime;
-            position.y += velocity.y * deltaTime;
-            position.z += velocity.z * deltaTime;
-        }
+      window.addEventListener("devicemotion", (event) => {
+        const acceleration = event.accelerationIncludingGravity;
+        const rotation = event.rotationRate;
+        const orientation = window.orientation;
 
-        // 监听起始数据
-        document.getElementById('startButton').addEventListener('click', () => {
-            if (!window.DeviceMotionEvent || !window.DeviceOrientationEvent) {
-                alert("设备不支持必要的传感器。");
-                return;
-            }
+        accelerationData.textContent = `Acceleration: X = ${acceleration.x.toFixed(2)}, Y = ${acceleration.y.toFixed(2)}, Z = ${acceleration.z.toFixed(2)}`;
+        rotationData.textContent = `Rotation: Alpha = ${rotation.alpha?.toFixed(2)}, Beta = ${rotation.beta?.toFixed(2)}, Gamma = ${rotation.gamma?.toFixed(2)}`;
+        orientationData.textContent = `Orientation: ${orientation}`;
+      });
+    }
 
-            velocity = { x: 0, y: 0, z: 0 };
-            position = { x: 0, y: 0, z: 0 };
-            lastTimestamp = null;
+    // Function to calculate angle change based on initial and end orientation
+    function calculateAngleChange(initial, current) {
+      const angleDiff = Math.abs(current - initial);
+      return angleDiff;
+    }
 
-            window.addEventListener('deviceorientation', function captureStart(event) {
-                initialOrientation = calculateOrientation(event);
-                hasRecordedStart = true; // 标记已记录起始数据
-                alert(`起始角度：alpha=${initialOrientation.alpha.toFixed(2)}, beta=${initialOrientation.beta.toFixed(2)}, gamma=${initialOrientation.gamma.toFixed(2)}`);
-                window.removeEventListener('deviceorientation', captureStart); // 只记录一次
-            });
+    // Function to calculate distance moved based on acceleration
+    function calculateDistance(acceleration, timeInterval) {
+      const velocity = acceleration * timeInterval;
+      const distance = 0.5 * acceleration * Math.pow(timeInterval, 2);
+      return distance;
+    }
+
+    // Button to record initial sensor data
+    document.getElementById("startBtn").addEventListener("click", () => {
+      if (window.DeviceOrientationEvent && window.DeviceMotionEvent) {
+        window.addEventListener("devicemotion", (event) => {
+          if (initialTimestamp === null) {
+            initialTimestamp = event.timeStamp;
+            initialOrientation = window.orientation;
+            initialAcceleration = event.accelerationIncludingGravity;
+            console.log('Initial data recorded');
+          }
         });
+      } else {
+        alert('Device does not support required sensors.');
+      }
+    });
 
-        // 监听结束数据并计算角度与距离变化
-        document.getElementById('endButton').addEventListener('click', () => {
-            if (!hasRecordedStart) {
-                alert("请先点击记录起始数据。");
-                return;
-            }
+    // Button to record end sensor data and calculate angle and distance
+    document.getElementById("endBtn").addEventListener("click", () => {
+      if (initialOrientation !== null && initialAcceleration !== null) {
+        window.addEventListener("devicemotion", (event) => {
+          const currentTimestamp = event.timeStamp;
+          const currentOrientation = window.orientation;
+          const currentAcceleration = event.accelerationIncludingGravity;
 
-            let finalOrientation = null;
+          // Calculate angle change
+          angleChange = calculateAngleChange(initialOrientation, currentOrientation);
 
-            window.addEventListener('deviceorientation', function captureEnd(event) {
-                finalOrientation = calculateOrientation(event);
+          // Calculate distance moved (estimating based on acceleration)
+          const timeInterval = (currentTimestamp - initialTimestamp) / 1000; // Convert ms to seconds
+          distanceMoved = calculateDistance(currentAcceleration.x, timeInterval);
 
-                // 计算角度变化
-                const angleChange = {
-                    alpha: Math.abs(finalOrientation.alpha - initialOrientation.alpha),
-                    beta: Math.abs(finalOrientation.beta - initialOrientation.beta),
-                    gamma: Math.abs(finalOrientation.gamma - initialOrientation.gamma)
-                };
-
-                // 假设时间间隔 deltaTime 为上次 devicemotion 更新的时间差
-                window.addEventListener('devicemotion', function updateDistance(event) {
-                    const deltaTime = lastTimestamp
-                        ? (event.timeStamp - lastTimestamp) / 1000 // 秒
-                        : 0;
-                    lastTimestamp = event.timeStamp;
-
-                    // 更新加速度、速度和位置
-                    calculateAcceleration(event, deltaTime);
-
-                    // 计算总位移
-                    const distance = Math.sqrt(
-                        position.x ** 2 + position.y ** 2 + position.z ** 2
-                    );
-
-                    document.getElementById('angleChange').innerText = `
-                        α: ${angleChange.alpha.toFixed(2)}, 
-                        β: ${angleChange.beta.toFixed(2)}, 
-                        γ: ${angleChange.gamma.toFixed(2)}
-                    `;
-                    document.getElementById('distanceChange').innerText = distance.toFixed(2);
-
-                    window.removeEventListener('devicemotion', updateDistance); // 只记录一次
-                });
-
-                window.removeEventListener('deviceorientation', captureEnd); // 只记录一次
-            });
+          // Display results
+          document.getElementById("angleChange").textContent = `Angle Change: ${angleChange.toFixed(2)}°`;
+          document.getElementById("distanceMoved").textContent = `Distance Moved: ${distanceMoved.toFixed(2)} cm`;
         });
-    </script>
+      }
+    });
+
+    // Initialize the sensor data update
+    updateSensorData();
+  </script>
 </body>
 </html>
