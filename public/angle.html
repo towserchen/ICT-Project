@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sensor Data Demo</title>
+  <style>
+    #sensorData {
+      margin-top: 20px;
+    }
+    #output {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Phone Sensor Data</h1>
+
+  <button id="startBtn">Record Initial Data</button>
+  <button id="endBtn">Record End Data</button>
+
+  <div id="sensorData">
+    <h3>Real-time Sensor Data:</h3>
+    <p id="accelerationData">Acceleration: N/A</p>
+    <p id="rotationData">Rotation: N/A</p>
+    <p id="orientationData">Orientation: N/A</p>
+  </div>
+
+  <div id="output">
+    <h3>Output:</h3>
+    <p id="angleChange">Angle Change: N/A</p>
+    <p id="distanceMoved">Distance Moved: N/A</p>
+  </div>
+
+  <script>
+    let initialOrientation = null;
+    let initialAcceleration = null;
+    let initialTimestamp = null;
+
+    let angleChange = 0;
+    let distanceMoved = 0;
+
+    // Function to update real-time sensor data
+    function updateSensorData() {
+      const accelerationData = document.getElementById("accelerationData");
+      const rotationData = document.getElementById("rotationData");
+      const orientationData = document.getElementById("orientationData");
+
+      window.addEventListener("devicemotion", (event) => {
+        const acceleration = event.accelerationIncludingGravity;
+        const rotation = event.rotationRate;
+        const orientation = window.orientation;
+
+        accelerationData.textContent = `Acceleration: X = ${acceleration.x.toFixed(2)}, Y = ${acceleration.y.toFixed(2)}, Z = ${acceleration.z.toFixed(2)}`;
+        rotationData.textContent = `Rotation: Alpha = ${rotation.alpha?.toFixed(2)}, Beta = ${rotation.beta?.toFixed(2)}, Gamma = ${rotation.gamma?.toFixed(2)}`;
+        orientationData.textContent = `Orientation: ${orientation}`;
+      });
+    }
+
+    // Function to calculate angle change based on initial and end orientation
+    function calculateAngleChange(initial, current) {
+      const angleDiff = Math.abs(current - initial);
+      return angleDiff;
+    }
+
+    // Function to calculate distance moved based on acceleration
+    function calculateDistance(acceleration, timeInterval) {
+      const velocity = acceleration * timeInterval;
+      const distance = 0.5 * acceleration * Math.pow(timeInterval, 2);
+      return distance;
+    }
+
+    // Button to record initial sensor data
+    document.getElementById("startBtn").addEventListener("click", () => {
+      if (window.DeviceOrientationEvent && window.DeviceMotionEvent) {
+        window.addEventListener("devicemotion", (event) => {
+          if (initialTimestamp === null) {
+            initialTimestamp = event.timeStamp;
+            initialOrientation = window.orientation;
+            initialAcceleration = event.accelerationIncludingGravity;
+            console.log('Initial data recorded');
+          }
+        });
+      } else {
+        alert('Device does not support required sensors.');
+      }
+    });
+
+    // Button to record end sensor data and calculate angle and distance
+    document.getElementById("endBtn").addEventListener("click", () => {
+      if (initialOrientation !== null && initialAcceleration !== null) {
+        window.addEventListener("devicemotion", (event) => {
+          const currentTimestamp = event.timeStamp;
+          const currentOrientation = window.orientation;
+          const currentAcceleration = event.accelerationIncludingGravity;
+
+          // Calculate angle change
+          angleChange = calculateAngleChange(initialOrientation, currentOrientation);
+
+          // Calculate distance moved (estimating based on acceleration)
+          const timeInterval = (currentTimestamp - initialTimestamp) / 1000; // Convert ms to seconds
+          distanceMoved = calculateDistance(currentAcceleration.x, timeInterval);
+
+          // Display results
+          document.getElementById("angleChange").textContent = `Angle Change: ${angleChange.toFixed(2)}°`;
+          document.getElementById("distanceMoved").textContent = `Distance Moved: ${distanceMoved.toFixed(2)} cm`;
+        });
+      }
+    });
+
+    // Initialize the sensor data update
+    updateSensorData();
+  </script>
+</body>
+</html>
