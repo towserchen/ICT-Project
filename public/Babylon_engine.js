@@ -5,7 +5,16 @@ let engine = null;
 let rootMeshesByType;
 let blindType;
 let isModelCreated;
-let defaultSize;
+let defaultSize = {
+    interior: {
+        width: 0,
+        height: 0,
+    },
+    outdoor: {
+        width: 0,
+        height: 0,
+    }
+};
 let scene = null;
 const breakpoints = {'desktop': 1280, 'full-hd': 1980, 'l-desktop': 1400, 'phone': 599, 'small-phone': 375, 'tablet-landscape': 992, 'tablet-portrait': 600, 'xl-desktop': 1530};
 let upperRadius = 2.5;
@@ -190,9 +199,7 @@ function init(canvas) {
     rootMeshesByType = { outdoor: null, interior: null };
     currentBehaviour = 'rotate';
     // this.canvas = canvas.nativeElement;
-    engine = new BABYLON.Engine(canvas, true, {
-            preserveDrawingBuffer: true,
-    });
+    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true });
     createScene(sessionBlindType || 'outdoor', currentBlindId || lastOpenBlindId || '');
 }
 
@@ -241,6 +248,7 @@ function createScene(type, id = '', afterViewChange = false) {
     scene.collisionsEnabled = true;
     setZoomSettings(type);
     createCamera();
+    scene.getEngine().disableUniformBuffers = true;
 
     modelLoaderHandler();
     // this.createSceneEventsHandler(); // ignoring controls for now
@@ -254,8 +262,8 @@ async function loadModelWithRetry(
     scene = null,
     onProgress = null,
     pluginExtension = null,
-    attempt = 1
-) {
+    attempt = 1) {
+
     try {
         return await BABYLON.SceneLoader.LoadAssetContainerAsync(rootUrl, sceneFilename, scene, onProgress, pluginExtension);
     } catch (error) {
@@ -420,8 +428,7 @@ function removeIdFromName(name) {
 function setZoomSettings(blindType) {
     if (window.innerWidth >= breakpoints['tablet-portrait']) {
         upperRadius = cameraRadii[blindType].upper;
-        const addCameraOffset =
-            window.innerWidth > breakpoints['full-hd'] ? (window.innerWidth - breakpoints['full-hd']) / 1750 : 0;
+        const addCameraOffset = window.innerWidth > breakpoints['full-hd'] ? (window.innerWidth - breakpoints['full-hd']) / 1750 : 0;
         upperCameraOffset = blindType === 'outdoor' ? -1.2 + addCameraOffset : -0.9;
     }
 

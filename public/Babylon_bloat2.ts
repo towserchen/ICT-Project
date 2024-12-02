@@ -4,8 +4,7 @@ import {
 	Animation,
 	ArcRotateCamera,
 	ArcRotateCameraMouseWheelInput,
-	ArcRotateCameraPointersInput,
-	AssetContainer,
+	ArcRotateCameraPointersInput, AssetContainer,
 	BoundingBoxGizmo,
 	Color3,
 	Color4,
@@ -13,15 +12,13 @@ import {
 	DynamicTexture,
 	Engine,
 	FreeCamera,
-	HemisphericLight,
-	ISceneLoaderProgressEvent,
+	HemisphericLight, ISceneLoaderProgressEvent,
 	KeyboardEventTypes,
 	KeyboardInfo,
 	Layer,
 	Matrix,
 	Mesh,
-	MeshBuilder,
-	Nullable,
+	MeshBuilder, Nullable,
 	Observer,
 	PointerDragBehavior,
 	PointerEventTypes,
@@ -41,8 +38,7 @@ import {
 	PickingInfo,
 	RenderingManager,
 	Camera,
-	PBRMaterial,
-	IPointerEvent,
+	PBRMaterial
 } from '@babylonjs/core';
 import * as GUI from '@babylonjs/gui';
 import { GLTF2Export } from '@babylonjs/serializers/glTF';
@@ -54,17 +50,15 @@ import { ShareService } from '@core/services/share-data/share-data.service';
 import { PassDataService } from '@core/services/pass-data/pass-data.service';
 import { CompressModelService } from '@core/services/compress-model/compress-model.service';
 import { ScreenshotToBlindService } from '@core/services/screenshot-to-blind/screenshot-to-blind.service';
-import { ScreenshotBabylonService } from '@core/services/engine/services/screenshot-babylon.service';
 import { GizmoService } from '@core/services/engine/services/gizmo.service';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, Subscription } from 'rxjs';
 import {
 	BlindData,
 	BoundingBoxesSettings,
 	BoundingBoxSettings,
 	GizmoMinMaxMeshScaling,
 	RootMeshesByBlindType,
-	ShutterValues,
-	ZoomGizmoSettings,
+	ShutterValues
 } from '@root/app.interfaces';
 import {
 	ATTEMPTS_DELAY_MS,
@@ -88,12 +82,9 @@ import {
 	INTERIOR_WIDTH_MESH,
 	INTERIOR_WIDTH_POSITION_MESH,
 	MATERIAL_COLORS,
-	MATERIAL_MESH,
-	MATERIAL_TEXTURE_SCALE,
-	MAX_RETRY_ATTEMPTS,
-	MESHES_IDS,
-	REVEAL_CHANNEL,
-	REVERSE_HANDLE,
+	MATERIAL_MESH, MATERIAL_TEXTURE_SCALE,
+	MAX_RETRY_ATTEMPTS, MESHES_IDS,
+	REVEAL_CHANNEL, REVERSE_HANDLE,
 	SCALING_MESHES,
 	SELECTORS,
 	SPLINE_MESH,
@@ -107,17 +98,18 @@ import {
 	BOTTOM_CHANNEL_HANDLE,
 	SPRING_BALANCE,
 	MINIMUM_MATERIAL_OPACITY,
-	CLASSES,
+	CLASSES
 } from '@root/app.config';
 
 import * as _ from 'lodash';
 import { delay, first } from 'rxjs/operators';
+import html2canvas from 'html2canvas';
 import { IndexedDBService } from '../indexed-db/indexed-db.service';
 
-declare const $: any;
+declare var $: any;
 
 @Injectable({
-	providedIn: 'root',
+	providedIn: 'root'
 })
 export class EngineService {
 	private canvas: HTMLCanvasElement;
@@ -128,7 +120,7 @@ export class EngineService {
 	public utilityLayer: UtilityLayerRenderer;
 	public gizmo: BoundingBoxGizmo;
 	public boundingBox: Mesh;
-
+	
 	isMobile: boolean = this.passDataService.isMobileOrTablet;
 
 	colorEvents = new Subject();
@@ -142,6 +134,7 @@ export class EngineService {
 	reverseEvents = new Subject();
 	bottomChannelEvents = new Subject();
 	shutterControlEvents = new Subject();
+	getNetworkStatus: Subscription;
 
 	meshPosition = {};
 	meshScaling = {};
@@ -153,21 +146,21 @@ export class EngineService {
 		outdoor: {
 			width: 0,
 			height: 0,
-		},
+		}
 	};
 	defaultModelSize;
 	materialTypes: string[];
 	box;
-
+	
 	cameraRotation = Tools.ToRadians(270);
 	cameraPosition: Vector3;
 	isModelCreated = false;
-	isCopyingModel = false;
 	isModelMoved = false;
 	isZoomedIn = false;
 	isZoomedOut = false;
 	zooming = false;
 	zoomOutAnimationStatus = false;
+	currentPosition = new Vector3(0, 0, 0);
 	clicked = false;
 	drag = false;
 	modelDragging = false;
@@ -193,9 +186,9 @@ export class EngineService {
 	ground;
 	groundPositionY = -0.9;
 	materialOpacity;
-
+	
 	pickResult;
-
+	
 	controlType;
 	dragModelBehavior;
 	rotateModelObserver;
@@ -206,15 +199,20 @@ export class EngineService {
 	rotateAxis;
 	draggedModel = false;
 	rotatedModel = false;
-
+	
 	animationType;
 	animationResponse;
-
+	
 	videoTexture: VideoTexture;
 	videoStream: MediaStream;
 	videoLayer: Layer;
+	
+	materialTextureScale = {
+		outdoor: 50,
+		interior: 300
+	};
 	shadowGenerator: ShadowGenerator;
-
+	
 	isZoomedIVCamera = false;
 	startIVCameraRadius: number;
 	boundingBoxRotationQuaternion: Quaternion;
@@ -250,7 +248,7 @@ export class EngineService {
 	movePointSphere: Mesh;
 	pointSpheresMaterial: StandardMaterial;
 	hoverPointSpheresMaterial: StandardMaterial;
-
+	
 	commonDefaultStyles = {
 		color: false,
 		sizeWidth: false,
@@ -259,7 +257,7 @@ export class EngineService {
 		operation: false,
 		mounting: false,
 	};
-
+	
 	defaultStyles = {
 		outdoor: {
 			...this.commonDefaultStyles,
@@ -267,21 +265,21 @@ export class EngineService {
 		},
 		interior: {
 			...this.commonDefaultStyles,
-			bottomChannel: false,
-		},
+			bottomChannel: false
+		}
 	};
 	breakpoints = CONFIG.breakpoints;
-
+	
 	baseUrl = '../../../../assets/model/'; // TODO change to REST API
 	blindInterior = 'interior-final.glb';
 	blindOutdoor = 'outdoor.glb';
 	blindType = 'outdoor';
-
+	
 	zoomCounter = 0;
 	zoomRadius: number[];
 	zoomCameraOffsets: number[];
-	zoomGizmoSettings: ZoomGizmoSettings;
-
+	zoomGizmoSettings;
+	
 	shutter = {
 		value: 1,
 		IVDefaultValue: 1,
@@ -306,278 +304,242 @@ export class EngineService {
 			startPosition: -0.05,
 			meshPositions: {},
 		},
-		modelsValue: {},
+		modelsValue: {}
 	};
-
+	
 	cameraRadii = {
 		outdoor: {
-			upper: 5.5,
+			upper: 5.5
 		},
 		interior: {
-			upper: 4.5,
-		},
+			upper: 4.5
+		}
 	};
 
 	afterRenderCallback: Observer<Scene>;
 	isSubscribersAfterCreateSceneAdded = false;
 	animationAdded = false;
 	sampleImage;
-	sampleProjectBlinds = {};
+	sampleProjectBlinds = {}
 	newCreatedBlinds = [];
 	samplesProjectProperties = {
 		desktop: {
 			outdoorProject: [
-				[
-					{
-						position: new Vector3(0.29734867811203003, -0.04501425847411156, 0.534438967704773),
-						scaling: new Vector3(4.3725642634811495, 2.8136999204124744, 0.29000002753805737),
-						rotation: new Vector3(-0.015486472192962725, 0.796776148403882, 0.03725212997674584),
-						cameraRadius: 4.5,
-					},
-					{
-						position: new Vector3(0.11482419818639755, 0.10392168164253235, -2.3475422859191895),
-						scaling: new Vector3(4.774902015603808, 2.5368573151213, 0.2899999989992623),
-						rotation: new Vector3(-0.010278477771221603, 0.7332790546194814, 0.03651309262240255),
-						cameraRadius: 7.05,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.001988830976188183, 0.476738840341568, -1.329516887664795),
-						scaling: new Vector3(3.434298709891111, 2.4686629287379276, 0.2899999857176397),
-						rotation: new Vector3(0.0013616632133962928, 1.5675340309838868, -0.0010019671600955513),
-						cameraRadius: 6.32,
-					},
-					{
-						position: new Vector3(0.00006295923958532512, 0.4801251292228699, 1.8977419137954712),
-						scaling: new Vector3(3.571883988765506, 2.46761027866371, 0.2900000007362086),
-						rotation: new Vector3(-0.005500711989610571, 1.5757437697934713, -0.0009907685737577244),
-						cameraRadius: 6.32,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.025237441062927246, 0.9392757415771484, -0.4563325345516205),
-						scaling: new Vector3(4.407837867736816, 2.1931676864624023, 0.28999999165534973),
-						rotation: new Vector3(0, 1.5707963267948963, 0),
-						cameraRadius: 6.1,
-					},
-				],
+				[{
+					position: new Vector3(0.29734867811203003, -0.04501425847411156, 0.534438967704773),
+					scaling: new Vector3(4.3725642634811495, 2.8136999204124744, 0.29000002753805737),
+					rotation: new Vector3(-0.015486472192962725, 0.796776148403882, 0.03725212997674584),
+					cameraRadius: 4.5
+				},
+				{
+					position: new Vector3(0.11482419818639755, 0.10392168164253235, -2.3475422859191895),
+					scaling: new Vector3(4.774902015603808, 2.5368573151213, 0.2899999989992623),
+					rotation: new Vector3(-0.010278477771221603, 0.7332790546194814, 0.03651309262240255),
+					cameraRadius: 7.05
+				}],
+				[{
+					position: new Vector3(0.001988830976188183, 0.476738840341568, -1.329516887664795),
+					scaling: new Vector3(3.434298709891111, 2.4686629287379276, 0.2899999857176397),
+					rotation: new Vector3(0.0013616632133962928, 1.5675340309838868, -0.0010019671600955513),
+					cameraRadius: 6.32
+				},
+				{
+					position: new Vector3(0.00006295923958532512, 0.4801251292228699, 1.8977419137954712),
+					scaling: new Vector3(3.571883988765506, 2.46761027866371, 0.2900000007362086),
+					rotation: new Vector3(-0.005500711989610571, 1.5757437697934713, -0.0009907685737577244),
+					cameraRadius: 6.32
+				}],
+				[{
+					position: new Vector3(0.025237441062927246,0.9392757415771484, -0.4563325345516205),
+					scaling: new Vector3(4.407837867736816, 2.1931676864624023, 0.28999999165534973),
+					rotation: new Vector3(0, 1.5707963267948963, 0),
+					cameraRadius: 6.1
+				}]
 			],
 			interiorProject: [
-				[
-					{
-						position: new Vector3(0.013234059326350689, 0.29622238874435425, 1.4998823404312134),
-						scaling: new Vector3(1.5465457357188026, 1.4586863803482133, 0.3000000049075083),
-						rotation: new Vector3(-0.07135006632358003, 1.2886985091003846, -0.0012048454600481005),
-						cameraRadius: 4.36,
-					},
-					{
-						position: new Vector3(-0.2955589294433594, 0.48182210326194763, 0.33598020672798157),
-						scaling: new Vector3(2.3746931633049333, 2.101308661919693, 0.2999999882178008),
-						rotation: new Vector3(-0.010699203774075709, 2.7289030846839957, -0.02496797289073399),
-						cameraRadius: 5.5,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.023786652833223343, 0.4302184581756592, 1.1515291929244995),
-						scaling: new Vector3(2.1364926818436922, 1.5786622747826986, 0.2999999970536883),
-						rotation: new Vector3(0.023454944608095205, 1.5757145062814308, -0.0009908979814386954),
-						cameraRadius: 2.97,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.1126401424407959, 0.3430352509021759, -0.6037593483924866),
-						scaling: new Vector3(1.2384625460672154, 1.58436918258667, 0.300000002652508),
-						rotation: new Vector3(-0, 2.4772261205121806, 0),
-						cameraRadius: 5.42,
-					},
-					{
-						position: new Vector3(0.07913937419652939, 0.39723071455955505, -1.4381576776504517),
-						scaling: new Vector3(1.3518696897677727, 1.798421025276184, 0.3000000451164081),
-						rotation: new Vector3(0, 2.4522309204713153, 0),
-						cameraRadius: 5.42,
-					},
-					{
-						position: new Vector3(0.036581557244062424, 0.46085816621780396, -2.5080552101135254),
-						scaling: new Vector3(1.5007994512494414, 2.035703182220459, 0.29999999840384434),
-						rotation: new Vector3(0, 2.392800965097885, 0),
-						cameraRadius: 5.42,
-					},
-				],
-			],
+				[{
+					position: new Vector3(0.013234059326350689, 0.29622238874435425, 1.4998823404312134),
+					scaling: new Vector3(1.5465457357188026, 1.4586863803482133, 0.3000000049075083),
+					rotation: new Vector3(-0.07135006632358003, 1.2886985091003846, -0.0012048454600481005),
+					cameraRadius: 4.36
+				},
+				{
+					position: new Vector3(-0.2955589294433594, 0.48182210326194763, 0.33598020672798157),
+					scaling: new Vector3(2.3746931633049333, 2.101308661919693, 0.2999999882178008),
+					rotation: new Vector3(-0.010699203774075709, 2.7289030846839957, -0.02496797289073399),
+					cameraRadius: 5.5
+				}],
+				[{
+					position: new Vector3(0.023786652833223343, 0.4302184581756592, 1.1515291929244995),
+					scaling: new Vector3(2.1364926818436922, 1.5786622747826986, 0.2999999970536883),
+					rotation: new Vector3(0.023454944608095205, 1.5757145062814308, -0.0009908979814386954),
+					cameraRadius: 2.97
+				}],
+				[{
+					position: new Vector3(0.1126401424407959, 0.3430352509021759, -0.6037593483924866),
+					scaling: new Vector3(1.2384625460672154, 1.58436918258667, 0.300000002652508),
+					rotation: new Vector3( -0, 2.4772261205121806, 0),
+					cameraRadius: 5.42
+				},
+				{
+					position: new Vector3(0.07913937419652939, 0.39723071455955505, -1.4381576776504517),
+					scaling: new Vector3(1.3518696897677727, 1.798421025276184, 0.3000000451164081),
+					rotation: new Vector3( 0, 2.4522309204713153, 0),
+					cameraRadius: 5.42
+				},
+				{
+					position: new Vector3(0.036581557244062424, 0.46085816621780396, -2.5080552101135254),
+					scaling: new Vector3(1.5007994512494414, 2.035703182220459, 0.29999999840384434),
+					rotation: new Vector3( 0, 2.392800965097885, 0),
+					cameraRadius: 5.42
+				}]
+			]
 		},
 		mobile: {
 			outdoorProject: [
-				[
-					{
-						position: new Vector3(0.3073790967464447, -0.06024245172739029, 0.524517297744751),
-						scaling: new Vector3(4.603622319539624, 2.9705741847824028, 0.28999999640874663),
-						rotation: new Vector3(-0.01548649958920492, 0.7967762873700717, 0.03725215307108446),
-						cameraRadius: 4.5,
-					},
-					{
-						position: new Vector3(0.1380791962146759, 0.10105345398187637, -2.3684492111206055),
-						scaling: new Vector3(5.124344720536338, 2.6682730386993367, 0.28999999896097267),
-						rotation: new Vector3(-0.010278465963750621, 0.7332790134179777, 0.036513122362767415),
-						cameraRadius: 7.05,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.001964823342859745, 0.47113773226737976, -1.3244880437850952),
-						scaling: new Vector3(3.6407232196276937, 2.5946556453216623, 0.28999998778814917),
-						rotation: new Vector3(0.0013616624462526258, 1.5675318499693753, -0.0010019650528611558),
-						cameraRadius: 6.32,
-					},
-					{
-						position: new Vector3(0.00013237287930678576, 0.4705876410007477, 1.9011609554290771),
-						scaling: new Vector3(3.815927844069716, 2.592134671307462, 0.2900000028499275),
-						rotation: new Vector3(-0.005500714140217273, 1.5757452488151822, -0.0009907650232528508),
-						cameraRadius: 6.32,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.025237441062927246, 0.9463704824447632, -0.4567435085773468),
-						scaling: new Vector3(4.620665550231934, 2.3494434356689453, 0.28999999165534973),
-						rotation: new Vector3(0, 1.5707963267948963, 0),
-						cameraRadius: 6.1,
-					},
-				],
+				[{
+					position: new Vector3(0.3073790967464447, -0.06024245172739029, 0.524517297744751),
+					scaling: new Vector3(4.603622319539624, 2.9705741847824028, 0.28999999640874663),
+					rotation: new Vector3(-0.01548649958920492, 0.7967762873700717, 0.03725215307108446),
+					cameraRadius: 4.5
+				},
+				{
+					position: new Vector3(0.1380791962146759, 0.10105345398187637, -2.3684492111206055),
+					scaling: new Vector3(5.124344720536338, 2.6682730386993367, 0.28999999896097267),
+					rotation: new Vector3(-0.010278465963750621, 0.7332790134179777, 0.036513122362767415),
+					cameraRadius: 7.05
+				}],
+				[{
+					position: new Vector3(0.001964823342859745, 0.47113773226737976, -1.3244880437850952),
+					scaling: new Vector3(3.6407232196276937, 2.5946556453216623, 0.28999998778814917),
+					rotation: new Vector3(0.0013616624462526258, 1.5675318499693753, -0.0010019650528611558),
+					cameraRadius: 6.32
+				},
+				{
+					position: new Vector3(0.00013237287930678576, 0.4705876410007477, 1.9011609554290771),
+					scaling: new Vector3(3.815927844069716, 2.592134671307462, 0.2900000028499275),
+					rotation: new Vector3(-0.005500714140217273, 1.5757452488151822, -0.0009907650232528508),
+					cameraRadius: 6.32
+				}],
+				[{
+					position: new Vector3(0.025237441062927246, 0.9463704824447632, -0.4567435085773468),
+					scaling: new Vector3(4.620665550231934, 2.3494434356689453, 0.28999999165534973),
+					rotation: new Vector3(0, 1.5707963267948963, 0),
+					cameraRadius: 6.1
+				}]
 			],
 			interiorProject: [
-				[
-					{
-						position: new Vector3(0.013060279190540314, 0.30162349343299866, 1.499094843864441),
-						scaling: new Vector3(1.75324426684129, 1.6224752702378036, 0.30000000217482314),
-						rotation: new Vector3(-0.07135004122812706, 1.2886985217237084, -0.001204885495981053),
-						cameraRadius: 4.36,
-					},
-					{
-						position: new Vector3(-0.30163997411727905, 0.4603618383407593, 0.33306726813316345),
-						scaling: new Vector3(2.5466783443009846, 2.1976786694398367, 0.30000000953540396),
-						rotation: new Vector3(-0.010699200322534698, 2.7289031864655016, -0.024967957802070912),
-						cameraRadius: 5.5,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.02381071448326111, 0.4295254945755005, 1.1597280502319336),
-						scaling: new Vector3(2.360270433382115, 1.7089289537113823, 0.29999999703894303),
-						rotation: new Vector3(0.023454947431757685, 1.575714473656159, -0.000990926119528065),
-						cameraRadius: 2.97,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.08158997446298599, 0.34641650319099426, -0.6280754208564758),
-						scaling: new Vector3(1.3733985428094444, 1.7252413034439087, 0.3000000051968371),
-						rotation: new Vector3(-0, 2.4772261205121806, 0),
-						cameraRadius: 5.42,
-					},
-					{
-						position: new Vector3(0.06115056946873665, 0.39742299914360046, -1.4529855251312256),
-						scaling: new Vector3(1.479090196472247, 1.9321552515029907, 0.29999997675106127),
-						rotation: new Vector3(0, 2.4522309204713153, 0),
-						cameraRadius: 5.42,
-					},
-					{
-						position: new Vector3(0.01864555850625038, 0.44448742270469666, -2.5247254371643066),
-						scaling: new Vector3(1.6039153095247722, 2.1922459602355957, 0.300000010090377),
-						rotation: new Vector3(0, 2.392800965097885, 0),
-						cameraRadius: 5.42,
-					},
-				],
-			],
+				[{
+					position: new Vector3(0.013060279190540314, 0.30162349343299866, 1.499094843864441),
+					scaling: new Vector3(1.75324426684129, 1.6224752702378036, 0.30000000217482314),
+					rotation: new Vector3(-0.07135004122812706, 1.2886985217237084, -0.001204885495981053),
+					cameraRadius: 4.36
+				},
+				{
+					position: new Vector3(-0.30163997411727905, 0.4603618383407593, 0.33306726813316345),
+					scaling: new Vector3(2.5466783443009846, 2.1976786694398367, 0.30000000953540396),
+					rotation: new Vector3(-0.010699200322534698, 2.7289031864655016, -0.024967957802070912),
+					cameraRadius: 5.5
+				}],
+				[{
+					position: new Vector3(0.02381071448326111, 0.4295254945755005, 1.1597280502319336),
+					scaling: new Vector3(2.360270433382115, 1.7089289537113823, 0.29999999703894303),
+					rotation: new Vector3(0.023454947431757685, 1.575714473656159, -0.000990926119528065),
+					cameraRadius: 2.97
+				}],
+				[{
+					position: new Vector3(0.08158997446298599, 0.34641650319099426, -0.6280754208564758),
+					scaling: new Vector3(1.3733985428094444, 1.7252413034439087, 0.3000000051968371),
+					rotation: new Vector3( -0, 2.4772261205121806, 0),
+					cameraRadius: 5.42
+				},
+				{
+					position: new Vector3(0.06115056946873665, 0.39742299914360046, -1.4529855251312256),
+					scaling: new Vector3(1.479090196472247, 1.9321552515029907, 0.29999997675106127),
+					rotation: new Vector3( 0, 2.4522309204713153, 0),
+					cameraRadius: 5.42
+				},
+				{
+					position: new Vector3(0.01864555850625038, 0.44448742270469666, -2.5247254371643066),
+					scaling: new Vector3(1.6039153095247722, 2.1922459602355957, 0.300000010090377),
+					rotation: new Vector3( 0, 2.392800965097885, 0),
+					cameraRadius: 5.42
+				}]
+			]
 		},
 		mobile_portrait: {
 			outdoorProject: [
-				[
-					{
-						position: new Vector3(0.8434898257255554, -0.22126126289367676, 0.37842172384262085),
-						scaling: new Vector3(5.996444562840626, 2.1743920117256637, 0.2899999843495316),
-						rotation: new Vector3(0.02750369185529973, 0.36595773259798914, -0.0004395044052314558),
-						cameraRadius: 8.6,
-					},
-					{
-						position: new Vector3(0.21891340613365173, -0.180072620511055, -1.2818952798843384),
-						scaling: new Vector3(4.755204493008996, 1.8717173003263516, 0.2899999474200487),
-						rotation: new Vector3(0.027503701104984533, 0.36595796716578277, -0.00043950600460662405),
-						cameraRadius: 11.6,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.0015330034075304866, 0.011995813809335232, -1.1502937078475952),
-						scaling: new Vector3(3.2307186101665355, 2.3084816542959112, 0.28999998875637206),
-						rotation: new Vector3(0.001361663104908753, 1.567530831057118, -0.0010019646563499186),
-						cameraRadius: 14.1,
-					},
-					{
-						position: new Vector3(0.0014450524467974901, 0.007597779855132103, 1.6577963829040527),
-						scaling: new Vector3(3.3783853753611597, 2.334831229136248, 0.29000000691226874),
-						rotation: new Vector3(-0.005500717844375132, 1.575748057521042, -0.000990767503435116),
-						cameraRadius: 14.1,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.025237441062927246, 0.8204889297485352, -0.3557344973087311),
-						scaling: new Vector3(4.620665550231934, 2.383361577987671, 0.28999999165534973),
-						rotation: new Vector3(0, 1.5707963267948963, 0),
-						cameraRadius: 12.7,
-					},
-				],
+				[{
+					position: new Vector3(0.8434898257255554, -0.22126126289367676, 0.37842172384262085),
+					scaling: new Vector3(5.996444562840626, 2.1743920117256637, 0.2899999843495316),
+					rotation: new Vector3(0.02750369185529973, 0.36595773259798914, -0.0004395044052314558),
+					cameraRadius: 8.6
+				},
+				{
+					position: new Vector3(0.21891340613365173, -0.180072620511055, -1.2818952798843384),
+					scaling: new Vector3(4.755204493008996, 1.8717173003263516, 0.2899999474200487),
+					rotation: new Vector3(0.027503701104984533, 0.36595796716578277, -0.00043950600460662405),
+					cameraRadius: 11.6
+				}],
+				[{
+					position: new Vector3(0.0015330034075304866, 0.011995813809335232, -1.1502937078475952),
+					scaling: new Vector3(3.2307186101665355, 2.3084816542959112, 0.28999998875637206),
+					rotation: new Vector3(0.001361663104908753, 1.567530831057118, -0.0010019646563499186),
+					cameraRadius: 14.1
+				},
+				{
+					position: new Vector3(0.0014450524467974901, 0.007597779855132103, 1.6577963829040527),
+					scaling: new Vector3(3.3783853753611597, 2.334831229136248, 0.29000000691226874),
+					rotation: new Vector3(-0.005500717844375132, 1.575748057521042, -0.000990767503435116),
+					cameraRadius: 14.1
+				}],
+				[{
+					position: new Vector3(0.025237441062927246, 0.8204889297485352, -0.3557344973087311),
+					scaling: new Vector3(4.620665550231934, 2.383361577987671, 0.28999999165534973),
+					rotation: new Vector3(0, 1.5707963267948963, 0),
+					cameraRadius: 12.7
+				}]
 			],
 			interiorProject: [
-				[
-					{
-						position: new Vector3(-0.02120126038789749, 0.3583592176437378, 0.33043164014816284),
-						scaling: new Vector3(1.4860138286023992, 1.3153811263565682, 0.30000000823959616),
-						rotation: new Vector3(-0.07149457399609663, 1.2966265093882754, 0.018000831136491882),
-						cameraRadius: 4.36,
-					},
-					{
-						position: new Vector3(-0.009930583648383617, 0.5575634241104126, -0.7075933218002319),
-						scaling: new Vector3(2.6254461470600674, 1.8328961636647896, 0.29999993660686625),
-						rotation: new Vector3(-0.01750098263825143, 3.012039336541391, -0.04834776770779547),
-						cameraRadius: 5.5,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.0251468513160944, 0.4034079611301422, 0.3874063491821289),
-						scaling: new Vector3(2.26290405520924, 1.6738891722869904, 0.2999999970175126),
-						rotation: new Vector3(0.02345495582089723, 1.5757144369016782, -0.0009909144589884313),
-						cameraRadius: 6.1,
-					},
-				],
-				[
-					{
-						position: new Vector3(0.041471339762210846, 0.5952736735343933, 0.7385839223861694),
-						scaling: new Vector3(1.405061302249755, 1.6697165966033936, 0.30000001992331543),
-						rotation: new Vector3(-0, 2.332344171477907, 0),
-						cameraRadius: 7.32,
-					},
-					{
-						position: new Vector3(0.04927757754921913, 0.6395522952079773, -0.04168247804045677),
-						scaling: new Vector3(1.5349562741506142, 1.852447687282834, 0.3000000474835309),
-						rotation: new Vector3(0, 2.332344171477907, 0),
-						cameraRadius: 7.32,
-					},
-					{
-						position: new Vector3(-0.012976708821952343, 0.6890910267829895, -1.023228645324707),
-						scaling: new Vector3(1.8124174050969792, 2.056417465209961, 0.30000001791308356),
-						rotation: new Vector3(0, 2.332344171477907, 0),
-						cameraRadius: 7.32,
-					},
-				],
-			],
-		},
-	};
+				[{
+					position: new Vector3(-0.02120126038789749, 0.3583592176437378, 0.33043164014816284),
+					scaling: new Vector3(1.4860138286023992, 1.3153811263565682, 0.30000000823959616),
+					rotation: new Vector3(-0.07149457399609663, 1.2966265093882754, 0.018000831136491882),
+					cameraRadius: 4.36
+				},
+				{
+					position: new Vector3(-0.009930583648383617, 0.5575634241104126, -0.7075933218002319),
+					scaling: new Vector3(2.6254461470600674, 1.8328961636647896, 0.29999993660686625),
+					rotation: new Vector3(-0.01750098263825143, 3.012039336541391, -0.04834776770779547),
+					cameraRadius: 5.5
+				}],
+				[{
+					position: new Vector3(0.0251468513160944, 0.4034079611301422, 0.3874063491821289),
+					scaling: new Vector3(2.26290405520924, 1.6738891722869904, 0.2999999970175126),
+					rotation: new Vector3(0.02345495582089723, 1.5757144369016782, -0.0009909144589884313),
+					cameraRadius: 6.1
+				}],
+				[{
+					position: new Vector3(0.041471339762210846, 0.5952736735343933, 0.7385839223861694),
+					scaling: new Vector3(1.405061302249755, 1.6697165966033936, 0.30000001992331543),
+					rotation: new Vector3( -0, 2.332344171477907, 0),
+					cameraRadius: 7.32
+				},
+				{
+					position: new Vector3(0.04927757754921913, 0.6395522952079773, -0.04168247804045677),
+					scaling: new Vector3(1.5349562741506142, 1.852447687282834, 0.3000000474835309),
+					rotation: new Vector3( 0, 2.332344171477907, 0),
+					cameraRadius: 7.32
+				},
+				{
+					position: new Vector3(-0.012976708821952343, 0.6890910267829895, -1.023228645324707),
+					scaling: new Vector3(1.8124174050969792, 2.056417465209961, 0.30000001791308356),
+					rotation: new Vector3( 0, 2.332344171477907, 0),
+					cameraRadius: 7.32
+				}]
+			]
+		}
+	}
 
 	sceneOrientation: string;
 
@@ -587,7 +549,7 @@ export class EngineService {
 	preventScalingModel: boolean;
 	rootMeshesByType: RootMeshesByBlindType = {
 		outdoor: null,
-		interior: null,
+		interior: null
 	};
 
 	constructor(
@@ -598,9 +560,8 @@ export class EngineService {
 		private compressModelService: CompressModelService,
 		private screenshotToBlindService: ScreenshotToBlindService,
 		private indexedDBService: IndexedDBService,
-		private gizmoService: GizmoService,
-		private screenshotBabylonService: ScreenshotBabylonService,
-	) {}
+		private gizmoService: GizmoService
+	) { }
 
 	async loadModelWithRetry(
 		rootUrl: string,
@@ -608,8 +569,8 @@ export class EngineService {
 		scene?: Nullable<Scene>,
 		onProgress?: Nullable<(event: ISceneLoaderProgressEvent) => void>,
 		pluginExtension?: Nullable<string>,
-		attempt: number = 1,
-	): Promise<any> {
+		attempt: number = 1): Promise<AssetContainer> {
+
 		try {
 			return await SceneLoader.LoadAssetContainerAsync(rootUrl, sceneFilename, scene, onProgress, pluginExtension);
 		} catch (error) {
@@ -638,9 +599,7 @@ export class EngineService {
 		this.rootMeshesByType = { outdoor: null, interior: null };
 		this.currentBehaviour = 'rotate';
 		this.canvas = canvas.nativeElement;
-		this.engine = new Engine(this.canvas, true, {
-			preserveDrawingBuffer: true,
-		});
+		this.engine = new Engine(this.canvas, true, { preserveDrawingBuffer: true });
 		this.createScene(sessionBlindType || 'outdoor', currentBlindId || lastOpenBlindId || '');
 	}
 
@@ -684,6 +643,7 @@ export class EngineService {
 		this.scene.collisionsEnabled = true;
 		this.setZoomSettings(type);
 		this.createCamera();
+		this.scene.getEngine().disableUniformBuffers = true;
 
 		this.modelLoaderHandler();
 		this.createSceneEventsHandler();
@@ -695,7 +655,7 @@ export class EngineService {
 		const blindType = this.blindType === 'outdoor' ? this.blindOutdoor : this.blindInterior;
 
 		this.loadModelWithRetry(this.baseUrl, blindType, this.scene)
-			.then((container: AssetContainer) => this.setupSceneHandler(container))
+			.then(container => this.setupSceneHandler(container))
 			.then(() => {
 				this.setDefaultView();
 				this.lightGeneralSetupHandler(false);
@@ -718,7 +678,7 @@ export class EngineService {
 		const listenersAdded = this.canvas.getAttribute(attribute);
 
 		this.scene.onPointerDown = (evt, pickResult) => this.scenePointerDownListener(evt, pickResult);
-		this.scene.onPointerMove = () => {
+		this.scene.onPointerMove = (evt, pickResult) => {
 			this.scenePointerMoveListener();
 			// this.ivScenePointerMoveListener(evt, pickResult);
 		};
@@ -728,9 +688,9 @@ export class EngineService {
 			this.canvas.addEventListener('pointerup', this.canvasPointerUpEventListener.bind(this));
 			this.canvas.addEventListener('pointermove', this.canvasPointerMoveEventListener.bind(this));
 			this.canvas.addEventListener('touchmove', this.canvasTouchEventListener.bind(this));
-			this.canvas.addEventListener('touchstart', (event) => event.preventDefault());
-			this.canvas.addEventListener('pointerleave', () => (this.clicked = false));
-			this.canvas.addEventListener('pointerout', () => (this.clicked = false));
+			this.canvas.addEventListener('touchstart', event => event.preventDefault());
+			this.canvas.addEventListener('pointerleave', () => this.clicked = false);
+			this.canvas.addEventListener('pointerout', () => this.clicked = false);
 
 			this.canvas.setAttribute(attribute, 'true');
 		}
@@ -738,14 +698,14 @@ export class EngineService {
 
 	createSceneSubscriptionsHandler(): void {
 		if (!this.isSubscribersAfterCreateSceneAdded) {
-			this.getColor().subscribe((res) => this.getColorSceneHandler(res));
-			this.getSize().subscribe((res) => this.getSizeSceneHandler(res));
-			this.getTopStyle().subscribe((res) => this.getTopStyleSceneHandler(res));
-			this.getBottomBar().subscribe((res) => this.getBottomBarSceneHandler(res));
-			this.getOperation().subscribe((res) => this.getOperationSceneHandler(res));
-			this.getReverse().subscribe((res) => this.getReverseSceneHandler(res));
-			this.getMounting().subscribe((res) => this.getMountingSceneHandler(res));
-			this.getBottomChannel().subscribe((res) => this.getBottomChannelHandler(res));
+			this.getColor().subscribe(res => this.getColorSceneHandler(res));
+			this.getSize().subscribe(res => this.getSizeSceneHandler(res));
+			this.getTopStyle().subscribe(res => this.getTopStyleSceneHandler(res));
+			this.getBottomBar().subscribe(res => this.getBottomBarSceneHandler(res));
+			this.getOperation().subscribe(res => this.getOperationSceneHandler(res));
+			this.getReverse().subscribe(res => this.getReverseSceneHandler(res));
+			this.getMounting().subscribe(res => this.getMountingSceneHandler(res));
+			this.getBottomChannel().subscribe(res => this.getBottomChannelHandler(res));
 
 			this.isSubscribersAfterCreateSceneAdded = true;
 		}
@@ -753,8 +713,8 @@ export class EngineService {
 
 	removeScenePointerEvents(): void {
 		if (this.scene) {
-			this.scene.onPointerDown = () => {};
-			this.scene.onPointerMove = () => {};
+			this.scene.onPointerDown = () => {}
+			this.scene.onPointerMove = () => {}
 		}
 	}
 
@@ -776,7 +736,7 @@ export class EngineService {
 			clicked: this.clicked,
 			zoomIn: this.camera.radius !== this.upperRadius,
 			imageVisualisation: this.isImageVisualisation,
-			reset: true,
+			reset: true
 		});
 	}
 
@@ -784,7 +744,7 @@ export class EngineService {
 		this.shareDataService.setCursorPointer({
 			drag: true,
 			dragged: this.draggedModel,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 	}
 
@@ -792,21 +752,20 @@ export class EngineService {
 		this.shareDataService.setCursorPointer({
 			rotate: true,
 			rotated: this.rotatedModel,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 	}
 
-	scenePointerDownListener(event: IPointerEvent, pickResult: PickingInfo): void {
+	scenePointerDownListener(event: PointerEvent, pickResult: PickingInfo): void {
 		let pickedMesh = pickResult.pickedMesh;
 
 		if (this.isImageVisualisation && event) {
-			const pickedMeshes = this.scene
-				.multiPickWithRay(pickResult.ray, null)
+			const pickedMeshes = this.scene.multiPickWithRay(pickResult.ray, null)
 				.map((pickingInfo: PickingInfo) => pickingInfo.pickedMesh)
 				.sort((pickedMesh1, pickedMesh2) => pickedMesh2.renderingGroupId - pickedMesh1.renderingGroupId);
 
 			if (pickedMeshes.length) {
-				pickedMesh = pickedMeshes.find((mesh) => mesh.name === 'box') || pickedMeshes[0];
+				pickedMesh = pickedMeshes.find(pickedMesh => pickedMesh.name === 'box') || pickedMeshes[0]
 			}
 		}
 
@@ -815,12 +774,12 @@ export class EngineService {
 		this.shareDataService.setCursorGrab({
 			cursor: this.canvas.style.cursor,
 			clicked: this.clicked,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 
 		if (this.isImageVisualisation && pickedMesh && pickedMesh?.name !== 'box' && !this.gizmoHoveredControl) {
 			this.preventScalingModel = true;
-			const id = parseInt(pickedMesh.parent.name, 10)?.toString();
+			const id = parseInt(pickedMesh.parent.name)?.toString();
 			this.setModelAndBoundingBoxSettings();
 			this.setGizmoControlVisible(true);
 			this.shareDataService.setSelectedModel(id);
@@ -882,41 +841,41 @@ export class EngineService {
 			cursor: this.canvas.style.cursor,
 			clicked: this.clicked,
 			zoomIn: this.camera.radius !== this.upperRadius,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 		this.canvas.style.cursor = `url(../../../../assets/icons/cursor_click_IV.svg) 11 5, grab`;
 		this.drag = false;
 		this.clicked = false;
 		this.calculateModelRotations();
 	}
-
+	
 	canvasTouchEventListener(e): void {
 		if (e.targetTouches.length === 2) {
 			const input = this.camera.inputs.attached.pointers;
 			// @ts-ignore
 			input.pinchZoom = false;
-
+			
 			if (this.camera.radius === this.upperRadius) {
 				// @ts-ignore
 				input.panningSensibility = 500;
 				this.zoomInHandler();
 				// @ts-ignore
 				input.pinchPrecision = 100;
-
+				
 				this.shareDataService.setCursorPointer({
 					cursor: this.canvas.style.cursor,
 					clicked: this.clicked,
 					zoomIn: true,
-					imageVisualisation: this.isImageVisualisation,
+					imageVisualisation: this.isImageVisualisation
 				});
 			}
-
+			
 			if (this.camera.radius - 0.2 >= this.upperRadius) {
 				this.zoomOutHandler(1500);
 			}
 		}
 	}
-
+	
 	getAnimationScene() {
 		switch (this.animationType) {
 			case 'mounting':
@@ -939,7 +898,7 @@ export class EngineService {
 				break;
 		}
 	}
-
+	
 	getMountingSceneHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'mounting';
@@ -952,30 +911,35 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + mesh).setEnabled(+res.id !== 2);
 			}
 		}
-
+		
 		for (const mesh of faceFixChannelMeshes) {
 			if (this.scene.getMeshByName(this.blindId + mesh)) {
 				this.scene.getMeshByName(this.blindId + mesh).setEnabled(+res.id !== 1);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].mounting && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('mounting');
-
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 1.5, X);
+			
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 1.5,
+				X
+			);
 			this.hintDrivingHelper(res, 'mounting');
 		}
-
+		
 		this.defaultStyles[this.blindType].mounting = true;
-		this.boxStatus(!Object.values(this.defaultStyles).every((item) => item));
+		this.boxStatus(!Object.values(this.defaultStyles).every(item => item));
 
 		if (!res.from_config) {
-			this.shareDataService.setModelLoaded(Object.values(this.defaultStyles).every((item) => item));
+			this.shareDataService.setModelLoaded(Object.values(this.defaultStyles).every(item => item));
 		}
 
 		this.setFontSize();
 	}
-
+	
 	getReverseSceneHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'reverse';
@@ -985,32 +949,37 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + mesh).setEnabled(res.state);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].operation && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('reverse');
-
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 2.5, X);
-
+			
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 2.5,
+				X
+			);
+			
 			this.hintDrivingHelper(res, 'reverse');
 		}
-
+		
 		if (!res.state) {
 			this.isHintsVisible();
 		}
 	}
-
+	
 	targetModelXYZ(type): any {
 		const blindType = this.getBlindTypeFromStorage() || 'outdoor';
 		let targetZ: number;
 		let targetY: number;
 		let targetX: number;
 		let mesh: AbstractMesh;
-
+		
 		if (type === 'top' || type === 'mounting') {
 			const meshByType = blindType === 'outdoor' ? MESHES_IDS[85] : INTERIOR_MESHES_IDS[111];
 			mesh = this.scene.getMeshByName(this.blindId + meshByType);
 		}
-
+		
 		if (type === 'bottom' || type === 'reverse' || type === 'bottomChannel') {
 			const meshByType = blindType === 'outdoor' ? MESHES_IDS[107] : INTERIOR_MESHES_IDS[137];
 			mesh = this.scene.getMeshByName(this.blindId + meshByType);
@@ -1020,52 +989,52 @@ export class EngineService {
 			const meshByType = blindType === 'outdoor' ? MESHES_IDS[44] : INTERIOR_MESHES_IDS[111];
 			mesh = this.scene.getMeshByName(this.blindId + meshByType);
 		}
-
+		
 		const { x, y, z } = mesh.absolutePosition;
-
+		
 		targetX = x - 1.5;
 		targetY = y;
 		targetZ = z < 0 ? +0.2 : -0.2;
-
+		
 		if (type === 'reverse') {
 			targetX = -0.2;
 			targetZ = 0;
 		}
-
+		
 		if (type === 'mounting') {
 			targetX = x - 0.1;
 			targetY = blindType === 'outdoor' ? 1 - (this.defaultModelSize.height - this.currentHeight) / 2 : y + 0.1;
 			targetZ = z + 0.2;
 		}
-
+		
 		if (type === 'operation' || type === 'top') {
 			targetX = x - 0.1;
 			targetZ = z + 0.2;
 		}
-
+		
 		if (type === 'bottom') {
 			targetX = 0.2;
 			targetZ = 0;
 		}
-
+		
 		if (type === 'bottomChannel') {
 			targetX = 0.4;
 			targetZ = 0;
-			targetY = (this.currentHeight / 2) * -1;
+			targetY = this.currentHeight / 2 * -1;
 		}
-
+		
 		if (window.innerWidth < this.breakpoints['tablet-landscape']) {
 			targetX = x;
 			targetZ = z;
 		}
-
+		
 		return {
 			Y: targetY,
 			Z: targetZ,
-			X: targetX,
+			X: targetX
 		};
 	}
-
+	
 	getOperationSceneHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'operation';
@@ -1075,16 +1044,21 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + mesh).setEnabled(+res.id !== 2);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].operation && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('operation');
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 0.5, X);
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 0.5,
+				X
+			);
 			this.hintDrivingHelper(res, 'operation');
 		}
-
+		
 		this.defaultStyles[this.blindType].operation = true;
 	}
-
+	
 	getBottomBarSceneHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'bottomBar';
@@ -1094,25 +1068,28 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + meshId).setEnabled(false);
 			}
 		}
-
-		if (res?.meshes) {
-			for (const meshId of res.meshes) {
-				if (this.scene.getMeshByName(this.blindId + meshId)) {
-					this.scene.getMeshByName(this.blindId + meshId).setEnabled(true);
-				}
+		
+		for (const meshId of res?.meshes) {
+			if (this.scene.getMeshByName(this.blindId + meshId)) {
+				this.scene.getMeshByName(this.blindId + meshId).setEnabled(true);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].bottomBar && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('bottom');
-
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 0.5, X);
+			
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 0.5,
+				X
+			);
 			this.hintDrivingHelper(res, 'bottomBar');
 		}
-
+		
 		this.defaultStyles[this.blindType].bottomBar = true;
 	}
-
+	
 	getTopStyleSceneHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'topStyle';
@@ -1122,23 +1099,28 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + meshId).setEnabled(false);
 			}
 		}
-
+		
 		for (const meshId of res.meshes) {
 			if (this.scene.getMeshByName(this.blindId + meshId)) {
 				this.scene.getMeshByName(this.blindId + meshId).setEnabled(true);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].topStyle && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('top');
-
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 0.5, X);
+			
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 0.5,
+				X
+			);
 			this.hintDrivingHelper(res, 'topStyle');
 		}
-
+		
 		this.defaultStyles[this.blindType].topStyle = true;
 	}
-
+	
 	getBottomChannelHandler(res): void {
 		this.animationResponse = res;
 		this.animationType = 'bottomChannel';
@@ -1148,18 +1130,23 @@ export class EngineService {
 				this.scene.getMeshByName(this.blindId + meshId).setEnabled(res.state);
 			}
 		}
-
+		
 		if (this.defaultStyles[this.blindType].bottomChannel && res.type === 'click' && this.checkIsDesignView()) {
 			const { X, Y, Z } = this.targetModelXYZ('bottomChannel');
-			this.zoomOnSelectedMesh(Z, Y, this.cameraRotation + 0.5, X);
-
+			this.zoomOnSelectedMesh(
+				Z,
+				Y,
+				this.cameraRotation + 0.5,
+				X
+			);
+			
 			this.hintDrivingHelper(res, 'bottomChannel');
 		}
-
+		
 		if (!res.state) {
 			this.isHintsVisible();
 		}
-
+		
 		this.defaultStyles[this.blindType].bottomChannel = true;
 	}
 
@@ -1176,10 +1163,10 @@ export class EngineService {
 			this.setCameraOffset();
 		}
 
-		if (Object.hasOwn(res, 'width')) {
+		if (res.hasOwnProperty('width')) {
 			this.currentWidth = res.width;
 			this.sceneWidthSize(res);
-		} else if (Object.hasOwn(res, 'height')) {
+		} else if (res.hasOwnProperty('height')) {
 			this.currentHeight = res.height;
 			this.sceneHeightSize(res);
 		}
@@ -1187,49 +1174,49 @@ export class EngineService {
 		this.setGizmoBoundingBoxScaling(res);
 		this.setDYBCameraRadius();
 		this.setMaterialTextureSize();
-
+		
 		this.middleRadius = 0.8 * this.currentWidth;
-
+		
 		if (res.width > 1.7 || res.height > 1.7) {
 			this.camera.panningDistanceLimit = 1.2;
 		} else {
 			this.camera.panningDistanceLimit = 0.8;
 		}
 	}
-
-	getTopSceneHandler(res = 1, saveValue = true): void {
+	
+	getTopSceneHandler(res, saveValue = true): void {
 		const id = this.selectedGizmoId || this.blindId;
 		/*
-		 * MATERIAL-2
-		 * LARGE WEATHER STRIP-1
-		 * CUSTOM MADE SKIRT-1
-		 * ALL BLINDS 2-1
-		 * ALL BLINDS 2-2
-		 * ALL BLINDS 2-3
-		 * ALL BLINDS 2-4
-		 * ALL BLINDS 3-1
-		 * ALL BLINDS 3-2
-		 * HDBB-1
-		 * REVERSE HANDLE LEVER-1
-		 * REVERSE HANDLE-1
-		 * SPLINE-1
-		 * SPLINE-2
-		 * SPRING BALANCE ALUMINIUM FLAT BAR-1
-		 * SPRING BALANCE ALUMINIUM FLAT BAR-2
-		 * SPRING BALANCE BODY COVER LEFT
-		 * SPRING BALANCE BODY COVER RIGHT
-		 * SPRING BALANCE BODY-1
-		 * SPRING BALANCE BOTTOM STOP-2 **
-		 * SPRING BALANCE BOTTOM STOP-3 **
-		 * SPRING BALANCE END CAP-2
-		 * SPRING BALANCE END CAP-3
-		 * SPRING BALANCE HANDLE BODY-1
-		 * SPRING BALANCE HANDLE-1
-		 * SPRING BALANCE TONGUE LEFT
-		 * SPRING BALANCE TONGUE RIGHT
-		 * STANDARD WEATHER STRIP-1
-		 * */
-
+        * MATERIAL-2
+        * LARGE WEATHER STRIP-1
+        * CUSTOM MADE SKIRT-1
+        * ALL BLINDS 2-1
+        * ALL BLINDS 2-2
+        * ALL BLINDS 2-3
+        * ALL BLINDS 2-4
+        * ALL BLINDS 3-1
+        * ALL BLINDS 3-2
+        * HDBB-1
+        * REVERSE HANDLE LEVER-1
+        * REVERSE HANDLE-1
+        * SPLINE-1
+        * SPLINE-2
+        * SPRING BALANCE ALUMINIUM FLAT BAR-1
+        * SPRING BALANCE ALUMINIUM FLAT BAR-2
+        * SPRING BALANCE BODY COVER LEFT
+        * SPRING BALANCE BODY COVER RIGHT
+        * SPRING BALANCE BODY-1
+        * SPRING BALANCE BOTTOM STOP-2 **
+        * SPRING BALANCE BOTTOM STOP-3 **
+        * SPRING BALANCE END CAP-2
+        * SPRING BALANCE END CAP-3
+        * SPRING BALANCE HANDLE BODY-1
+        * SPRING BALANCE HANDLE-1
+        * SPRING BALANCE TONGUE LEFT
+        * SPRING BALANCE TONGUE RIGHT
+        * STANDARD WEATHER STRIP-1
+        * */
+		
 		if (!this.isModelCreated) {
 			return;
 		}
@@ -1245,22 +1232,23 @@ export class EngineService {
 		const inverseRes = 1 - res;
 
 		if (this.blindType === 'outdoor' && this.shutter.materialScale) {
-			this.scene.getMeshByName(id + MESHES_IDS[2]).scaling.y = this.shutter.outdoor.minScale + this.shutter.materialScale * res;
-			this.scene.getMeshByName(id + MESHES_IDS[143]).scaling.y = this.shutter.outdoor.minMeshScale + this.shutter.meshScale * res;
-			this.scene.getMeshByName(id + MESHES_IDS[144]).scaling.y = this.shutter.outdoor.minMeshScale + this.shutter.meshScale * res;
+			this.scene.getMeshByName(id + MESHES_IDS[2]).scaling.y =
+				this.shutter.outdoor.minScale + this.shutter.materialScale * res;
+			this.scene.getMeshByName(id + MESHES_IDS[143]).scaling.y =
+				this.shutter.outdoor.minMeshScale + this.shutter.meshScale * res;
+			this.scene.getMeshByName(id + MESHES_IDS[144]).scaling.y =
+				this.shutter.outdoor.minMeshScale + this.shutter.meshScale * res;
 
 			this.scene.getMeshByName(id + MESHES_IDS[2]).position.y =
-				this.shutter.outdoor.startPosition + this.shutter.materialPosition - this.shutter.materialPosition * res - 0.0265 * inverseRes;
+				this.shutter.outdoor.startPosition + this.shutter.materialPosition - (this.shutter.materialPosition * res) - 0.0265 * inverseRes;
 			this.scene.getMeshByName(id + MESHES_IDS[143]).position.y =
-				this.shutter.outdoor.startMeshPosition + this.shutter.materialPosition - this.shutter.materialPosition * res - 0.015 * inverseRes;
+				this.shutter.outdoor.startMeshPosition + this.shutter.materialPosition - (this.shutter.materialPosition * res) - 0.015 * inverseRes;
 			this.scene.getMeshByName(id + MESHES_IDS[144]).position.y =
-				this.shutter.outdoor.startMeshPosition + this.shutter.materialPosition - this.shutter.materialPosition * res - 0.015 * inverseRes;
+				this.shutter.outdoor.startMeshPosition + this.shutter.materialPosition - (this.shutter.materialPosition * res) - 0.015 * inverseRes;
 
 			Object.entries(this.shutter.outdoor.meshPositions).forEach(([key, position]: [string, number]) => {
 				this.scene.getMeshByName(id + MESHES_IDS[key]).position.y =
-					position +
-					2 * (this.shutter.outdoor.bottomChannelPosition * inverseRes) +
-					this.shutter.outdoor.bottomChannelMaxPosition * inverseRes;
+					position + 2 * (this.shutter.outdoor.bottomChannelPosition * inverseRes) + this.shutter.outdoor.bottomChannelMaxPosition * inverseRes;
 			});
 		}
 
@@ -1281,11 +1269,7 @@ export class EngineService {
 
 	getShutterValue(id = this.selectedGizmoId || this.blindId): number {
 		const shutterValues = this.shutter.modelsValue;
-		return this.isImageVisualisation
-			? Object.hasOwn(shutterValues, id)
-				? shutterValues[id]
-				: this.shutter.IVDefaultValue
-			: shutterValues[id];
+		return this.isImageVisualisation ? (shutterValues.hasOwnProperty(id) ? shutterValues[id] : this.shutter.IVDefaultValue) : shutterValues[id];
 	}
 
 	getColorSceneHandler(res): void {
@@ -1297,7 +1281,7 @@ export class EngineService {
 
 		if (this.materialTypes?.includes(res.texture) || isCustom) {
 			if (res.opacity >= MINIMUM_MATERIAL_OPACITY) {
-				material.albedoTexture = new Texture(`../../../../assets/textures/${res.blind_type}.png`, this.scene);
+				material.albedoTexture = new Texture(`../../../../assets/textures/${ res.blind_type }.png`, this.scene);
 				material.albedoTexture.hasAlpha = res.texture !== 'light_blocking';
 				material.useAlphaFromAlbedoTexture = res.texture === 'light_filtering';
 				material.specularIntensity = 0;
@@ -1323,9 +1307,9 @@ export class EngineService {
 			mesh.material = material;
 			mesh.material.alpha = res.opacity;
 		}
-
+		
 		this.defaultStyles[res.blind_type].color = true;
-
+		
 		if (this.camera.radius === this.upperRadius) {
 			this.setCameraOffset();
 		}
@@ -1358,6 +1342,7 @@ export class EngineService {
 			this.scene.getMeshByName(this.blindId + meshId)?.setEnabled(false);
 		}
 
+
 		this.rootMeshesByType[this.blindType] = container.meshes[0];
 
 		this.getGlobalMeshPositionAndScale(getBlindType);
@@ -1376,13 +1361,13 @@ export class EngineService {
 
 		return this.scene;
 	}
-
+	
 	showAxis(size, scene): void {
-		const makeTextPlane = (text, color, weight) => {
+		const makeTextPlane = (text, color, size) => {
 			const dynamicTexture = new DynamicTexture('DynamicTexture', 50, scene, true);
 			dynamicTexture.hasAlpha = true;
 			dynamicTexture.drawText(text, 5, 40, 'bold 36px Arial', color, 'transparent', true);
-			const plane = MeshBuilder.CreatePlane('TextPlane', { size: weight }, scene);
+			const plane = MeshBuilder.CreatePlane('TextPlane', { size }, scene);
 			const planeMaterial = new StandardMaterial('TextPlaneMaterial', scene);
 			plane.material = planeMaterial;
 			planeMaterial.backFaceCulling = false;
@@ -1390,85 +1375,91 @@ export class EngineService {
 			planeMaterial.diffuseTexture = dynamicTexture;
 			return plane;
 		};
-
-		const axisX = MeshBuilder.CreateLines(
-			'axisX',
-			{
+		
+		const axisX = MeshBuilder.CreateLines('axisX', {
 				points: [
-					Vector3.Zero(),
-					new Vector3(size, 0, 0),
-					new Vector3(size * 0.95, 0.05 * size, 0),
-					new Vector3(size, 0, 0),
-					new Vector3(size * 0.95, -0.05 * size, 0),
-				],
-			},
-			scene,
-		);
+					Vector3.Zero(), new Vector3(size, 0, 0), new Vector3(size * 0.95, 0.05 * size, 0),
+					new Vector3(size, 0, 0), new Vector3(size * 0.95, -0.05 * size, 0)]
+			}
+			, scene);
 		axisX.color = new Color3(1, 0, 0);
 		const xChar = makeTextPlane('X', 'red', size / 10);
 		xChar.position = new Vector3(0.9 * size, -0.05 * size, 0);
-
-		const axisY = MeshBuilder.CreateLines(
-			'axisY',
-			{
-				points: [
-					Vector3.Zero(),
-					new Vector3(0, size, 0),
-					new Vector3(-0.05 * size, size * 0.95, 0),
-					new Vector3(0, size, 0),
-					new Vector3(0.05 * size, size * 0.95, 0),
-				],
-			},
-			scene,
-		);
+		
+		const axisY = MeshBuilder.CreateLines('axisY', {
+			points: [
+				Vector3.Zero(), new Vector3(0, size, 0), new Vector3(-0.05 * size, size * 0.95, 0),
+				new Vector3(0, size, 0), new Vector3(0.05 * size, size * 0.95, 0)
+			]
+		}, scene);
 		axisY.color = new Color3(0, 1, 0);
 		const yChar = makeTextPlane('Y', 'green', size / 10);
 		yChar.position = new Vector3(0, 0.9 * size, -0.05 * size);
-
-		const axisZ = MeshBuilder.CreateLines(
-			'axisZ',
-			{
-				points: [
-					Vector3.Zero(),
-					new Vector3(0, 0, size),
-					new Vector3(0, -0.05 * size, size * 0.95),
-					new Vector3(0, 0, size),
-					new Vector3(0, 0.05 * size, size * 0.95),
-				],
-			},
-			scene,
-		);
+		
+		const axisZ = MeshBuilder.CreateLines('axisZ', {
+			points: [
+				Vector3.Zero(), new Vector3(0, 0, size), new Vector3(0, -0.05 * size, size * 0.95),
+				new Vector3(0, 0, size), new Vector3(0, 0.05 * size, size * 0.95)
+			]
+		}, scene);
 		axisZ.color = new Color3(0, 0, 1);
 		const zChar = makeTextPlane('Z', 'blue', size / 10);
 		zChar.position = new Vector3(0, 0.05 * size, 0.9 * size);
 	}
-
+	
 	rotationAlphaBetaHandler(): void {
 		const rotationsAlpha = Math.round(this.camera.alpha / Math.PI);
 		const rotationsBeta = Math.round(this.camera.beta / Math.PI);
-
-		this.currentAlpha = this.camera.alpha - rotationsAlpha * Math.PI;
-		this.currentBeta = this.camera.beta - rotationsBeta * Math.PI;
-		this.modelPosition = rotationsAlpha % 2 === 0 ? 'back' : 'front';
+		
+		this.currentAlpha = this.camera.alpha - (rotationsAlpha * Math.PI);
+		this.currentBeta = this.camera.beta - (rotationsBeta * Math.PI);
+		this.modelPosition = (rotationsAlpha % 2 === 0) ? 'back' : 'front';
 	}
-
+	
 	calculateModelRotations(): void {
 		this.rotationAlphaBetaHandler();
-
-		if (this.cameraRotation + Math.PI < this.camera.alpha) {
+		
+		if ((this.cameraRotation + Math.PI) < this.camera.alpha) {
 			this.cameraRotation += 2 * Math.PI;
 		}
-		if (this.cameraRotation - Math.PI > this.camera.alpha) {
+		if ((this.cameraRotation - Math.PI) > this.camera.alpha) {
 			this.cameraRotation -= 2 * Math.PI;
 		}
 	}
-
+	
 	onIntersection() {
 		this.isZoomedIn = false;
 		this.zoomCounter = 0;
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.x', 60, 40, this.camera.target.x, 0, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.y', 60, 40, this.camera.target.y, 0, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.z', 60, 40, this.camera.target.z, 0, 0);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.x',
+			60,
+			40,
+			this.camera.target.x,
+			0,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.y',
+			60,
+			40,
+			this.camera.target.y,
+			0,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.z',
+			60,
+			40,
+			this.camera.target.z,
+			0,
+			0
+		);
 		Animation.CreateAndStartAnimation(
 			'anim',
 			this.camera,
@@ -1476,12 +1467,31 @@ export class EngineService {
 			60,
 			40,
 			this.camera.targetScreenOffset.x,
-			window.innerWidth > this.breakpoints['tablet-landscape'] ? this.upperCameraOffset : this.mobileCameraOffset,
-			0,
+			window.innerWidth > this.breakpoints['tablet-landscape'] ?
+				this.upperCameraOffset : this.mobileCameraOffset,
+			0
 		);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'targetScreenOffset.y', 15, 10, this.camera.targetScreenOffset.y, 0, 0);
-		const zoomOutEnd = Animation.CreateAndStartAnimation('anim', this.camera, 'radius', 60, 40, this.camera.radius, this.upperRadius, 0);
-
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'targetScreenOffset.y',
+			15,
+			10,
+			this.camera.targetScreenOffset.y,
+			0,
+			0
+		);
+		const zoomOutEnd = Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'radius',
+			60,
+			40,
+			this.camera.radius,
+			this.upperRadius,
+			0
+		);
+		
 		zoomOutEnd.onAnimationEnd = () => {
 			this.isHintsVisible();
 		};
@@ -1492,7 +1502,7 @@ export class EngineService {
 			front: IVstatus ? new Vector3(1, -1, 0) : new Vector3(0, -1, 1),
 			back: IVstatus ? new Vector3(-1, 0, 0) : new Vector3(0, 1, -5),
 			right: IVstatus ? new Vector3(-1, 1, -5) : new Vector3(-5, 1, -1),
-			left: IVstatus ? new Vector3(1, 1, 5) : new Vector3(5, 1, 1),
+			left: IVstatus ? new Vector3(1, 1, 5) : new Vector3(5, 1, 1)
 		};
 
 		this.light?.dispose();
@@ -1507,7 +1517,7 @@ export class EngineService {
 
 		this.light = new DirectionalLight('frontDirectLight', lightPositions.front, this.scene);
 		this.light.intensity = 1.5;
-
+		
 		const backLight = new DirectionalLight('backDirectLight', lightPositions.back, this.scene);
 		backLight.intensity = 0.3;
 		backLight.specular = new Color3(0, 0, 0);
@@ -1524,14 +1534,14 @@ export class EngineService {
 		this.ground.isPickable = false;
 		const groundMaterial = new StandardMaterial('ground', this.scene);
 		groundMaterial.emissiveColor = new Color3(0, 0, 0);
-
+		
 		this.ground.material = groundMaterial;
 		this.ground.rotation.x = Math.PI / 2;
 		this.ground.position.y = this.groundPositionY;
 		this.ground.position.z = 0.4;
-
+		
 		this.shadowGenerator = new ShadowGenerator(512, this.light);
-
+		
 		this.shadowGenerator.bias = 0.00001;
 		this.shadowGenerator.normalBias = 0.01;
 		this.shadowGenerator.contactHardeningLightSizeUVRatio = 0.1;
@@ -1543,7 +1553,7 @@ export class EngineService {
 		this.shadowGenerator.addShadowCaster(this.scene.meshes[0]);
 		this.ground.receiveShadows = true;
 	}
-
+	
 	hintDrivingHelper(data, type): void {
 		const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
 		this.isHintsVisible();
@@ -1570,9 +1580,7 @@ export class EngineService {
 			}
 
 			if (type === 'mounting') {
-				const parent = this.scene.getMeshByName(
-					(this.blindId || '') + (getBlindType === 'outdoor' ? data.meshes[0] : INTERIOR_MESHES_IDS[111]),
-				);
+				const parent = this.scene.getMeshByName((this.blindId || '') + (getBlindType === 'outdoor' ? data.meshes[0] : INTERIOR_MESHES_IDS[111]));
 				const hintsNodeName = 'node';
 				const hintsNode = new Mesh(this.blindId + hintsNodeName, this.scene, parent);
 
@@ -1583,14 +1591,13 @@ export class EngineService {
 				}
 
 				this.hintsComponentHandler(data.description, hintsNodeName);
-				const addOffsetY =
-					this.currentHeight < this.defaultModelSize.height && this.isMobile ? (this.defaultModelSize.height - this.currentHeight) * 90 : 0;
+				const addOffsetY = this.currentHeight < this.defaultModelSize.height && this.isMobile ?
+					(this.defaultModelSize.height - this.currentHeight) * 90 : 0;
 				this.rect.linkOffsetY = -200 + addOffsetY;
 				this.target.linkOffsetY = 0;
 			}
 
-			const isSmallPhoneLandscapeScreen =
-				window.window.innerHeight < window.innerWidth && window.innerHeight <= 600 && window.innerWidth <= 992;
+			const isSmallPhoneLandscapeScreen = window.window.innerHeight < window.innerWidth && window.innerHeight <= 600 && window.innerWidth <= 992;
 			if (isSmallPhoneLandscapeScreen) {
 				this.rect.linkOffsetY = -50;
 			}
@@ -1605,31 +1612,66 @@ export class EngineService {
 			this.line.isVisible = false;
 		}
 	}
-
+	
 	setZoomSettings(blindType): void {
 		if (window.innerWidth >= this.breakpoints['tablet-portrait']) {
 			this.upperRadius = this.cameraRadii[blindType].upper;
-			const addCameraOffset =
-				window.innerWidth > this.breakpoints['full-hd'] ? (window.innerWidth - this.breakpoints['full-hd']) / 1750 : 0;
+			const addCameraOffset = window.innerWidth > this.breakpoints['full-hd'] ? (window.innerWidth - this.breakpoints['full-hd']) / 1750 : 0;
 			this.upperCameraOffset = blindType === 'outdoor' ? -1.2 + addCameraOffset : -0.9;
 		}
-
+		
 		this.zoomRadius = [this.upperRadius, (this.upperRadius + this.lowerRadius) / 2, this.lowerRadius];
 		this.zoomCameraOffsets = [this.upperCameraOffset, (this.upperCameraOffset + this.lowerCameraOffset) / 2, this.lowerCameraOffset];
 	}
-
+	
 	zoomOnSelectedMesh(positionZ, positionY, alpha, positionX = 0): void {
 		this.pickResult = this.scene.pick(positionZ, positionY);
 		this.isZoomedIn = true;
 		this.isZoomedOut = false;
 		this.camera.checkCollisions = false;
 		this.zoomCounter = 0;
-
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.x', 15, 10, this.camera.target.x, positionX, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.y', 15, 10, this.camera.target.y, positionY, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'target.z', 15, 10, this.camera.target.z, positionZ, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'targetScreenOffset.x', 15, 10, this.camera.targetScreenOffset.x, 0, 0);
-
+		
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.x',
+			15,
+			10,
+			this.camera.target.x,
+			positionX,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.y',
+			15,
+			10,
+			this.camera.target.y,
+			positionY,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'target.z',
+			15,
+			10,
+			this.camera.target.z,
+			positionZ,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'targetScreenOffset.x',
+			15,
+			10,
+			this.camera.targetScreenOffset.x,
+			0,
+			0
+		);
+		
 		const isSmallPhoneLandscapeScreen = window.orientation === 90 && window.innerHeight <= 600 && window.innerWidth <= 992;
 		const cameraTargetScreenOffsetY = this.blindType === 'interior' && this.camera.radius < 2 ? (this.camera.radius - 0.5) / -7 : -0.15;
 		Animation.CreateAndStartAnimation(
@@ -1640,40 +1682,94 @@ export class EngineService {
 			10,
 			this.camera.targetScreenOffset.y,
 			isSmallPhoneLandscapeScreen ? cameraTargetScreenOffsetY : 0,
-			0,
+			0
 		);
-		const zoomIn = Animation.CreateAndStartAnimation('anim', this.camera, 'radius', 15, 10, this.camera.radius, this.lowerRadius, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'alpha', 15, 10, this.camera.alpha, alpha, 0);
-		Animation.CreateAndStartAnimation('anim', this.camera, 'beta', 15, 10, this.camera.beta, Math.PI / 2, 0);
-
+		const zoomIn = Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'radius',
+			15,
+			10,
+			this.camera.radius,
+			this.lowerRadius,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'alpha',
+			15,
+			10,
+			this.camera.alpha,
+			alpha,
+			0
+		);
+		Animation.CreateAndStartAnimation(
+			'anim',
+			this.camera,
+			'beta',
+			15,
+			10,
+			this.camera.beta,
+			Math.PI / 2,
+			0
+		);
+		
 		zoomIn.onAnimationEnd = () => {
 			this.camera.checkCollisions = true;
 		};
-
+		
 		this.shareDataService.setCursorPointer({
 			cursor: this.canvas.style.cursor,
 			clicked: this.clicked,
 			zoomIn: true,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 	}
-
+	
 	zoomInHandler(): void {
 		const pickResult = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
 		const isGround = pickResult?.pickedMesh?.name !== 'ground';
 		const rotate = this.currentBehaviour === 'rotate';
-
+		
 		this.pickResult = pickResult;
-
+		
 		if (rotate && pickResult.hit && isGround && !this.isZoomedIn && !this.zooming) {
 			this.zoomCounter += 1;
 			this.isZoomedIn = true;
 			this.isZoomedOut = false;
 			this.zooming = true;
-
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.x', 15, 10, this.camera.target.x, pickResult.pickedPoint.x * 0.7, 0);
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.y', 15, 10, this.camera.target.y, pickResult.pickedPoint.y * 0.7, 0);
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.z', 15, 10, this.camera.target.z, pickResult.pickedPoint.z * 0.7, 0);
+			
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.x',
+				15,
+				10,
+				this.camera.target.x,
+				pickResult.pickedPoint.x * 0.7,
+				0
+			);
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.y',
+				15,
+				10,
+				this.camera.target.y,
+				pickResult.pickedPoint.y * 0.7,
+				0
+			);
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.z',
+				15,
+				10,
+				this.camera.target.z,
+				pickResult.pickedPoint.z * 0.7,
+				0
+			);
 			Animation.CreateAndStartAnimation(
 				'anim',
 				this.camera,
@@ -1681,10 +1777,20 @@ export class EngineService {
 				15,
 				10,
 				this.camera.targetScreenOffset.x,
-				window.innerWidth > this.breakpoints['tablet-landscape'] ? this.zoomCameraOffsets[this.zoomCounter] : this.mobileCameraOffset,
-				0,
+				window.innerWidth > this.breakpoints['tablet-landscape'] ?
+					this.zoomCameraOffsets[this.zoomCounter] : this.mobileCameraOffset,
+				0
 			);
-			Animation.CreateAndStartAnimation('anim', this.camera, 'targetScreenOffset.y', 15, 10, this.camera.targetScreenOffset.y, 0, 0);
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'targetScreenOffset.y',
+				15,
+				10,
+				this.camera.targetScreenOffset.y,
+				0,
+				0
+			);
 			const zoomInEnd = Animation.CreateAndStartAnimation(
 				'anim',
 				this.camera,
@@ -1693,24 +1799,24 @@ export class EngineService {
 				10,
 				this.camera.radius,
 				this.zoomRadius[this.zoomCounter],
-				0,
+				0
 			);
-
+			
 			zoomInEnd.onAnimationEnd = () => {
 				this.isZoomedIn = this.zoomCounter >= this.zoomRadius.length - 1;
 				this.zooming = false;
 			};
-
+			
 			this.isModelMoved = true;
 			this.shareDataService.setCursorPointer({
 				cursor: this.canvas.style.cursor,
 				clicked: this.clicked,
 				zoomIn: true,
-				imageVisualisation: this.isImageVisualisation,
+				imageVisualisation: this.isImageVisualisation
 			});
 		}
 	}
-
+	
 	zoomOutHandler(framePerSecond: number): void {
 		if (!this.isZoomedOut && !this.zooming && this.scene.meshes.length) {
 			this.zoomCounter = this.zoomCounter && this.zoomCounter - 1;
@@ -1718,10 +1824,37 @@ export class EngineService {
 			this.isZoomedOut = true;
 			this.zoomOutAnimationStatus = true;
 			this.zooming = true;
-
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.x', framePerSecond, 40, this.camera.target.x, 0, 0);
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.y', framePerSecond, 40, this.camera.target.y, 0, 0);
-			Animation.CreateAndStartAnimation('anim', this.camera, 'target.z', framePerSecond, 40, this.camera.target.z, 0, 0);
+			
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.x',
+				framePerSecond,
+				40,
+				this.camera.target.x,
+				0,
+				0
+			);
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.y',
+				framePerSecond,
+				40,
+				this.camera.target.y,
+				0,
+				0
+			);
+			Animation.CreateAndStartAnimation(
+				'anim',
+				this.camera,
+				'target.z',
+				framePerSecond,
+				40,
+				this.camera.target.z,
+				0,
+				0
+			);
 			Animation.CreateAndStartAnimation(
 				'anim',
 				this.camera,
@@ -1729,8 +1862,9 @@ export class EngineService {
 				framePerSecond,
 				40,
 				this.camera.targetScreenOffset.x,
-				window.innerWidth > this.breakpoints['tablet-landscape'] ? this.zoomCameraOffsets[this.zoomCounter] : this.mobileCameraOffset,
-				0,
+				window.innerWidth > this.breakpoints['tablet-landscape'] ?
+					this.zoomCameraOffsets[this.zoomCounter] : this.mobileCameraOffset,
+				0
 			);
 			Animation.CreateAndStartAnimation(
 				'anim',
@@ -1740,7 +1874,7 @@ export class EngineService {
 				10,
 				this.camera.targetScreenOffset.y,
 				0,
-				0,
+				0
 			);
 			const zoomOutEnd = Animation.CreateAndStartAnimation(
 				'anim',
@@ -1750,53 +1884,51 @@ export class EngineService {
 				40,
 				this.camera.radius,
 				this.zoomRadius[this.zoomCounter],
-				0,
+				0
 			);
-
+			
 			zoomOutEnd.onAnimationEnd = () => {
 				this.isZoomedOut = false;
 				this.animationResponse = null;
 				this.animationType = '';
 				this.zooming = false;
-
+				
 				if (this.camera.radius < this.upperRadius) {
 					this.zoomOutHandler(framePerSecond || 30);
 					return;
 				}
-
+				
 				this.isHintsVisible();
 				this.zoomOutAnimationStatus = false;
 			};
-
+			
 			this.shareDataService.setCursorPointer({
 				cursor: this.canvas.style.cursor,
 				clicked: this.clicked,
 				zoomOut: true,
-				imageVisualisation: this.isImageVisualisation,
+				imageVisualisation: this.isImageVisualisation
 			});
 		}
 	}
-
+	
 	zoomHandler(event): void {
 		if (this.isImageVisualisation) {
 			return;
 		}
-
+		
 		event.stopImmediatePropagation();
-
+		
 		if (this.currentBehaviour === 'rotate' && event.deltaY < 0) {
 			this.zoomInHandler();
 		}
-
+		
 		if (event.deltaY > 0) {
 			this.zoomOutHandler(30);
 		}
 	}
-
+	
 	public animate(): void {
-		if (this.animationAdded) {
-			return;
-		}
+		if (this.animationAdded) { return; }
 
 		this.ngZone.runOutsideAngular(() => {
 			this.animationAdded = true;
@@ -1828,24 +1960,24 @@ export class EngineService {
 			});
 		});
 	}
-
+	
 	hintsComponentHandler(text: string, mesh: string): void {
 		this.advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, this.scene);
 		this.advancedTexture.idealWidth = window.innerWidth;
-
+		
 		this.rect = new GUI.Rectangle();
 		this.label = new GUI.TextBlock();
 		this.target = new GUI.Ellipse();
 		this.line = new GUI.Line();
-
+		
 		text = text.replace(/&#13;&#10;/g, '\n');
-
+		
 		this.drawLabelHintsHandler(text);
 		this.drawRectangleHintsHandler(mesh);
 		this.drawTargetHintsHandler(mesh);
 		this.drawLineHintsHandler(mesh);
 	}
-
+	
 	drawRectangleHintsHandler(mesh): void {
 		this.rect.widthInPixels = this.label.widthInPixels;
 		this.rect.heightInPixels = this.label.heightInPixels;
@@ -1853,54 +1985,54 @@ export class EngineService {
 		this.rect.color = '#bdbdbd';
 		this.rect.thickness = 1;
 		this.rect.background = '#ffffff';
-
+		
 		this.advancedTexture.addControl(this.rect);
-
+		
 		this.rect.linkWithMesh(this.scene.getMeshByName(this.blindId + mesh));
 		this.rect.linkOffsetY = -100;
 		this.rect.linkOffsetX = window.innerWidth > this.breakpoints['tablet-landscape'] ? -200 : -50;
 	}
-
+	
 	drawLabelHintsHandler(text): void {
 		this.label.textWrapping = true;
 		this.label.resizeToFit = true;
 		this.label.text = text;
 		this.label.color = '#212529';
 		this.label.fontFamily = 'Roboto';
-		this.label.fontSize = `${this.fontSize}px`;
-
+		this.label.fontSize = `${ this.fontSize }px`;
+		
 		this.rect.addControl(this.label);
-
+		
 		const textElem = document.createElement('div');
 		textElem.innerText = text;
 		textElem.style.display = 'inline-block';
 		textElem.style.maxWidth = window.innerWidth <= this.breakpoints.phone ? '50%' : '30%';
-		textElem.style.font = `${this.fontSize}px Roboto`;
+		textElem.style.font = `${ this.fontSize }px Roboto`;
 		textElem.style.textAlign = 'center';
 		document.body.appendChild(textElem);
-
+		
 		const padding = 10;
-
+		
 		this.label.widthInPixels = textElem.offsetWidth + 50;
 		this.label.heightInPixels = textElem.offsetHeight + 20;
 		this.label.paddingRightInPixels = padding;
 		this.label.paddingLeftInPixels = padding;
-
+		
 		document.body.removeChild(textElem);
 	}
-
+	
 	drawTargetHintsHandler(mesh): void {
 		this.target.width = '15px';
 		this.target.height = '15px';
 		this.target.color = '#bdbdbd';
 		this.target.thickness = 1;
 		this.target.background = '#ffffff';
-
+		
 		this.advancedTexture.addControl(this.target);
-
+		
 		this.target.linkWithMesh(this.scene.getMeshByName(this.blindId + mesh));
 	}
-
+	
 	drawLineHintsHandler(mesh): void {
 		this.line.lineWidth = 1;
 		this.line.color = '#bdbdbd';
@@ -1910,33 +2042,33 @@ export class EngineService {
 		this.line.linkOffsetY = -5;
 		this.line.linkOffsetX = -5;
 		this.line.zIndex = -1;
-
+		
 		this.advancedTexture.addControl(this.line);
-
+		
 		this.line.linkWithMesh(this.scene.getMeshByName(this.blindId + mesh));
 		this.line.connectedControl = this.rect;
 	}
-
+	
 	getParentSize(parent): any {
 		const sizes = parent.getHierarchyBoundingVectors();
 		return {
 			depth: sizes.max.x - sizes.min.x + 0.09,
 			height: sizes.max.y - sizes.min.y - 0.1,
-			width: sizes.max.z - sizes.min.z - 0.5,
+			width: sizes.max.z - sizes.min.z - 0.5
 		};
 	}
-
+	
 	boxMaskHandler(): void {
 		this.box = MeshBuilder.CreateBox('box', this.getParentSize(this.scene.meshes[0]));
 		const boxMat = new StandardMaterial('boxMat', this.scene);
-
+		
 		this.box.material = boxMat;
 		boxMat.alpha = 1;
 		this.box.position.y = 0.015;
 		this.box.rotation.y = -1;
 		// this.boxStatus(false);
 	}
-
+	
 	setDefaultView(): void {
 		const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
 		const sessionStorageDefaultData = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_blind_config) || {};
@@ -1945,9 +2077,7 @@ export class EngineService {
 		const sessionDefaultDataType = sessionStorageDefaultData[getBlindType];
 
 		if (sessionDefaultDataType?.material) {
-			const getDefaultMaterial = _.filter(sessionDefaultDataType.material, {
-				is_default: true,
-			})[0];
+			const getDefaultMaterial = _.filter(sessionDefaultDataType.material, { is_default: true })[0];
 			const material = [...MATERIAL_MESH, ...SPLINE_MESH];
 
 			for (const meshId of material) {
@@ -1955,10 +2085,10 @@ export class EngineService {
 			}
 
 			if (getBlindType === 'interior') {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Monument').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Monument').color;
 				this.setColor('WEATHER STRIP', color, 1, getDefaultMaterial.type, getBlindType);
 			} else if (getBlindType === 'outdoor') {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Monument').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Monument').color;
 				this.setColor('STANDARD_WHEATER_STRIP', color, 1, 'frame', getBlindType);
 				this.setColor('LARGE_WEATHER_STRIP', color, 1, 'frame', getBlindType);
 			}
@@ -1974,14 +2104,12 @@ export class EngineService {
 
 		if (sessionDefaultDataType?.fixtures_color && sessionDefaultDataType?.material && getBlindType === 'interior') {
 			const getDefaultFixturesColor = _.filter(sessionDefaultDataType.fixtures_color, { is_default: true })[0];
-			const getDefaultSizes = _.filter(sessionDefaultDataType.material, {
-				is_default: true,
-			})[0].sizes;
+			const getDefaultSizes = _.filter(sessionDefaultDataType.material, { is_default: true })[0].sizes;
 			const width = getDefaultSizes['width'].default;
 			const height = getDefaultSizes['height'].default;
 
-			const topStyleId = INTERIOR_FRAME_TOP_STYLE.reduce((acc, x) => (!acc && width > x.width && height > x.height ? x.id : acc), '');
-			const topStyle = sessionDefaultDataType.frame.top_style.filter((el) => el.id === topStyleId)[0];
+			const topStyleId = INTERIOR_FRAME_TOP_STYLE.reduce((acc, x) => !acc && width > x.width && height > x.height ? x.id : acc, '');
+			const topStyle = sessionDefaultDataType.frame.top_style.filter(el => el.id === topStyleId)[0];
 			const meshArray = topStyle.id === INTERIOR_FRAME_TOP_STYLE[2].id ? INTERIOR_COLOR_FIXTURES : INTERIOR_COLOR_FIXTURES.slice(0, -2);
 
 			for (const meshId of meshArray) {
@@ -1993,16 +2121,16 @@ export class EngineService {
 			const meshArray = [...REVERSE_HANDLE, ...BLACK_PLASTIC_MESH];
 
 			for (const meshId of meshArray) {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Ebony').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Ebony').color;
 				this.setColor(meshId, color, 1, 'frame', getBlindType);
 			}
 
 			for (const meshId of ALUMINIUM_MESH) {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Mist').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Mist').color;
 				this.setColor(meshId, color, 1, 'frame', getBlindType);
 			}
 
-			for (const meshId of Object.keys(MESHES_IDS)) {
+			for (const meshId in MESHES_IDS) {
 				this.scene.getMeshByName(this.blindId + MESHES_IDS[meshId])?.setEnabled(true);
 			}
 
@@ -2011,12 +2139,12 @@ export class EngineService {
 			}
 		}
 
-		const shutterValue = this.isImageVisualisation ? this.shutter.IVDefaultValue : this.shutter.value;
+		const shutterValue = this.isImageVisualisation ? this.shutter.IVDefaultValue : this.shutter.value
 		this.getTopSceneHandler(shutterValue);
 		this.setDefaultCursor();
 
-		const subscription = this.getSize().subscribe((res) => {
-			if (Object.hasOwn(res, 'height')) {
+		const subscription = this.getSize().subscribe(res => {
+			if (res.hasOwnProperty('height')) {
 				subscription.unsubscribe();
 				this.shareDataService.setModelLoaded(!!sessionDefaultDataType?.material);
 			}
@@ -2042,7 +2170,7 @@ export class EngineService {
 			}, 500);
 		}
 	}
-
+	
 	outdoorWidthSizeHandler(widthDiff: number): void {
 		const id = this.selectedGizmoId || this.blindId;
 
@@ -2055,7 +2183,7 @@ export class EngineService {
 		this.scene.getMeshByName(id + MESHES_IDS[53]).scaling.x = (this.meshScaling[53].x + 1.84 * widthDiff) * 1.25;
 		this.scene.getMeshByName(id + MESHES_IDS[65]).scaling.x = this.meshScaling[65].x + 1.84 * widthDiff;
 		this.scene.getMeshByName(id + MESHES_IDS[74]).scaling.x = this.meshScaling[74].x + 1.725 * widthDiff;
-		this.scene.getMeshByName(id + MESHES_IDS[107]).scaling.x = this.meshScaling[107].x + 1.898 * widthDiff;
+		this.scene.getMeshByName(id + MESHES_IDS[107]).scaling.x= this.meshScaling[107].x + 1.898 * widthDiff;
 		this.scene.getMeshByName(id + MESHES_IDS[112]).scaling.x = this.meshScaling[112].x + 1.725 * widthDiff;
 		this.scene.getMeshByName(id + MESHES_IDS[123]).scaling.x = this.meshScaling[123].x + 1.84 * widthDiff;
 		this.scene.getMeshByName(id + MESHES_IDS[136]).scaling.x = this.meshScaling[136].x + 1.84 * widthDiff;
@@ -2095,7 +2223,7 @@ export class EngineService {
 		this.scene.getMeshByName(id + MESHES_IDS[149]).position.x = this.meshPosition[147].x - widthDiff;
 		this.scene.getMeshByName(id + MESHES_IDS[150]).position.x = this.meshPosition[148].x + widthDiff;
 	}
-
+	
 	outdoorHeightSizeHandler(heightDiff: number): void {
 		const id = this.selectedGizmoId || this.blindId;
 
@@ -2167,13 +2295,13 @@ export class EngineService {
 		};
 
 		this.shutter.outdoor.meshPositions = { ...meshPositions };
-		this.shutter.materialScale = this.meshScaling[2].y + 3.786 * heightDiff - this.shutter.outdoor.minScale;
-		this.shutter.meshScale = this.meshScaling[143].y + 3.9 * heightDiff - this.shutter.outdoor.minMeshScale;
+		this.shutter.materialScale = (this.meshScaling[2].y + 3.786 * heightDiff) - this.shutter.outdoor.minScale;
+		this.shutter.meshScale = (this.meshScaling[143].y + 3.9 * heightDiff) - this.shutter.outdoor.minMeshScale;
 		this.shutter.materialPosition = this.meshPosition[1].y + heightDiff - this.shutter.outdoor.maxPosition;
 		this.shutter.outdoor.bottomChannelPosition = this.meshPosition[1].y + heightDiff;
 		this.getTopSceneHandler(this.shutter.modelsValue[id]);
 	}
-
+	
 	interiorWidthSizeHandler(widthDiff: number): void {
 		const id = this.selectedGizmoId || this.blindId;
 		const scaleMeshCof = {
@@ -2183,14 +2311,15 @@ export class EngineService {
 			134: 1.05,
 			135: 1.0449,
 			137: 0.991,
-			159: 1.05,
+			159: 1.05
 		};
-
+		
 		for (const [key, value] of Object.entries(INTERIOR_WIDTH_MESH)) {
 			const cof = scaleMeshCof[+key] || 0.99;
-			this.scene.getMeshByName(id + value).scaling.x = this.meshScaling[key].x + cof * (+key === 154 ? widthDiff + 0.04 : widthDiff);
+			this.scene.getMeshByName(id + value).scaling.x =
+				this.meshScaling[key].x + cof * (+key === 154 ? widthDiff + 0.04 : widthDiff);
 		}
-
+		
 		for (const [key, value] of Object.entries(INTERIOR_WIDTH_POSITION_MESH)) {
 			const cof = value.includes('END') ? 0.4902 : 0.49;
 			if (value.includes('1')) {
@@ -2201,7 +2330,7 @@ export class EngineService {
 			}
 		}
 	}
-
+	
 	interiorHeightSizeHandler(heightDiff: number): void {
 		const id = this.selectedGizmoId || this.blindId;
 		this.shutter.interior.meshPositions = {};
@@ -2215,7 +2344,7 @@ export class EngineService {
 				this.scene.getMeshByName(id + value).scaling.y = this.meshScaling[key].y + 1.95 * heightDiff;
 			}
 		}
-
+		
 		for (const [key, value] of Object.entries(INTERIOR_HEIGHT_POSITION_MESH)) {
 			if (value.includes('MATERIAL')) {
 				this.shutter.materialPosition = this.meshPosition[key].y + 0.49 * heightDiff;
@@ -2233,39 +2362,35 @@ export class EngineService {
 				this.scene.getMeshByName(id + value).position.y = this.meshPosition[key].y - 0.49 * heightDiff + 0.012;
 			}
 		}
-
+		
 		this.getTopSceneHandler(this.shutter.modelsValue[id]);
 	}
-
+	
 	sceneWidthSize(res): void {
-		if (this.preventScalingModel) {
-			return;
-		}
+		if (this.preventScalingModel) { return; }
 		const getBlindType = res.blind_type || this.blindType;
 		const initialWidth = INITIAL_MODEL_SIZES_IN_METERS[getBlindType].width;
-
+		
 		if (this.defaultSize[getBlindType].width === 0) {
 			this.defaultSize[getBlindType].width = initialWidth;
 			this.sessionStorageService.setModelSize(this.defaultSize, STORAGE_NAMES.default_model_size);
 		}
-
-		const widthDiff = res.width - this.defaultSize[getBlindType].width;
-
+		
+		const widthDiff = (res.width - this.defaultSize[getBlindType].width);
+		
 		if (getBlindType === 'outdoor') {
 			this.outdoorWidthSizeHandler(widthDiff / 2);
 		}
-
+		
 		if (getBlindType === 'interior') {
 			this.interiorWidthSizeHandler(widthDiff);
 		}
-
+		
 		this.defaultStyles[getBlindType].sizeWidth = true;
 	}
 
 	sceneHeightSize(res): void {
-		if (this.preventScalingModel) {
-			return;
-		}
+		if (this.preventScalingModel) { return; }
 		const initialHeight = INITIAL_MODEL_SIZES_IN_METERS[this.blindType].height;
 
 		if (this.defaultSize[this.blindType].height === 0) {
@@ -2273,7 +2398,7 @@ export class EngineService {
 			this.sessionStorageService.setModelSize(this.defaultSize, STORAGE_NAMES.default_model_size);
 		}
 
-		const heightDiff = res.height - this.defaultSize[this.blindType].height;
+		const heightDiff = (res.height - this.defaultSize[this.blindType].height);
 
 		if (this.ground) {
 			const offsetY = -(Math.abs(this.groundPositionY) + heightDiff);
@@ -2299,8 +2424,7 @@ export class EngineService {
 		const id = this.selectedGizmoId || this.blindId;
 		const meshes = Object.entries(MATERIAL_TEXTURE_SCALE[this.blindType]);
 
-		meshes.forEach((data) => {
-			const [meshName] = data;
+		meshes.forEach(([meshName, textureScale]) => {
 			const mesh = this.scene.getMeshByName(id + meshName);
 			const material = mesh.material as PBRMaterial;
 			this.calcMaterialTextureSize(mesh, material, id);
@@ -2308,9 +2432,7 @@ export class EngineService {
 	}
 
 	calcMaterialTextureSize(mesh: AbstractMesh, material: PBRMaterial, blindId: string): void {
-		if (!mesh || !material.albedoTexture) {
-			return;
-		}
+		if (!mesh || !material.albedoTexture) { return; }
 
 		let uScale = MATERIAL_TEXTURE_SCALE[this.blindType][mesh.name.replace(blindId, '')]?.u;
 		let vScale = MATERIAL_TEXTURE_SCALE[this.blindType][mesh.name.replace(blindId, '')]?.v;
@@ -2329,21 +2451,20 @@ export class EngineService {
 			material.albedoTexture.vScale = vScale;
 		}
 	}
-
+	
 	setBackgroundImage(backgroundImage, status?: boolean): void {
 		if (!this.canvas) {
 			return;
 		}
-
+		
 		this.sampleImage = backgroundImage;
 		this.boundingBoxesSettingsStatus = false;
 		this.canvas.classList.toggle('background-no-cover', !!backgroundImage?.type);
 
 		if (backgroundImage) {
 			const blinds = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_blind_data);
-			const storage = backgroundImage.type
-				? STORAGE_NAMES.zip_image_visualisation_background
-				: STORAGE_NAMES.zip_uploaded_image_visualisation_background;
+			const storage = backgroundImage.type ? STORAGE_NAMES.zip_image_visualisation_background :
+				STORAGE_NAMES.zip_uploaded_image_visualisation_background;
 			const backgroundConfig = { ...backgroundImage };
 			delete backgroundConfig.image;
 			delete backgroundConfig.base64;
@@ -2355,16 +2476,12 @@ export class EngineService {
 			this.shutter.modelsValue = backgroundImage.shutterValues || this.shutter.modelsValue;
 			this.sampleProjectBlinds = backgroundImage.sampleProjectBlinds || {};
 			this.newCreatedBlinds = blinds
-				.filter(
-					(blind: BlindData) =>
-						!Object.hasOwn(this.boundingBoxesSettings, blind.blind_id) && !Object.hasOwn(this.sampleProjectBlinds, blind.blind_id),
-				)
+				.filter((blind: BlindData) => !this.boundingBoxesSettings.hasOwnProperty(blind.blind_id) && !this.sampleProjectBlinds.hasOwnProperty(blind.blind_id))
 				.map((blind: BlindData) => blind.blind_id);
 
 			if (backgroundImage.type) {
-				const isPhoneLandscape =
-					backgroundImage.image_orientation === 'landscape' && window.innerHeight <= 600 && window.innerWidth > window.innerHeight;
-				this.sceneOrientation = backgroundImage.image_orientation === 'portrait' || isPhoneLandscape ? 'portrait' : 'landscape';
+				const isPhoneLandscape = backgroundImage.image_orientation === 'landscape' && window.innerHeight <= 600 && window.innerWidth > window.innerHeight;
+				this.sceneOrientation = backgroundImage.image_orientation === 'portrait' || isPhoneLandscape ? 'portrait' : 'landscape'
 			}
 
 			this.shareDataService.setViewType(VIEW_TYPES.image_visualisation);
@@ -2373,14 +2490,14 @@ export class EngineService {
 			this.indexedDBService.saveImage(backgroundImage, STORAGE_NAMES.zip_image_visualisation_background);
 		}
 
-		this.canvas.style.backgroundImage = backgroundImage ? `url(${backgroundImage.src})` : '';
+		this.canvas.style.backgroundImage = backgroundImage ? `url(${ backgroundImage.src })` : '';
 		this.changeViewType(!!backgroundImage, status);
-
+		
 		if (backgroundImage && this.videoTexture) {
 			this.closeVideoStream();
 		}
 	}
-
+	
 	changeViewType(isImageVisualisation: boolean, status?: boolean): void {
 		this.isImageVisualisation = isImageVisualisation;
 		this.preventScalingModel = !isImageVisualisation ? false : this.preventScalingModel;
@@ -2419,19 +2536,20 @@ export class EngineService {
 		this.shareDataService.setCursorPointer({
 			cursor: this.canvas.style.cursor,
 			clicked: this.clicked,
-			imageVisualisation: this.isImageVisualisation,
+			imageVisualisation: this.isImageVisualisation
 		});
 	}
 
 	createCamera(): void {
-		this.camera = new ArcRotateCamera('camera', this.cameraRotation, Math.PI / 2, this.upperRadius, Vector3.Zero(), this.scene);
+		this.camera = new ArcRotateCamera('camera', this.cameraRotation, Math.PI / 2,
+			this.upperRadius, Vector3.Zero(), this.scene);
 	}
 
 	setDYBCameraSettings() {
 		this.zoomCounter = 0;
 		this.isZoomedOut = true;
 		this.isZoomedIn = false;
-
+		
 		this.camera.attachControl(this.scene);
 		this.camera.minZ = 0.1;
 		this.rootMeshRotationQuaternion = this.scene.meshes[0]?.rotationQuaternion?.clone() || this.rootMeshRotationQuaternion;
@@ -2446,15 +2564,15 @@ export class EngineService {
 		this.camera.angularSensibilityX = 2000;
 		this.camera.angularSensibilityY = 2000;
 		this.setCameraOffset();
-
+		
 		this.camera.checkCollisions = true;
 		this.camera.collisionRadius = new Vector3(0.25, 0.1, 0.15);
 		this.camera.onCollide = () => {
-			this.camera.detachControl();
+			this.camera.detachControl(this.canvas);
 			this.onIntersection();
 			this.camera.attachControl(this.scene);
 		};
-
+		
 		this.cameraPosition = this.camera.position.clone();
 		this.setDYBCameraRadius();
 	}
@@ -2464,7 +2582,7 @@ export class EngineService {
 		const blindCenter = MeshBuilder.CreatePlane('blindCenter', { width: 0.1, height: 0.1 }, this.scene);
 		blindCenter.parent = this.scene.meshes[0];
 		blindCenter.visibility = 0;
-
+		
 		this.isZoomedIVCamera = false;
 		this.isZoomedIn = true;
 		this.isZoomedOut = true;
@@ -2483,14 +2601,11 @@ export class EngineService {
 		this.camera.useFramingBehavior = true;
 		this.camera.checkCollisions = false;
 		this.setIVCameraRadius();
-
-		if (!this.camera.inputs.attached['mousewheel']) {
-			this.camera.inputs.add(new ArcRotateCameraMouseWheelInput());
-		}
-
+		
+		this.camera.inputs.add(new ArcRotateCameraMouseWheelInput());
 		this.camera.wheelPrecision = 100;
 		this.camera.panningSensibility = 0;
-
+		
 		this.scene.registerBeforeRender(() => {
 			if (this.camera.radius !== this.startIVCameraRadius && !this.isZoomedIVCamera) {
 				this.shareDataService.setIVResetStatus(true);
@@ -2498,19 +2613,19 @@ export class EngineService {
 			}
 			this.camera.alpha = Math.PI;
 			this.camera.beta = Math.PI / 2;
-
+			
 			this.camera.lowerRadiusLimit = !this.camera.isInFrustum(blindCenter) ? this.camera.radius : ivCameraLowerRadiusLimit;
 		});
 
 		this.lightGeneralSetupHandler(true);
 	}
-
+	
 	setGizmoControl(status: boolean): void {
 		if (status) {
 			this.setGizmoModelMeshScaling(false);
 		}
 		this.resetGizmoControl();
-
+		
 		if (status) {
 			const currentRootMesh = this.getCurrentRootMesh();
 			currentRootMesh.rotation = new Vector3(0, this.isImageVisualisation ? Math.PI / 2 : 0, 0);
@@ -2521,10 +2636,10 @@ export class EngineService {
 			this.gizmo.ignoreChildren = true;
 			this.gizmo.fixedDragMeshScreenSize = true;
 			this.gizmo.attachedMesh = this.boundingBox;
-
+			
 			// @ts-ignore
 			this.gizmo._scaleDragSpeed = this.isImageVisualisation ? 1 : 1.5;
-
+			
 			this.setGizmoControlHandler();
 			this.setGizmoControlScale();
 			this.setGizmoControlHover();
@@ -2534,7 +2649,7 @@ export class EngineService {
 
 			if (this.isImageVisualisation && this.boundingBoxesSettings[this.selectedGizmoId || this.blindId] && !this.resetSelectedBlind) {
 				const id = this.selectedGizmoId || this.blindId;
-				this.setBoundingBoxById(id, this.getRootMeshById(id));
+				this.setBoundingBoxById(id, this.getRootMeshById(id))
 			}
 
 			this.setGizmoMinMaxMeshScaling();
@@ -2543,7 +2658,7 @@ export class EngineService {
 			this.setModelAndBoundingBoxSettings();
 
 			// @ts-ignore
-			this.scene._renderingManager.setRenderingAutoClearDepthStencil(RenderingManager.MAX_RENDERINGGROUPS - 1, true, true, true);
+			this.scene._renderingManager.setRenderingAutoClearDepthStencil(RenderingManager.MAX_RENDERINGGROUPS - 1, true, true, true)
 			this.setModelRenderingSettings(currentRootMesh, RenderingManager.MAX_RENDERINGGROUPS - 1, false);
 		} else {
 			this.boundingBox = null;
@@ -2566,8 +2681,8 @@ export class EngineService {
 		const isPhoneLandscape = this.sceneOrientation === 'landscape' && screen.height <= 600 && window.innerWidth > window.innerHeight;
 		const orientation = this.sceneOrientation === 'portrait' || isPhoneLandscape ? '_portrait' : '';
 		const device = this.mobileAndTabletCheck() ? 'mobile' + orientation : 'desktop';
-		// const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
-		return this.samplesProjectProperties[device][`${type}Project`][index];
+		const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
+		return this.samplesProjectProperties[device][`${ type }Project`][index];
 	}
 
 	getIVCameraLowerRadiusLimit(): number {
@@ -2577,20 +2692,17 @@ export class EngineService {
 		if (!sampleProjectProperties.length) {
 			return defaultCameraLowerRadiusLimit;
 		} else {
-			const cameraRadiuses = sampleProjectProperties.map((boundingBoxSettings: BoundingBoxSettings) => boundingBoxSettings.cameraRadius);
+			const cameraRadiuses = sampleProjectProperties.map((boundingBoxSettings: BoundingBoxSettings) => boundingBoxSettings.cameraRadius)
 			return Math.min(...cameraRadiuses);
 		}
 	}
 
 	setIVSampleProject(): void {
-		const filteredBlindCheck = (id: number) =>
-			status && (Object.hasOwn(this.sampleProjectBlinds, id) || this.newCreatedBlinds.includes(id));
+		const filteredBlindCheck = (id: number) => status && (this.sampleProjectBlinds.hasOwnProperty(id) || this.newCreatedBlinds.includes(id))
 		const sampleProjectProperties = this.getIVCurrentSampleProject();
 		const status = this.boundingBoxesSettingsStatus;
 
-		if (!sampleProjectProperties.length) {
-			return;
-		}
+		if (!sampleProjectProperties.length) { return; }
 
 		if (!status) {
 			this.sampleProjectBlinds = {};
@@ -2601,26 +2713,24 @@ export class EngineService {
 		const blinds = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_blind_data);
 		const filteredBlinds = blinds
 			.filter((blind: BlindData) => blind.type === this.sampleImage.type && (status ? filteredBlindCheck(blind.blind_id) : true))
-			.slice(0, sampleProjectProperties.length);
+			.slice(0, sampleProjectProperties.length)
 
 		filteredBlinds.forEach((blind: BlindData, index) => {
-			if (Object.hasOwn(this.sampleProjectBlinds, blind.blind_id)) {
-				return;
-			}
+				if (this.sampleProjectBlinds.hasOwnProperty(blind.blind_id)) { return; }
 
-			const boundingBoxSettings = sampleProjectProperties[index];
-			this.boundingBoxesSettings[blind.blind_id] = {
-				position: boundingBoxSettings.position.clone(),
-				scaling: boundingBoxSettings.scaling.clone(),
-				rotationQuaternion: Quaternion.FromEulerVector(boundingBoxSettings.rotation.clone()),
-				cameraRadius: boundingBoxSettings.cameraRadius,
-				isEnabled: true,
-			};
+				const boundingBoxSettings = sampleProjectProperties[index]
+				this.boundingBoxesSettings[blind.blind_id] = {
+					position: boundingBoxSettings.position.clone(),
+					scaling: boundingBoxSettings.scaling.clone(),
+					rotationQuaternion: Quaternion.FromEulerVector(boundingBoxSettings.rotation.clone()),
+					cameraRadius: boundingBoxSettings.cameraRadius,
+					isEnabled: true
+				}
 
-			this.sampleProjectBlinds[blind.blind_id] = index;
-		});
+				this.sampleProjectBlinds[blind.blind_id] = index;
+			})
 
-		const blindIndex = filteredBlinds.map((blind) => blind.blind_id).indexOf(+this.blindId);
+		const blindIndex = filteredBlinds.map(blind => blind.blind_id).indexOf(+this.blindId)
 		const blindIsCorrect = blindIndex >= 0 && blindIndex < sampleProjectProperties.length && this.blindType === this.sampleImage.type;
 		if (!status && sampleProjectProperties && blindIsCorrect) {
 			this.boundingBox.position = sampleProjectProperties[blindIndex].position.clone();
@@ -2634,15 +2744,12 @@ export class EngineService {
 			this.boundingBox.absoluteScaling.y = sampleProjectProperties[blindIndex].scaling.y;
 
 			this.setGizmoModelMeshScaling(true);
-			this.setShutterControlValue({
-				id: this.selectedGizmoId,
-				value: this.shutter.IVDefaultValue,
-			});
+			this.setShutterControlValue({id: this.selectedGizmoId, value: this.shutter.IVDefaultValue});
 		}
 
 		const savedSettingsStatus = status && this.newCreatedBlinds.includes(+this.blindId);
 		if (savedSettingsStatus) {
-			delete this.sampleProjectBlinds[this.blindId];
+			delete this.sampleProjectBlinds[this.blindId]
 			this.setIVSampleProjectById();
 		}
 	}
@@ -2650,22 +2757,18 @@ export class EngineService {
 	setIVSampleProjectById(id = this.selectedGizmoId): void {
 		const sampleProjectProperties = this.getIVCurrentSampleProject();
 
-		if (!sampleProjectProperties.length || this.sampleImage.type !== this.blindType || this.isCopyingModel) {
-			return;
-		}
+		if (!sampleProjectProperties.length || this.sampleImage.type !== this.blindType) { return; }
 
 		const missBlindIndexes = [];
-		const sampleProjectBlindIndexes = Object.values(this.sampleProjectBlinds);
+		const sampleProjectBlindIndexes = Object.values(this.sampleProjectBlinds)
 		sampleProjectProperties.forEach((value, index) => {
 			if (!sampleProjectBlindIndexes.includes(index)) {
-				missBlindIndexes.push(index);
+				missBlindIndexes.push(index)
 			}
-		});
+		})
 
 		const blindIndex = missBlindIndexes[0];
-		if (!sampleProjectProperties[blindIndex] || Object.hasOwn(this.sampleProjectBlinds, id)) {
-			return;
-		}
+		if (!sampleProjectProperties[blindIndex] || this.sampleProjectBlinds.hasOwnProperty(id)) { return; }
 
 		this.sampleProjectBlinds[id] = blindIndex;
 		this.boundingBoxesSettings[id] = {
@@ -2673,8 +2776,8 @@ export class EngineService {
 			scaling: sampleProjectProperties[blindIndex].scaling.clone(),
 			rotationQuaternion: Quaternion.FromEulerVector(sampleProjectProperties[blindIndex].rotation.clone()),
 			cameraRadius: sampleProjectProperties[blindIndex].cameraRadius,
-			isEnabled: true,
-		};
+			isEnabled: true
+		}
 
 		this.boundingBox.scaling = sampleProjectProperties[blindIndex].scaling.clone();
 		this.boundingBox.position = sampleProjectProperties[blindIndex].position.clone();
@@ -2699,14 +2802,13 @@ export class EngineService {
 					10,
 					this.camera.radius,
 					this.camera.radius + 0.3,
-					0,
-				);
+					0);
 
 				zoomInEnd.onAnimationEnd = () => {
 					this.camera.checkCollisions = true;
 				};
 			};
-		});
+		})
 	}
 
 	resetGizmoControl(): void {
@@ -2753,8 +2855,8 @@ export class EngineService {
 			toolBar.classList.toggle('prevent-pointer-events', status);
 		};
 
-		this.gizmoService.updateScaleBoxDragBehavior.apply(this.gizmo, [this.isImageVisualisation, this.gizmoService]);
-		this.gizmo.onScaleBoxDragObservable.add(() => {
+		this.gizmoService.updateScaleBoxDragBehavior.apply(this.gizmo, [this.isImageVisualisation]);
+		this.gizmo.onScaleBoxDragObservable.add((eventData, eventState) => {
 			toggleToolBarPointerEvents(true);
 
 			this.setMinMaxGizmoMeshScaling();
@@ -2783,7 +2885,6 @@ export class EngineService {
 			}
 		});
 
-		this.gizmoService.updateRotateSpheres.apply(this.gizmo);
 		this.gizmo.onRotationSphereDragObservable.add(() => {
 			toggleToolBarPointerEvents(true);
 		});
@@ -2802,9 +2903,7 @@ export class EngineService {
 			const pickResult = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
 			this.scenePointerDownListener(null, pickResult);
 		});
-		this.gizmoDragModelBehavior = new PointerDragBehavior({
-			dragPlaneNormal: new Vector3(0, 0, 0),
-		});
+		this.gizmoDragModelBehavior = new PointerDragBehavior({ dragPlaneNormal: new Vector3(0, 0, 0) });
 		this.gizmoDragModelBehavior.onDragEndObservable.add(() => {
 			this.shareDataService.setIVResetStatus(true);
 		});
@@ -2826,46 +2925,42 @@ export class EngineService {
 
 		this.scene.onBeforeCameraRenderObservable.remove(this.gizmoZoomModelBehavior);
 		this.gizmoZoomModelBehavior = this.scene.onBeforeCameraRenderObservable.add(() => {
-			if (!this.isImageVisualisation) {
-				return;
-			}
+			if (!this.isImageVisualisation) return;
 
 			this.getRootMeshes().forEach((rootMesh: Mesh) => {
-				const rootMeshId = Number.parseInt(rootMesh.name, 10);
+				const rootMeshId = Number.parseInt(rootMesh.name);
 
 				if (+this.selectedGizmoId !== rootMeshId && this.boundingBoxesSettings[rootMeshId]) {
-					const distance = this.boundingBoxesSettings[rootMeshId].cameraRadius - this.camera.radius;
+					const distance = this.boundingBoxesSettings[rootMeshId].cameraRadius - this.camera.radius
 					rootMesh.position.x = this.boundingBoxesSettings[rootMeshId].position.x + distance;
 				}
-			});
+			})
 		});
 	}
-
+	
 	setGizmoControlScale(): void {
-		if (!this.gizmo) {
-			return;
-		}
+		if (!this.gizmo) { return; }
 
 		this.gizmo.scaleBoxSize = !this.isMobile ? 0.12 : 0.18;
 		this.gizmo.rotationSphereSize = !this.isMobile ? 0.12 : 0.18;
 
 		this.gizmo.fixedDragMeshScreenSizeDistanceFactor = this.isMobile && window.innerWidth > window.innerHeight ? 7 : 10;
 	}
-
+	
 	setGizmoControlHover(): void {
 		const resetGizmoUI = () => {
 			this.gizmoUI?.dispose();
-			this.gizmoUI = this.isImageVisualisation
-				? GUI.AdvancedDynamicTexture.CreateForMesh(this.gizmoTooltipPlane)
-				: GUI.AdvancedDynamicTexture.CreateFullscreenUI('gizmoUI', true, this.utilityLayer.utilityLayerScene);
+			this.gizmoUI = this.isImageVisualisation ?
+				GUI.AdvancedDynamicTexture.CreateForMesh(this.gizmoTooltipPlane) :
+				GUI.AdvancedDynamicTexture.CreateFullscreenUI('gizmoUI', true, this.utilityLayer.utilityLayerScene);
 			this.gizmoUI.addControl(this.gizmoTooltipRectangle);
 		};
-
+		
 		this.gizmoScaleTooltip = new GUI.Image('tooltipIcon', 'assets/icons/new/gizmo-scale-icon.svg');
 		this.gizmoRotationTooltip = new GUI.Image('tooltipIcon', 'assets/icons/new/gizmo-rotate-icon.svg');
 
-		this.gizmoScaleSizeTooltip = new GUI.TextBlock('blindSize', '1200mm');
-		this.gizmoScaleSizeTooltip.color = '#16416C';
+		this.gizmoScaleSizeTooltip = new GUI.TextBlock('blindSize', '1200mm')
+		this.gizmoScaleSizeTooltip.color = "#16416C";
 		this.gizmoScaleSizeTooltip.top = 2;
 
 		this.gizmoTooltipPlane = Mesh.CreatePlane('plane', 1, this.utilityLayer.utilityLayerScene);
@@ -2873,47 +2968,46 @@ export class EngineService {
 		this.gizmoTooltipPlane.isPickable = false;
 		this.gizmoTooltipPlane.updateFacetData();
 		this.gizmoTooltipPlane.renderingGroupId = 1;
-
+		
 		this.gizmoTooltipRectangle = new GUI.Rectangle('rec');
 		this.gizmoTooltipRectangle.widthInPixels = 40;
 		this.gizmoTooltipRectangle.heightInPixels = 40;
 		this.gizmoTooltipRectangle.thickness = 0;
 
+		// @ts-ignore
+		this.gizmoScaleBoxClone = this.gizmo._scaleBoxesParent.getChildMeshes()[0].clone('scale_box_clone');
+		this.gizmoScaleBoxClone.position = Vector3.Zero();
+		this.gizmoScaleBoxClone.isPickable = false
+		this.gizmoScaleBoxClone.isVisible = false;
+
 		this.utilityLayer.utilityLayerScene.onBeforeRenderObservable.add(() => {
 			const size = Vector3.Distance(this.camera.globalPosition, this.gizmoTooltipPlane.absolutePosition);
 			this.gizmoTooltipPlane.scaling.set(size, size, size);
 		});
-
+		
 		this.gizmo.gizmoLayer.utilityLayerScene.onPointerObservable.add((pointerInfo) => {
 			if (this.gizmoDragStatus) {
 				if (!this.gizmoHoveredControl) {
 					this.gizmoHoveredControl = pointerInfo.pickInfo.pickedMesh;
 					resetGizmoUI();
 				}
-
-				if (this.gizmoHoveredControl && !this.gizmoScaleBoxClone) {
-					const index = this.gizmoHoveredControl.id.split('_').slice(-1);
-					// @ts-ignore
-					this.gizmoScaleBoxClone = this.gizmo._scaleBoxesParent.getChildMeshes()[index].clone('scale_box_clone');
-					this.gizmoScaleBoxClone.position = Vector3.Zero();
-					this.gizmoScaleBoxClone.isPickable = false;
-					this.gizmoScaleBoxClone.isVisible = false;
-				}
+				
 				this.setGizmoControlDrag();
 				return;
 			}
-
-			if (this.gizmoHoveredControl && (!pointerInfo.pickInfo.pickedMesh || this.gizmoHoveredControl !== pointerInfo.pickInfo.pickedMesh)) {
+			
+			if (this.gizmoHoveredControl && (!pointerInfo.pickInfo.pickedMesh
+				|| this.gizmoHoveredControl !== pointerInfo.pickInfo.pickedMesh)) {
 				this.setGizmoControlColors();
 			}
-
+			
 			this.gizmoHoveredControl = pointerInfo.pickInfo.pickedMesh || null;
-
+			
 			if (this.isMobile && pointerInfo.type === PointerEventTypes.POINTERUP) {
 				this.setGizmoControlColors();
 				this.gizmoHoveredControl = null;
 			}
-
+			
 			if (this.gizmoHoveredControl) {
 				const meshId = this.gizmoHoveredControl.id;
 
@@ -2921,13 +3015,12 @@ export class EngineService {
 				this.setGizmoTooltip(meshId);
 			} else {
 				this.gizmoTooltipPlane.isVisible = false;
+				this.gizmoScaleBoxClone.isVisible = false;
 				this.gizmoTooltipRectangle.isVisible = this.isImageVisualisation;
-				this.gizmoScaleBoxClone?.dispose();
-				this.gizmoScaleBoxClone = null;
 			}
 		});
 	}
-
+	
 	setGizmoControlDrag() {
 		this.boundingBoxRotation = this.boundingBox.rotationQuaternion.toEulerAngles();
 		const meshId = this.gizmoHoveredControl.id;
@@ -2935,7 +3028,7 @@ export class EngineService {
 
 		this.setGizmoTooltip(meshId);
 	}
-
+	
 	setGizmoTooltip(meshId) {
 		const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
 		const roundModelRotation = (rotationY) => (rotationY > 1 || rotationY < -1 ? 1.57 : rotationY);
@@ -2944,37 +3037,29 @@ export class EngineService {
 			const dx = point1.x - point2.x;
 			return Math.atan2(dx, dz);
 		};
-
-		const controlPoint = {
-			z: this.gizmoHoveredControl.absolutePosition.z,
-			x: this.gizmoHoveredControl.absolutePosition.x,
-		};
-		const cameraPoint = {
-			z: this.camera.position.z,
-			x: this.camera.position.x,
-		};
+		
+		const controlPoint = { z: this.gizmoHoveredControl.absolutePosition.z, x: this.gizmoHoveredControl.absolutePosition.x };
+		const cameraPoint = { z: this.camera.position.z, x: this.camera.position.x };
 		const cameraAndControlAngle = getAngleBetweenPoint(cameraPoint, controlPoint) + Math.PI / 2;
-
-		const modelRotationY =
-			this.boundingBoxRotation.y > Math.PI / 2 && this.boundingBoxRotation.y > 0
-				? this.boundingBoxRotation.y - Math.PI
-				: this.boundingBoxRotation.y < -Math.PI / 2 && this.boundingBoxRotation.y < 0
-					? this.boundingBoxRotation.y + Math.PI
-					: this.boundingBoxRotation.y;
-
+		
+		const modelRotationY = this.boundingBoxRotation.y > Math.PI / 2 && this.boundingBoxRotation.y > 0 ? this.boundingBoxRotation.y - Math.PI :
+			this.boundingBoxRotation.y < -Math.PI / 2 && this.boundingBoxRotation.y < 0 ? this.boundingBoxRotation.y + Math.PI :
+				this.boundingBoxRotation.y;
+		
 		const rotation = cameraAndControlAngle - roundModelRotation(modelRotationY);
 		const tooltipRotation = rotation + Math.PI / 2;
-
+		
 		const idNumber = meshId.split('_').slice(-1);
 		if (meshId.includes('scale') && !this.isImageVisualisation) {
-			this.gizmo.hoverMaterial.emissiveColor = Color3.White();
+			// @ts-ignore
+			this.gizmo.hoverColoredMaterial.emissiveColor = Color3.White();
 			// @ts-ignore
 			this.gizmoTooltipPlane.parent = this.gizmo._scaleBoxesParent;
 
 			this.gizmoTooltipPlane.isVisible = false;
 
 			this.gizmoTooltipRectangle.isVisible = true;
-			this.gizmoTooltipRectangle.background = 'white';
+			this.gizmoTooltipRectangle.background = "white";
 			this.gizmoTooltipRectangle.shadowBlur = 0.1;
 			this.gizmoTooltipRectangle.cornerRadius = 8;
 			this.gizmoTooltipRectangle.fontSize = !this.isMobile ? 13 : 17;
@@ -2991,10 +3076,11 @@ export class EngineService {
 			this.getGizmoModelMeshScaling();
 			this.gizmoTooltipRectangle.addControl(this.gizmoScaleSizeTooltip);
 		} else if (meshId.includes('scale')) {
-			this.gizmo.hoverMaterial.emissiveColor = Color3.White();
+			// @ts-ignore
+			this.gizmo.hoverColoredMaterial.emissiveColor = Color3.White();
 			// @ts-ignore
 			this.gizmoTooltipPlane.parent = this.gizmo._scaleBoxesParent;
-
+			
 			const tooltipRotations = [
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), -Math.PI / 4),
 				Vector3.Zero(),
@@ -3011,43 +3097,44 @@ export class EngineService {
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), -Math.PI / 4),
 				Vector3.Zero(),
 			];
-
+			
 			this.gizmoTooltipPlane.position = this.gizmoHoveredControl.position;
 			this.gizmoTooltipPlane.rotation = tooltipRotations[idNumber];
 			this.gizmoTooltipPlane.isVisible = true;
-
+			
 			this.gizmoTooltipRectangle.paddingRight = 0;
 			this.gizmoTooltipRectangle.paddingBottom = 0;
 			this.gizmoTooltipRectangle.widthInPixels = !this.isMobile ? 40 : 50;
 			this.gizmoTooltipRectangle.heightInPixels = !this.isMobile ? 40 : 50;
 			this.gizmoTooltipRectangle.removeControl(this.gizmoScaleTooltip);
 			this.gizmoTooltipRectangle.addControl(this.gizmoScaleTooltip);
-
+			
 			this.gizmoHoveredControl.outlineColor = new Color4(0.65, 0.82, 0.98, 1);
 		} else if (meshId.includes('rotate')) {
-			this.gizmo.hoverMaterial.emissiveColor = new Color3(0.3352941176470588, 0.8176470588235294, 1.1901960784313725);
 			// @ts-ignore
-			this.gizmoTooltipPlane.parent = this.gizmo._rotateAnchorsParent;
-
+			this.gizmo.hoverColoredMaterial.emissiveColor = new Color3(0.3352941176470588, 0.8176470588235294, 1.1901960784313725);
+			// @ts-ignore
+			this.gizmoTooltipPlane.parent = this.gizmo._rotateSpheresParent;
+			
 			const tooltipRotations = [
 				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, Math.PI / 4),
 				new Vector3(0, Math.PI / 2, Math.PI / 2),
 				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, Math.PI / 4),
 				new Vector3(0, Math.PI / 2, 0),
-				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, (3 * Math.PI) / 4),
-				new Vector3(0, (3 * Math.PI) / 4, (3 * Math.PI) / 4),
-				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, (3 * Math.PI) / 4),
-				new Vector3(0, (-3 * Math.PI) / 4, (3 * Math.PI) / 4),
+				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, 3 * Math.PI / 4),
+				new Vector3(0, 3 * Math.PI / 4, 3 * Math.PI / 4),
+				new Vector3(0, this.degreeToRadian(90) - this.boundingBoxRotation.y, 3 * Math.PI / 4),
+				new Vector3(0, -3 * Math.PI / 4, 3 * Math.PI / 4),
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), Math.PI / 2),
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), 0),
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), -Math.PI),
 				new Vector3(0, clamp(-Math.sign(rotation) * tooltipRotation, -0.75, 0.75), -Math.PI / 2),
 			];
-
+			
 			this.gizmoTooltipPlane.position = this.gizmoHoveredControl.position;
 			this.gizmoTooltipPlane.rotation = tooltipRotations[idNumber];
 			this.gizmoTooltipPlane.isVisible = true;
-
+			
 			// @ts-ignore
 			this.gizmoTooltipRectangle.paddingRight = 25;
 			this.gizmoTooltipRectangle.paddingBottom = 25;
@@ -3056,7 +3143,7 @@ export class EngineService {
 			this.gizmoTooltipRectangle.removeControl(this.gizmoRotationTooltip);
 			this.gizmoTooltipRectangle.addControl(this.gizmoRotationTooltip);
 		}
-
+		
 		if (this.gizmoDragStatus) {
 			const isScaling = this.gizmoHoveredControl.id.includes('scale');
 			if (!this.isImageVisualisation || !isScaling) {
@@ -3067,23 +3154,20 @@ export class EngineService {
 				this.gizmoScaleBoxClone.material.emissiveColor = new Color3(0.03529411764705882, 0.5176470588235295, 0.8901960784313725);
 				this.gizmoScaleBoxClone.outlineColor = new Color3(0.03529411764705882, 0.5176470588235295, 0.8901960784313725);
 				this.gizmoScaleBoxClone.isVisible = true;
-				this.gizmoHoveredControl.isVisible = false;
+				this.gizmoHoveredControl.isVisible = false
 			}
 		}
 	}
-
+	
 	degreeToRadian(deg) {
 		return (deg * Math.PI) / 180;
 	}
-
+	
 	setGizmoControlPosition(): void {
-		const getPositionOffset = (position, name, scaleBoxesPosition) => {
-			const cornerOffset = name === 'corner' ? 0.05 : 0;
-			return {
-				y: position.y > 0 ? -scaleBoxesPosition.top + cornerOffset : position.y < 0 ? scaleBoxesPosition.bottom - cornerOffset : 0,
-				x: position.x > 0 ? -scaleBoxesPosition.left + cornerOffset : position.x < 0 ? scaleBoxesPosition.right - cornerOffset : 0,
-			};
-		};
+		const getPositionOffset = (position, scaleBoxesPosition) => ({
+				y: position.y > 0 ? -scaleBoxesPosition.top : position.y < 0 ? scaleBoxesPosition.bottom : 0,
+				x: position.x > 0 ? -scaleBoxesPosition.left : position.x < 0 ? scaleBoxesPosition.right : 0
+			})
 
 		const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
 		const defaultScaleBoxesPosition = {
@@ -3097,7 +3181,7 @@ export class EngineService {
 			const scaleBoxesPosition = { ...defaultScaleBoxesPosition };
 			if (this.isMobile && this.isImageVisualisation) {
 				const mobileOffset = getBlindType === 'outdoor' ? 0.07 : 0.05;
-				Object.keys(scaleBoxesPosition).forEach((key) => (scaleBoxesPosition[key] += mobileOffset + this.camera.radius * 0.011));
+				Object.keys(scaleBoxesPosition).forEach((key) => scaleBoxesPosition[key] += mobileOffset + this.camera.radius * 0.011);
 			}
 
 			// @ts-ignore
@@ -3106,21 +3190,21 @@ export class EngineService {
 				mesh.position.z = 0;
 
 				if ((!this.isImageVisualisation || !this.gizmoDragStatus) && mesh.name !== 'plane') {
-					const { y, x } = getPositionOffset(mesh.position, mesh.name, scaleBoxesPosition);
+					const {y, x} = getPositionOffset(mesh.position, scaleBoxesPosition);
 					mesh.position.y += y;
 					mesh.position.x += x;
 				}
 			});
 
 			if (this.gizmoDragStatus && this.isImageVisualisation && this.gizmoHoveredControl?.id.includes('scale')) {
-				const { y, x } = getPositionOffset(this.gizmoHoveredControl.position, this.gizmoHoveredControl.name, scaleBoxesPosition);
+				const {y, x} = getPositionOffset(this.gizmoHoveredControl.position, scaleBoxesPosition);
 				this.gizmoTooltipPlane.position = this.gizmoHoveredControl.position.subtractFromFloats(-x, -y, 0);
 				this.gizmoScaleBoxClone.position = this.gizmoTooltipPlane.position;
 				this.gizmoScaleBoxClone.scaling = this.gizmoHoveredControl.scaling;
 			}
 
 			// @ts-ignore
-			const rotateSpheres = this.gizmo._rotateAnchorsParent.getChildMeshes();
+			const rotateSpheres = this.gizmo._rotateSpheresParent.getChildMeshes();
 			rotateSpheres.forEach((mesh) => {
 				mesh.position.z = 0;
 			});
@@ -3140,7 +3224,7 @@ export class EngineService {
 		lines.forEach((mesh: Mesh) => {
 			mesh.position.z = 0;
 		});
-
+		
 		lines[2].setEnabled(false);
 		lines[4].setEnabled(false);
 		lines[6].setEnabled(false);
@@ -3157,24 +3241,25 @@ export class EngineService {
 
 		// @ts-ignore
 		const scaleBoxes = this.gizmo._scaleBoxesParent.getChildMeshes();
-		const planeMaterial = scaleBoxes[1].material.clone('planeMaterial') as StandardMaterial;
-
-		planeMaterial.emissiveColor = new Color3(0.03529411764705882, 0.5176470588235295, 0.8901960784313725);
-
-		scaleBoxes.forEach((mesh: Mesh, index) => {
+		const planeMaterial = scaleBoxes[1].material.clone('planeMaterial');
+		planeMaterial.emissiveColor = new Color4(0.03529411764705882, 0.5176470588235295, 0.8901960784313725, 0);
+		planeMaterial.hasAlpha = true;
+		planeMaterial.overlayAlpha = 0;
+		
+		scaleBoxes.forEach((mesh, index) => {
 			if (mesh.name !== 'plane') {
-				const material = mesh.material as StandardMaterial;
 				mesh.position.z = 0;
 				mesh.renderOutline = true;
 				mesh.outlineWidth = 0.15;
-				mesh.outlineColor = new Color3(0.03529411764705882, 0.5176470588235295, 0.8901960784313725);
-				material.emissiveColor = new Color3(1, 1, 1);
+				mesh.outlineColor = new Color4(0.03529411764705882, 0.5176470588235295, 0.8901960784313725, 1);
+				mesh.material.emissiveColor = new Color4(1, 1, 1, 1);
+				mesh.forceSharedVertices();
 				mesh.id = 'scale_box_' + index;
 			} else {
 				mesh.material = planeMaterial;
 			}
 		});
-
+		
 		scaleBoxes[1].setEnabled(false);
 		scaleBoxes[4].setEnabled(false);
 		scaleBoxes[6].setEnabled(false);
@@ -3188,24 +3273,23 @@ export class EngineService {
 		scaleBoxes[12].setEnabled(this.isImageVisualisation);
 
 		// @ts-ignore
-		const rotateSpheres = this.gizmo._rotateAnchorsParent.getChildMeshes();
-		const rotateSphereMaterial = scaleBoxes[1].material.clone('rotateSphereMaterial') as StandardMaterial;
-
-		rotateSphereMaterial.emissiveColor = new Color3(0.03529411764705882, 0.5176470588235295, 0.8901960784313725);
-
+		const rotateSpheres = this.gizmo._rotateSpheresParent.getChildMeshes();
+		const rotateSphereMaterial = scaleBoxes[1].material.clone('rotateSphereMaterial');
+		rotateSphereMaterial.emissiveColor = new Color4(0.03529411764705882, 0.5176470588235295, 0.8901960784313725, 1);
+		
 		rotateSpheres.forEach((mesh, index) => {
 			if (mesh.name !== 'plane') {
 				mesh.position.z = 0;
 				mesh.renderOutline = true;
 				mesh.outlineWidth = 0.15;
-				mesh.outlineColor = new Color3(1, 1, 1);
+				mesh.outlineColor = new Color4(1, 1, 1, 1);
 				mesh.material = rotateSphereMaterial;
 				mesh.id = 'rotate_sphere_' + index;
 			} else {
 				mesh.material = planeMaterial;
 			}
 		});
-
+		
 		rotateSpheres[1].setEnabled(false);
 		rotateSpheres[3].setEnabled(false);
 		rotateSpheres[5].setEnabled(false);
@@ -3255,7 +3339,7 @@ export class EngineService {
 			scaleBoxes[12].setEnabled(status);
 
 			// @ts-ignore
-			const rotateSpheres = this.gizmo._rotateAnchorsParent.getChildMeshes();
+			const rotateSpheres = this.gizmo._rotateSpheresParent.getChildMeshes();
 			rotateSpheres[0].setEnabled(status);
 			rotateSpheres[2].setEnabled(status);
 			rotateSpheres[4].setEnabled(status);
@@ -3266,7 +3350,7 @@ export class EngineService {
 			rotateSpheres[11].setEnabled(status);
 		}
 	}
-
+	
 	getGizmoMeshScaling(resetSatus = false): void {
 		if (this.boundingBoxRotation && !resetSatus) {
 			return;
@@ -3288,18 +3372,18 @@ export class EngineService {
 			this.boundingBoxAbsoluteScale = new Vector3(1.31, 0.9, 0.3);
 			this.rootMeshScale = new Vector3(0.97, -0.97, -3.29);
 		}
-
+		
 		if (this.isMobile && this.isImageVisualisation) {
 			const multiplyVector = new Vector3(1.15, 1.15, 1);
 			this.boundingBoxScale = this.boundingBoxScale.multiply(multiplyVector);
 			this.boundingBoxAbsoluteScale = this.boundingBoxAbsoluteScale.multiply(multiplyVector);
 		}
-
+		
 		if (this.boundingBox?.scaling.y < this.gizmoMinMaxMeshScaling.min.y) {
 			this.boundingBox.scaling.y = this.gizmoMinMaxMeshScaling.min.y + eps;
 			this.boundingBox.absoluteScaling.y = this.gizmoMinMaxMeshScaling.min.y + eps;
 		}
-
+		
 		if (this.boundingBox?.scaling.x < this.gizmoMinMaxMeshScaling.min.x) {
 			this.boundingBox.scaling.x = this.gizmoMinMaxMeshScaling.min.x + eps;
 			this.boundingBox.absoluteScaling.x = this.gizmoMinMaxMeshScaling.min.x + eps;
@@ -3311,13 +3395,13 @@ export class EngineService {
 
 		this.rootStartMeshScale = this.boundingBoxAbsoluteScale.divide(this.rootMeshScale).multiply(new Vector3(1, -1, -1));
 	}
-
+	
 	setGizmoMinMaxMeshScaling(serverSizeData = null) {
 		this.serverSizeData = serverSizeData || this.serverSizeData;
-		const maxMeshScaling = { y: 5, x: 8.9 };
+		const maxMeshScaling = { y: 5, x: 8.9};
 		const minMeshScaling = {
 			y: this.blindType === 'outdoor' ? 1.3 : 0.8,
-			x: this.blindType === 'outdoor' ? 0.95 : 0.8,
+			x: this.blindType === 'outdoor' ? 0.95 : 0.8
 		};
 
 		if (this.isMobile && this.isImageVisualisation) {
@@ -3328,19 +3412,19 @@ export class EngineService {
 			const eps = 0.00001;
 			maxMeshScaling.y = this.serverSizeData['height'].maximum / 1000 + 0.3 + eps;
 			maxMeshScaling.x = this.serverSizeData['width'].maximum / 1000 + 0.3 + eps;
-			minMeshScaling.y = this.serverSizeData['height'].minumum / 1000 + 0.3 - eps;
-			minMeshScaling.x = this.serverSizeData['width'].minumum / 1000 + 0.3 - eps;
+			minMeshScaling.y = this.serverSizeData['height'].minumum / 1000 + 0.3 - eps,
+			minMeshScaling.x = this.serverSizeData['width'].minumum / 1000 + 0.3 - eps
 		}
 
 		this.gizmoMinMaxMeshScaling = {
 			min: minMeshScaling,
-			max: maxMeshScaling,
+			max: maxMeshScaling
 		};
 	}
 
 	setGizmoBoundingBoxScaling(res): void {
-		const resStatus = !res.isBoundingBox && !Object.hasOwn(res, 'extra_size');
-		const sceneStatus = !this.isImageVisualisation && this.boundingBox && !this.gizmoHoveredControl;
+		const resStatus = !res.isBoundingBox && !res.hasOwnProperty('extra_size');
+		const sceneStatus = !this.isImageVisualisation && this.boundingBox && !this.gizmoHoveredControl
 		if (resStatus && sceneStatus) {
 			const scalingWay = Object.keys(res)[0];
 			this.boundingBox.scaling[scalingWay === 'width' ? 'x' : 'y'] = res[scalingWay] + 0.3;
@@ -3356,7 +3440,7 @@ export class EngineService {
 
 	setMinMaxGizmoMeshScaling(detach = true): void {
 		const eps = 0.000001;
-
+		
 		if (this.boundingBox.scaling.y >= this.gizmoMinMaxMeshScaling.max.y) {
 			this.boundingBox.scaling.y = this.gizmoMinMaxMeshScaling.max.y - eps;
 			this.gizmo.attachedMesh = detach ? null : this.gizmo.attachedMesh;
@@ -3365,7 +3449,7 @@ export class EngineService {
 			this.boundingBox.scaling.y = this.gizmoMinMaxMeshScaling.min.y + eps;
 			this.gizmo.attachedMesh = detach ? null : this.gizmo.attachedMesh;
 		}
-
+		
 		if (this.boundingBox.scaling.x >= this.gizmoMinMaxMeshScaling.max.x) {
 			this.boundingBox.scaling.x = this.gizmoMinMaxMeshScaling.max.x - eps;
 			this.gizmo.attachedMesh = detach ? null : this.gizmo.attachedMesh;
@@ -3378,7 +3462,7 @@ export class EngineService {
 
 	setGizmoModelMeshScaling(status: boolean) {
 		let currentMeshScale;
-
+		
 		const selectedGizmoMesh = this.getRootMeshById(this.selectedGizmoId);
 		const rootMesh = this.getCurrentRootMesh();
 		const currentRootMesh = selectedGizmoMesh || rootMesh;
@@ -3410,7 +3494,7 @@ export class EngineService {
 
 			heightCof = this.blindType === 'outdoor' ? 0.36 : 0.98;
 			heightDiff = (currentMeshScale.y - this.rootStartMeshScale.y) * heightCof;
-
+			
 			widthCof = this.blindType === 'outdoor' ? 0.45 : 0.99;
 			widthDiff = (currentMeshScale.x - this.rootStartMeshScale.x) * widthCof;
 		}
@@ -3426,9 +3510,7 @@ export class EngineService {
 	}
 
 	setGizmoModelMeshScalingOnDrag() {
-		if (this.isImageVisualisation) {
-			return;
-		}
+		if (this.isImageVisualisation) { return; }
 		const selectedGizmoMesh = this.getRootMeshById(this.selectedGizmoId);
 		const rootMesh = this.getCurrentRootMesh();
 		const currentRootMesh = selectedGizmoMesh || rootMesh;
@@ -3448,11 +3530,11 @@ export class EngineService {
 
 	getGizmoModelMeshScaling() {
 		const sizeSettings = {
-			scale_box_2: { type: 'width', coord: 'x', value: this.currentWidth },
-			scale_box_5: { type: 'height', coord: 'y', value: this.currentHeight },
-			scale_box_8: { type: 'height', coord: 'y', value: this.currentHeight },
-			scale_box_11: { type: 'width', coord: 'x', value: this.currentWidth },
-		};
+			'scale_box_2' : {type: 'width', coord: 'x', value: this.currentWidth},
+			'scale_box_5' : {type: 'height', coord: 'y', value: this.currentHeight},
+			'scale_box_8' : {type: 'height', coord: 'y', value: this.currentHeight},
+			'scale_box_11' : {type: 'width', coord: 'x', value: this.currentWidth}
+		}
 		const currentSettings = sizeSettings[this.gizmoHoveredControl?.id || this.gizmoLastHoveredControlId];
 		const currentSize = Math.round((this.boundingBox.scaling.clone()[currentSettings.coord] - 0.3) * 1000);
 		this.gizmoScaleSizeTooltip.text = `${!this.gizmoDragStatus ? currentSettings.value * 1000 : currentSize}mm`;
@@ -3475,17 +3557,17 @@ export class EngineService {
 			const plane = Mesh.CreatePlane('plane', 40, this.scene);
 			plane.position.x = 0;
 			plane.rotation = new Vector3(0, Math.PI / 2, 0);
-
+			
 			const planeMaterial = new StandardMaterial('planeMaterial', this.scene);
 			planeMaterial.diffuseColor = new Color3(0, 0, 0);
 			planeMaterial.alpha = 0;
 			plane.material = planeMaterial;
-
+			
 			this.pointSpheresMaterial = new StandardMaterial('sphere', this.scene);
 			this.pointSpheresMaterial.specularColor = new Color3(1, 1, 1);
 			this.pointSpheresMaterial.emissiveColor = new Color3(1, 1, 1);
 			this.hoverPointSpheresMaterial = this.pointSpheresMaterial.clone('hover-sphere');
-
+			
 			this.movePointSphere = this.createLinePoints('sphere-move');
 			this.movePointSphere.isVisible = false;
 			this.movePointSphere.renderingGroupId = 1;
@@ -3531,7 +3613,7 @@ export class EngineService {
 
 				const lastPoints = [this.boundingBoxPoints[this.boundingBoxPoints.length - 1], pickResult.pickedPoint];
 				const isOpportunityToSetPoint = this.boundingBoxPoints.length ? this.isOpportunityToSetPoint(lastPoints, pickResult) : true;
-				if ((isOpportunityToSetPoint && this.boundingBoxPoints.length < 4) || isLastPoint) {
+				if (isOpportunityToSetPoint && this.boundingBoxPoints.length < 4 || isLastPoint) {
 					const point = pickResult.pickedPoint;
 					this.movePointSphere.position = point;
 					this.boundingBoxPoints.push(point);
@@ -3575,7 +3657,7 @@ export class EngineService {
 					this.changePointSphereColor(pickResult.pickedMesh, Color3.FromInts(22, 65, 108));
 					this.movePointSphere.isVisible = false;
 				} else {
-					this.boundingBoxPointSpheres.forEach((sphere) => (sphere.material = this.pointSpheresMaterial));
+					this.boundingBoxPointSpheres.forEach((sphere) => sphere.material = this.pointSpheresMaterial);
 					this.movePointSphere.isVisible = true;
 				}
 
@@ -3584,171 +3666,159 @@ export class EngineService {
 			}
 		}
 	}
-
+	
 	isOpportunityToSetPoint(points, pickResult) {
 		const checkInRange = (range, degree) => {
 			if (range.length === 3) {
-				return degree >= range[0] || (degree >= range[1] && degree <= range[2]);
+				return degree >= range[0] || degree >= range[1] && degree <= range[2];
 			} else {
 				return degree >= range[0] && degree <= range[1];
 			}
 		};
-
+		
 		const getAngleBetweenPoint = ([point1, point2]: any[]) => {
 			const dx = point1.z - point2.z;
 			const dy = point1.y - point2.y;
 			const degree = Math.atan2(dy, dx) * (180 / Math.PI);
-
-			return degree < 0 ? 360 + degree : degree;
+			
+			return degree < 0 ? (360 + degree) : degree;
 		};
-
-		let ranges = [
-			[330, 0, 30],
-			[60, 120],
-			[150, 210],
-			[240, 300],
-		];
+		
+		let ranges = [[330, 0, 30], [60, 120], [150, 210], [240, 300]];
 		const distanceStatus = ranges.some((range, index) => {
-			return index % 2 === 0
-				? Math.abs(points[1].z - points[0].z) >= this.gizmoMinMaxMeshScaling.min.x * 0.9 &&
-						Math.abs(points[1].z - points[0].z) <= this.gizmoMinMaxMeshScaling.max.x * 0.935
-				: Math.abs(points[1].y - points[0].y) >= this.gizmoMinMaxMeshScaling.min.y * 0.9 &&
-						Math.abs(points[1].y - points[0].y) <= this.gizmoMinMaxMeshScaling.max.y * 0.935;
+			return index % 2 === 0 ? Math.abs(points[1].z - points[0].z) >= this.gizmoMinMaxMeshScaling.min.x * 0.9 &&
+				Math.abs(points[1].z - points[0].z) <= this.gizmoMinMaxMeshScaling.max.x * 0.935 :
+				Math.abs(points[1].y - points[0].y) >= this.gizmoMinMaxMeshScaling.min.y * 0.9 &&
+				Math.abs(points[1].y - points[0].y) <= this.gizmoMinMaxMeshScaling.max.y * 0.935;
 		});
-
+		
 		const lastPointsDegree = getAngleBetweenPoint([points[1], this.boundingBoxPoints[0]]);
 		const lastRangeStatus = ranges.some((range) => checkInRange(range, lastPointsDegree));
-
+		
 		if (this.boundingBoxPoints.length > 1) {
 			for (let i = 1; i < this.boundingBoxPoints.length; i++) {
 				const pointsDegree = getAngleBetweenPoint(this.boundingBoxPoints.slice(i - 1));
 				ranges = ranges.filter((range) => !checkInRange(range, pointsDegree));
 			}
-
+			
 			const lasPointsDegree = getAngleBetweenPoint(this.boundingBoxPoints.slice(-2).reverse());
 			ranges = ranges.filter((range) => !checkInRange(range, lasPointsDegree));
 		}
-
+		
 		const currPointsDegree = getAngleBetweenPoint(points);
 		const rangeStatus = ranges.some((range) => checkInRange(range, currPointsDegree));
-
-		return this.boundingBoxPoints.length === 3
-			? lastRangeStatus && rangeStatus && distanceStatus
-			: this.boundingBoxPoints.length < 4
-				? rangeStatus && distanceStatus
-				: pickResult.pickedMesh.id.includes('sphere-0');
+		
+		return this.boundingBoxPoints.length === 3 ? lastRangeStatus && rangeStatus && distanceStatus :
+			this.boundingBoxPoints.length < 4 ? rangeStatus && distanceStatus : pickResult.pickedMesh.id.includes('sphere-0');
 	}
-
+	
 	createLinesByPoints(name = 'lines', points = this.boundingBoxPoints, color = '#16416C') {
 		this.scene.getMeshByName(this.blindId + name)?.dispose();
 		const lines = MeshBuilder.CreateLines(name, {
 			points,
 			updatable: true,
 		});
-
+		
 		lines.color = Color3.FromHexString(color);
 	}
-
-	createLinePoints(
-		name = `sphere-${this.boundingBoxPoints.length - 1}`,
-		point = this.boundingBoxPoints[this.boundingBoxPoints.length - 1],
-	) {
+	
+	createLinePoints(name = `sphere-${ this.boundingBoxPoints.length - 1 }`, point = this.boundingBoxPoints[this.boundingBoxPoints.length - 1]) {
 		const sphere = MeshBuilder.CreateSphere(name, { diameter: 0.035 }, this.scene);
 		sphere.position = point || Vector3.Zero();
 		sphere.rotation = new Vector3(0, Math.PI / 2, 0);
 		sphere.material = this.pointSpheresMaterial;
 		sphere.forceSharedVertices();
-
+		
 		sphere.renderOutline = true;
 		sphere.outlineColor = Color3.FromInts(22, 65, 108);
 		sphere.outlineWidth = 0.002;
-
+		
 		return sphere;
 	}
-
+	
 	changePointSphereColor(sphere, color) {
 		this.hoverPointSpheresMaterial.specularColor = color;
 		this.hoverPointSpheresMaterial.emissiveColor = color;
 		this.hoverPointSpheresMaterial.ambientColor = color;
 		this.hoverPointSpheresMaterial.diffuseColor = color;
-
+		
 		sphere.material = this.hoverPointSpheresMaterial;
 	}
-
+	
 	formatLinePoints() {
 		const points = [...this.boundingBoxPoints].slice(0, -1);
+		const noFormattedPoints = points.map((point) => point.clone());
 		const sortedPointsZ = [...points].sort((v1, v2) => v1.z - v2.z);
 		const sortedPointsY = [...points].sort((v1, v2) => v1.y - v2.y);
-
+		
 		const pointPremaxZ = this.boundingBoxPoints.find((vector) => vector.z === sortedPointsZ[1].z);
 		pointPremaxZ.z = sortedPointsZ[0].z;
-
+		
 		const pointPreminZ = this.boundingBoxPoints.find((vector) => vector.z === sortedPointsZ[2].z);
 		pointPreminZ.z = sortedPointsZ[3].z;
-
+		
 		const pointPremaxY = this.boundingBoxPoints.find((vector) => vector.y === sortedPointsY[1].y);
 		pointPremaxY.y = sortedPointsY[0].y;
-
+		
 		const pointPreminY = this.boundingBoxPoints.find((vector) => vector.y === sortedPointsY[2].y);
 		pointPreminY.y = sortedPointsY[3].y;
-
+		
 		this.boundingBoxPoints[4] = this.boundingBoxPoints[0].clone();
 
-		this.setModelByPoints();
+		this.setModelByPoints(noFormattedPoints);
 		this.resetLineByPoints(false);
 	}
-
-	setModelByPoints() {
+	
+	setModelByPoints(noFormattedPoints) {
 		const getBlindType = this.getBlindTypeFromStorage();
 		const scalingDiff = {
 			z: getBlindType === 'outdoor' ? 0.32 : 0.34,
-			y: getBlindType === 'outdoor' ? 0.32 : 0.29,
+			y: getBlindType === 'outdoor' ? 0.32 : 0.29
 		};
-
+		
 		const points = [...this.boundingBoxPoints].slice(0, -1);
 		const sortedPointsZ = [...points].sort((v1, v2) => v1.z - v2.z);
 		const sortedPointsY = [...points].sort((v1, v2) => v1.y - v2.y);
-
+		
 		this.boundingBox.position.z = (sortedPointsZ[3].z + sortedPointsZ[0].z) / 2;
 		this.boundingBox.position.y = (sortedPointsY[3].y + sortedPointsY[0].y) / 2;
-
+		
 		this.boundingBox.scaling.x = Math.abs(sortedPointsZ[3].z - sortedPointsZ[0].z) + scalingDiff.z;
 		this.boundingBox.absoluteScaling.x = Math.abs(sortedPointsZ[3].z - sortedPointsZ[0].z) + scalingDiff.z;
-
+		
 		this.boundingBox.scaling.y = Math.abs(sortedPointsY[0].y - sortedPointsY[3].y) + scalingDiff.y;
 		this.boundingBox.absoluteScaling.y = Math.abs(sortedPointsY[0].y - sortedPointsY[3].y) + scalingDiff.y;
-
+		
 		this.boundingBox.rotationQuaternion = Quaternion.FromEulerVector(new Vector3(0, Math.PI / 2, 0));
-
+		
 		this.setGizmoModelMeshScaling(true);
-
-		this.boundingBox.position.y -=
-			getBlindType === 'interior' ? this.scene.meshes[0].position.y * (0.45 + this.boundingBox.scaling.y * 0.02) : 0.025;
+		
+		this.boundingBox.position.y -= getBlindType === 'interior' ? this.scene.meshes[0].position.y * (0.45 + this.boundingBox.scaling.y * 0.02) : 0.025;
 	}
-
+	
 	resetLineByPoints(status) {
 		this.scene.getMeshByName(this.blindId + 'line')?.dispose();
 		this.scene.getMeshByName(this.blindId + 'lines')?.dispose();
-
-		this.boundingBoxPointSpheres.forEach((sphere) => sphere.dispose());
+		
+		this.boundingBoxPointSpheres.forEach(sphere => sphere.dispose());
 		if (this.movePointSphere) {
 			this.movePointSphere.isVisible = false;
 		}
-
+		
 		this.boundingBoxPoints = [];
 		this.boundingBoxPointSpheres = [];
-
+		
 		if (status) {
 			this.scene.getMeshByName(this.blindId + 'plane')?.dispose();
 			this.scene.onPointerUp = () => {};
 		}
 	}
-
+	
 	setControl(type): void {
 		this.controlType = type;
 		this.scene.onPointerObservable.remove(this.rotateModelObserver);
 		this.scene.meshes[0].removeBehavior(this.dragModelBehavior);
-
+		
 		if (this.controlType === CONTROL_TYPES.rotate) {
 			this.setRotateCursor();
 			this.rotateModelObserver = this.scene.onPointerObservable.add((pointerInfo) => {
@@ -3756,23 +3826,21 @@ export class EngineService {
 			});
 		} else if (this.controlType === CONTROL_TYPES.move) {
 			this.setDragCursor();
-			this.dragModelBehavior = new PointerDragBehavior({
-				dragPlaneNormal: new Vector3(1, 0, 0),
-			});
+			this.dragModelBehavior = new PointerDragBehavior({ dragPlaneNormal: new Vector3(1, 0, 0) });
 			this.dragModelBehavior.useObjectOrientationForDragging = false;
 			this.dragModelBehavior.onDragStartObservable.add(() => {
 				$(this.canvas).click();
 			});
-
-			this.dragModelBehavior.onDragObservable.add((event) => {
+			
+			this.dragModelBehavior.onDragObservable.add(event => {
 				const offset = 30;
 				const size = {
 					widht: this.canvas.offsetWidth,
-					height: this.canvas.offsetHeight,
+					height: this.canvas.offsetHeight
 				};
 				const coords = {
 					x: this.scene.pointerX,
-					y: this.scene.pointerY,
+					y: this.scene.pointerY
 				};
 				const direction = {
 					left: event.delta.z > 0,
@@ -3784,31 +3852,25 @@ export class EngineService {
 					top: coords.y < offset,
 					left: coords.x < offset,
 					bottom: coords.x + offset > size.widht,
-					right: coords.y + offset > size.height,
+					right: coords.y + offset > size.height
 				};
-				const isOutside =
-					(borders.top && direction.up) ||
-					(borders.right && direction.right) ||
-					(borders.bottom && direction.down) ||
-					(borders.left && direction.left);
-
+				const isOutside = borders.top && direction.up || borders.right && direction.right ||
+					borders.bottom && direction.down || borders.left && direction.left;
+				
 				if (isOutside) {
 					this.dragModelBehavior.releaseDrag();
 				}
 			});
-
+			
 			this.scene.meshes[0].addBehavior(this.dragModelBehavior);
 		}
 	}
-
+	
 	setRotateControlEvent(pointerInfo): void {
 		switch (pointerInfo.type) {
 			case PointerEventTypes.POINTERDOWN:
 				$(this.canvas).click();
-				this.startingRotationPoint = {
-					x: pointerInfo.event.clientX,
-					y: pointerInfo.event.clientY,
-				};
+				this.startingRotationPoint = { x: pointerInfo.event.clientX, y: pointerInfo.event.clientY };
 				break;
 			case PointerEventTypes.POINTERUP:
 				this.startingRotationPoint = null;
@@ -3818,36 +3880,36 @@ export class EngineService {
 				if (!this.startingRotationPoint) {
 					break;
 				}
-
+				
 				const dY = this.startingRotationPoint.y - pointerInfo.event.clientY;
 				const dX = this.startingRotationPoint.x - pointerInfo.event.clientX;
-
+				
 				if (!this.rotateAxis) {
-					this.rotateAxis = Math.abs(dY) < Math.abs(dX) ? 'axisY' : Math.abs(dY) > Math.abs(dX) ? 'axisZ' : '';
+					this.rotateAxis = Math.abs(dY) < Math.abs(dX) ? 'axisY' :
+						Math.abs(dY) > Math.abs(dX) ? 'axisZ' : '';
 				} else {
-					this.rotateAxis = Math.abs(dY) + 5 < Math.abs(dX) ? 'axisY' : Math.abs(dY) > Math.abs(dX) + 5 ? 'axisZ' : this.rotateAxis;
+					this.rotateAxis = Math.abs(dY) + 5 < Math.abs(dX) ? 'axisY' :
+						Math.abs(dY) > Math.abs(dX) + 5 ? 'axisZ' : this.rotateAxis;
 				}
-
+				
 				if (this.rotateAxis === 'axisY') {
 					this.scene.meshes[0].rotation.y += dX * 0.003;
 				} else if (this.rotateAxis === 'axisZ') {
 					this.scene.meshes[0].rotation.z -= dY * 0.003;
 				}
-
+				
 				this.startingRotationPoint.x = pointerInfo.event.clientX;
 				this.startingRotationPoint.y = pointerInfo.event.clientY;
 				break;
 		}
 	}
-
+	
 	zoomIVModelHandler(pointerInfo: PointerInfo): void {
 		const currentRay = pointerInfo.pickInfo.ray.direction.clone();
-		const isSameRay =
-			this.gizmoDragRayPicked &&
-			this.gizmoDragRayPicked.x === currentRay.x &&
-			this.gizmoDragRayPicked.y === currentRay.y &&
-			this.gizmoDragRayPicked.z === currentRay.z;
-
+		const isSameRay = this.gizmoDragRayPicked && this.gizmoDragRayPicked.x === currentRay.x
+			&& this.gizmoDragRayPicked.y === currentRay.y
+			&& this.gizmoDragRayPicked.z === currentRay.z;
+		
 		switch (pointerInfo.type) {
 			case PointerEventTypes.POINTERDOWN:
 				this.zoomGizmoSettings.fingers--;
@@ -3855,20 +3917,20 @@ export class EngineService {
 				this.gizmoDragPointPicked = this.zoomGizmoSettings.pickOnMesh ? pointerInfo.pickInfo.pickedPoint.clone() : null;
 				this.gizmoDragRayPicked = pointerInfo.pickInfo.ray.direction.clone();
 				break;
-
+			
 			case PointerEventTypes.POINTERMOVE:
 				if (this.zoomGizmoSettings.pickOnMesh && !isSameRay) {
 					const event = pointerInfo.event as PointerEvent;
-
+					
 					if (this.zoomGizmoSettings.fingers) {
 						this.boundingBox.addBehavior(this.gizmoDragModelBehavior);
-
+						
 						const currentMoveRay = Ray.CreateNewFromTo(this.camera.position, this.gizmoDragPointPicked);
 						this.gizmoDragModelBehavior.startDrag(event.pointerId, currentMoveRay);
 					}
 				}
 				break;
-
+			
 			case PointerEventTypes.POINTERUP:
 				this.boundingBox?.removeBehavior(this.gizmoDragModelBehavior);
 				this.zoomGizmoSettings.fingers++;
@@ -3880,20 +3942,19 @@ export class EngineService {
 	}
 
 	setScreenShot(status: boolean, id: string): void {
-		if (!this.getRootMeshById(this.blindId || null) || (this.isImageVisualisation && !this.boundingBoxesSettings[id])) {
+		if (!this.getRootMeshById(this.blindId) || (this.isImageVisualisation && !this.boundingBoxesSettings[id])) {
 			this.shareDataService.setScreenShotAborted(true);
 			return;
 		}
-
+		
 		const previousShutterValue = this.getShutterValue();
-		const previousViewType: string = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_view_type);
 		this.getTopSceneHandler(1, false);
 
 		if (this.scene) {
-			this.getStorageSizes();
 			const upperSize = this.currentWidth > this.currentHeight ? this.currentWidth : this.currentHeight;
 			const upperCord = upperSize + (6 - upperSize) * 0.12;
-			const cameraPosition = this.isImageVisualisation ? new Vector3(-upperCord, 0, -upperCord) : new Vector3(upperCord, 0, -upperCord);
+			const cameraPosition = this.isImageVisualisation ? new Vector3(-upperCord, 0, -upperCord) :
+				new Vector3(upperCord, 0, -upperCord);
 
 			const cameraForScreenShot = new FreeCamera('camera2', cameraPosition, this.scene);
 			cameraForScreenShot.setTarget(Vector3.Zero());
@@ -3915,36 +3976,31 @@ export class EngineService {
 				this.setGizmoModelMeshScaling(false);
 				this.getRootMeshes().forEach((mesh) => {
 					if (mesh.isEnabled()) {
-						shovedModelIds.push(parseInt(mesh.name, 10));
+						shovedModelIds.push(parseInt(mesh.name));
 					}
 					mesh.setEnabled(mesh.name === `${this.blindId}__root__`);
 				});
 			}
 
-			this.screenshotBabylonService.CreateScreenshotUsingRenderTargetAsync(this.engine, cameraForScreenShot, 1300).then((data) => {
-				const viewType: string = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_view_type);
-				const rootMesh = this.getRootMeshById(id);
+			Tools.CreateScreenshotUsingRenderTargetAsync(this.engine, cameraForScreenShot, 1300).then((data) => {
 				this.shareDataService.setScreenShotBLindTemp(data);
 
-				this.shutter.preventShutterId = null;
-
 				if (this.isImageVisualisation) {
+					this.shutter.preventShutterId = null;
 					this.boundingBox.rotationQuaternion = IVSceneSettings.quaternion;
 					this.boundingBox.position = IVSceneSettings.position;
-
-					if (rootMesh) {
-						this.setGizmoModelMeshScaling(true);
-						this.getRootMeshes().forEach((mesh) => mesh.setEnabled(shovedModelIds.includes(Number.parseInt(mesh.name, 10))));
-						this.setModelAndBoundingBoxSettings(id, false);
-					} else {
-						this.getRootMeshes().forEach((mesh) => mesh.setEnabled(shovedModelIds.includes(Number.parseInt(mesh.name, 10))));
-					}
+					this.setGizmoModelMeshScaling(true);
+					this.getRootMeshes().forEach((mesh) => {
+						const id = Number.parseInt(mesh.name);
+						mesh.setEnabled(shovedModelIds.includes(id));
+					});
+					this.setModelAndBoundingBoxSettings(id);
 				} else {
 					this.ground.setEnabled(true);
 					this.ground.receiveShadows = true;
 				}
 
-				if (status && rootMesh && previousViewType === viewType) {
+				if (status) {
 					this.getTopSceneHandler(previousShutterValue);
 				}
 			});
@@ -3955,12 +4011,12 @@ export class EngineService {
 		const setWrapperLoader = (status: boolean): void => {
 			const wrapper = document.querySelector(SELECTORS.wrapper);
 			const headerWrapper = document.querySelector(SELECTORS.headerWrapper);
-
+			
 			wrapper.classList.toggle(CLASSES.iv_loading, status);
 			headerWrapper.classList.toggle(CLASSES.no_overview, status);
 		};
 
-		return new Promise((resolve, reject) => {
+		return new Promise(async (resolve, reject) => {
 			if (!this.isImageVisualisation) {
 				resolve(true);
 				return;
@@ -3971,45 +4027,39 @@ export class EngineService {
 			const rootMeshes = this.getRootMeshes();
 
 			try {
-				this.scene.whenReadyAsync().then(async () => {
+				await this.scene.whenReadyAsync().then(async () => {
 					await this.screenshotToBlindService.getSceneScreenshot(null, 'iv_scene');
-
-					for (const [index, mesh] of rootMeshes.entries()) {
-						const currentName = mesh.name;
-						const currentBlindId = currentName.replace(/__root__/g, '');
-						rootMeshes.forEach((currentMesh) => currentMesh.setEnabled(currentMesh.name === currentName));
-
-						if (this.boundingBoxesSettings[+currentBlindId]?.isEnabled) {
-							await this.scene.whenReadyAsync().then(async () => {
-								await this.screenshotToBlindService.getSceneScreenshot(+currentBlindId, 'iv');
-							});
-						}
-
-						if (index === rootMeshes.length - 1) {
-							rootMeshes.forEach((currentMesh) => {
-								const id = Number.parseInt(currentMesh.name, 10);
-								currentMesh.setEnabled(this.boundingBoxesSettings[id].isEnabled);
-							});
-
-							setWrapperLoader(false);
-							resolve(true);
-						}
-					}
 				});
+
+				for (const [index, mesh] of rootMeshes.entries()) {
+					const currentName = mesh.name;
+					const currentBlindId = currentName.replace(/__root__/g, '');
+					rootMeshes.forEach((currentMesh) => currentMesh.setEnabled(currentMesh.name === currentName));
+
+					if (this.boundingBoxesSettings[+currentBlindId]?.isEnabled) {
+						await this.scene.whenReadyAsync().then(async () => {
+							await this.screenshotToBlindService.getSceneScreenshot(+currentBlindId, 'iv');
+						});
+					}
+
+					if (index === rootMeshes.length - 1) {
+						rootMeshes.forEach((currentMesh) => {
+							const id = Number.parseInt(currentMesh.name);
+							currentMesh.setEnabled(this.boundingBoxesSettings[id].isEnabled)
+						});
+
+						setWrapperLoader(false);
+						resolve(true);
+					}
+				}
 			} catch (error) {
 				reject(error);
 			}
 		});
 	}
 
-	setColor(name, color, transparency, material, blindType: string): void {
-		this.colorEvents.next({
-			model: name,
-			modelColor: color,
-			opacity: transparency,
-			texture: material,
-			blind_type: blindType,
-		});
+	setColor(name, color, transparency, material, blind_type: string): void {
+		this.colorEvents.next({ model: name, modelColor: color, opacity: transparency, texture: material, blind_type });
 	}
 
 	setTop(param): void {
@@ -4039,15 +4089,15 @@ export class EngineService {
 	setOperation(data): any {
 		this.operationEvents.next(data);
 	}
-
+	
 	setReverse(data): any {
 		this.reverseEvents.next(data);
 	}
-
+	
 	setBottomChannel(array): any {
 		this.bottomChannelEvents.next(array);
 	}
-
+	
 	setMounting(data): any {
 		this.mountingEvents.next(data);
 	}
@@ -4059,11 +4109,11 @@ export class EngineService {
 	getColor(): Observable<any> {
 		return this.colorEvents.asObservable();
 	}
-
+	
 	getSize(): Observable<any> {
 		return this.sizeEvents.asObservable();
 	}
-
+	
 	getBoundingBoxSize(): Observable<any> {
 		return this.boundingBoxSizeEvents.asObservable();
 	}
@@ -4075,23 +4125,23 @@ export class EngineService {
 	getTopStyle(): Observable<any> {
 		return this.topStyleEvents.asObservable();
 	}
-
+	
 	getBottomBar(): Observable<any> {
 		return this.bottomBarEvents.asObservable();
 	}
-
+	
 	getOperation(): Observable<any> {
 		return this.operationEvents.asObservable();
 	}
-
+	
 	getReverse(): Observable<any> {
 		return this.reverseEvents.asObservable();
 	}
-
+	
 	getMounting(): Observable<any> {
 		return this.mountingEvents.asObservable();
 	}
-
+	
 	getBottomChannel(): Observable<any> {
 		return this.bottomChannelEvents.asObservable();
 	}
@@ -4106,18 +4156,12 @@ export class EngineService {
 			this.setZoomSettings(getBlindType);
 
 			if (window.innerWidth > this.breakpoints['tablet-portrait']) {
-				const devicePixelRatioCof =
-					window.devicePixelRatio > 1 && screen.width > this.breakpoints['l-desktop'] && !this.mobileAndTabletCheck()
-						? window.devicePixelRatio
-						: 1;
+				const devicePixelRatioCof = window.devicePixelRatio > 1 && screen.width > this.breakpoints['l-desktop'] && !this.mobileAndTabletCheck() ? window.devicePixelRatio : 1;
 				const toolBarWidth = window.innerWidth > this.breakpoints['l-desktop'] ? 580 : 375;
 				const largestModelSize = this.currentWidth > this.currentHeight ? this.currentWidth : this.currentHeight;
-				const defaultModelSize =
-					(this.currentWidth > this.currentHeight ? this.defaultModelSize?.width : this.defaultModelSize?.height) || 2.5;
-				const addCameraOffset =
-					window.innerWidth > this.breakpoints['full-hd'] ? (window.innerWidth - this.breakpoints['full-hd']) / 1750 : 0;
-				const defaultCameraOffset =
-					getBlindType === 'outdoor' ? -1.2 * (devicePixelRatioCof - 0.1) + addCameraOffset : -1.1 * devicePixelRatioCof;
+				const defaultModelSize = (this.currentWidth > this.currentHeight ? this.defaultModelSize?.width : this.defaultModelSize?.height) || 2.5;
+				const addCameraOffset = window.innerWidth > this.breakpoints['full-hd'] ? (window.innerWidth - this.breakpoints['full-hd']) / 1750 : 0;
+				const defaultCameraOffset = getBlindType === 'outdoor' ? -1.2 * (devicePixelRatioCof - 0.1) + addCameraOffset : -1.1 * devicePixelRatioCof;
 				const isSmallPhoneLandscapeScreen = window.innerHeight < window.innerWidth && window.innerHeight <= 600 && window.innerWidth <= 992;
 
 				let modelWidth;
@@ -4139,20 +4183,12 @@ export class EngineService {
 				}
 
 				const startRadius = isSmallPhoneLandscapeScreen && getBlindType === 'interior' ? 3.5 : 5.5;
-				this.upperRadius =
-					widthDiff > 0
-						? startRadius + widthDiff * 0.015
-						: largestModelSize < defaultModelSize
-							? startRadius - (defaultModelSize - largestModelSize) * 2
-							: startRadius;
+				this.upperRadius = widthDiff > 0 ? startRadius + widthDiff * 0.015 :
+					largestModelSize < defaultModelSize ? startRadius - (defaultModelSize - largestModelSize) * 2 : startRadius;
 
 				const upperCameraOffsetCof = getBlindType === 'outdoor' ? 0.5 : 0.41 * devicePixelRatioCof;
-				this.upperCameraOffset =
-					widthDiff > 0
-						? defaultCameraOffset - widthDiff * 0.0015
-						: largestModelSize < defaultModelSize
-							? defaultCameraOffset - (largestModelSize - defaultModelSize) * upperCameraOffsetCof
-							: defaultCameraOffset;
+				this.upperCameraOffset = widthDiff > 0 ? defaultCameraOffset - widthDiff * 0.0015 :
+					largestModelSize < defaultModelSize ? defaultCameraOffset - (largestModelSize - defaultModelSize) * upperCameraOffsetCof : defaultCameraOffset;
 			} else if (window.innerWidth <= this.breakpoints['tablet-portrait']) {
 				this.upperRadius = (this.currentWidth > this.currentHeight ? this.currentWidth : this.currentHeight) * 3;
 			}
@@ -4183,35 +4219,33 @@ export class EngineService {
 		if (this.isImageVisualisation) {
 			const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
 			const getBlindType = this.getBlindTypeFromStorage() || 'outdoor';
-			const widthDiff = this.currentWidth / 2 - INITIAL_MODEL_SIZES_IN_METERS[getBlindType].width;
+			const widthDiff = (this.currentWidth / 2 - INITIAL_MODEL_SIZES_IN_METERS[getBlindType].width);
 			const largestModelSize = this.currentWidth > this.currentHeight ? this.currentWidth : this.currentHeight;
-
+			
 			if (this.sampleImage?.type) {
-				const filteredBlindCheck = (id: number) =>
-					status && (Object.hasOwn(this.sampleProjectBlinds, id) || this.newCreatedBlinds.includes(id));
+				const filteredBlindCheck = (id: number) => status && (this.sampleProjectBlinds.hasOwnProperty(id) || this.newCreatedBlinds.includes(id))
 				const status = this.boundingBoxesSettingsStatus;
 				const sampleProjectProperties = this.getIVCurrentSampleProject();
 				const blinds = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_blind_data);
-				const blindIndex = blinds
-					.filter((blind: BlindData) => blind.type === this.sampleImage.type && (status ? filteredBlindCheck(blind.blind_id) : true))
+				const blindIndex = blinds.filter((blind: BlindData) => blind.type === this.sampleImage.type && (status ? filteredBlindCheck(blind.blind_id) : true))
 					.slice(0, sampleProjectProperties.length)
-					.map((blind) => blind.blind_id)
-					.indexOf(+this.blindId);
+					.map(blind => blind.blind_id)
+					.indexOf(+this.blindId)
 
 				this.camera.radius = sampleProjectProperties[blindIndex]?.cameraRadius || 5.5;
 				this.startIVCameraRadius = clamp(this.camera.radius, this.camera.lowerRadiusLimit, this.camera.upperRadiusLimit);
 				return;
 			}
-
+			
 			if (window.innerWidth <= 1024 && window.innerWidth < window.innerHeight) {
 				const windowWidthCof = (1280 - window.innerWidth) / 70;
-				const radiusCof = widthDiff <= 0 ? (windowWidthCof < 10 ? 13 - windowWidthCof : 3) : windowWidthCof;
+				const radiusCof = widthDiff <= 0 ? windowWidthCof < 10 ? (13 - windowWidthCof) : 3 : windowWidthCof;
 				const radius = 6 + widthDiff * radiusCof;
-
+				
 				this.camera.radius = radius;
 				this.camera.upperRadiusLimit = radius > this.camera.upperRadiusLimit ? radius : this.camera.upperRadiusLimit;
 			} else {
-				this.camera.radius = largestModelSize * clamp(2.5 - (largestModelSize - 2) * 0.2, 1, 2.5);
+				this.camera.radius = largestModelSize * clamp((2.5 - (largestModelSize - 2) * 0.2), 1, 2.5);
 			}
 
 			if (this.boundingBoxesSettings[this.selectedGizmoId]) {
@@ -4223,13 +4257,13 @@ export class EngineService {
 			this.startIVCameraRadius = clamp(this.camera.radius, this.camera.lowerRadiusLimit, this.camera.upperRadiusLimit);
 		}
 	}
-
+	
 	setCameraOffset(): void {
 		if (this.isImageVisualisation) {
 			return;
 		}
 
-		if (window.innerWidth > this.breakpoints['tablet-landscape'] && this.scene.meshes[0]) {
+		if ((window.innerWidth > this.breakpoints['tablet-landscape']) && this.scene.meshes[0]) {
 			this.camera.targetScreenOffset.x = this.upperCameraOffset;
 		}
 
@@ -4239,9 +4273,7 @@ export class EngineService {
 	}
 
 	setDefaultCameraPosition(): void {
-		if (this.isImageVisualisation) {
-			return;
-		}
+		if (this.isImageVisualisation) { return; }
 		this.isZoomedIn = false;
 		this.isZoomedOut = true;
 		this.animationType = '';
@@ -4251,40 +4283,43 @@ export class EngineService {
 		this.camera.target = Vector3.Zero();
 		this.zoomCounter = 0;
 	}
-
+	
 	setFontSize(): void {
 		this.fontSize = window.innerWidth <= this.breakpoints['tablet-landscape'] ? 12 : 20;
 	}
-
+	
 	touchHandler(lowerLimit): void {
 		const input = this.camera.inputs.attached.pointers;
 		// @ts-ignore
 		input.multiTouchPanning = false;
-
+		
 		this.camera.lowerRadiusLimit = lowerLimit;
 		this.camera.upperRadiusLimit = this.upperRadius + 0.2;
 	}
-
+	
 	scaleHandler(zoomIn: boolean, value: number): void {
 		let zoom = 1;
-
+		
 		if (zoomIn) {
 			zoom += value;
 		}
-
+		
 		if (!zoomIn) {
 			zoom -= value * 0.9;
 		}
-
+		
 		this.scene.meshes[0].scaling = new Vector3(zoom, zoom, -zoom);
 	}
-
+	
 	checkIsDesignView(): boolean {
-		return this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_view_type) === VIEW_TYPES.design;
+		const isDesign = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_view_type) ===
+			VIEW_TYPES.design;
+		
+		return isDesign;
 	}
-
+	
 	getModelGLB(): Promise<Blob> {
-		return new Promise((res) => {
+		const promise: Promise<Blob> = new Promise((res) => {
 			const rootMesh = this.getCurrentRootMesh();
 			const currentRootMeshRotation = rootMesh.rotation;
 			const excludeNames = ['blindCenter', 'light', 'ground', '86MM TOPTUBE-1'];
@@ -4294,27 +4329,27 @@ export class EngineService {
 			const options = {
 				shouldExportNode: (node) => {
 					const isMesh = node.getClassName().includes('Mesh');
-					const isMeshForExport =
-						node.name.includes(blindId) &&
-						node.isEnabled() &&
-						!excludeNames.some((name) => node.name.toLowerCase().includes(name.toLowerCase()));
+					const isMeshForExport = node.name.includes(blindId) && node.isEnabled() &&
+						  !excludeNames.some(name => node.name.toLowerCase().includes(name.toLowerCase()));
 
 					if (!node?.material?.albedoColor && isMeshForExport && isMesh) {
 						node.forceSharedVertices();
 					}
 
 					return isMeshForExport;
-				},
+				}
 			};
 
 			const flipRootMeshRotation = (status: boolean) => {
 				const euler = this.rootMeshRotationQuaternion.toEulerAngles();
 				const newRotation = new Vector3(euler.x, euler.y, euler.z);
-
+				
 				rootMesh.rotation = status ? newRotation : currentRootMeshRotation;
+				rootMesh.name = status ? this.removeIdFromName(rootMesh.name) : blindId + rootMesh.name;
 
-				this.scene.meshes.forEach((mesh) => {
-					const texture = (mesh.material as PBRMaterial)?.albedoTexture as Texture;
+				this.scene.meshes.forEach(mesh => {
+					// @ts-ignore
+					const texture = mesh.material?.albedoTexture as Texture;
 
 					if (texture) {
 						const { uScale, vScale } = texture;
@@ -4349,24 +4384,23 @@ export class EngineService {
 				res(this.compressModelService.compress(blob));
 			});
 		});
+		
+		return promise;
 	}
-
+	
 	addVideoLayer(): Promise<boolean> {
-		return new Promise((res, rej) => {
+		const promise: Promise<boolean> = new Promise((res, rej) => {
 			this.videoLayer = new Layer('background', null, this.scene, true);
 			this.sampleImage = null;
-
-			navigator.mediaDevices
-				.getUserMedia({
-					audio: false,
-					video: { facingMode: { exact: 'environment' } },
-				})
-				.then((stream: MediaStream) => {
+			
+			navigator.mediaDevices.getUserMedia({
+				audio: false,
+				video: { facingMode: { exact: 'environment' } }
+			}).then((stream: MediaStream) => {
 					VideoTexture.CreateFromWebCam(
-						this.scene,
-						(videoTexture) => {
+						this.scene, (videoTexture) => {
 							this.videoStream = stream;
-
+							
 							if (!this.passDataService.isLaunchCameraStopped) {
 								this.canvas.style.backgroundImage = '';
 								videoTexture._invertY = false;
@@ -4380,37 +4414,33 @@ export class EngineService {
 								this.shareDataService.setViewType(VIEW_TYPES.image_visualisation);
 								this.sessionStorageService.setSession('live_background', STORAGE_NAMES.zip_iv_type);
 								this.passDataService.isLiveOpened = true;
-
+								
 								res(true);
 							}
-
+							
 							this.passDataService.isLaunchCameraStopped = false;
-						},
-						{
+						}, {
 							minWidth: 0,
 							minHeight: 0,
 							maxWidth: 1920,
 							maxHeight: 1080,
-							deviceId: stream.getVideoTracks()[0].getSettings().deviceId,
-						},
-					);
-				})
-				.catch((err) => {
-					rej(false);
-					console.error(err);
-				});
+							deviceId: stream.getVideoTracks()[0].getSettings().deviceId
+						});
+				}
+			).catch(err => {
+				rej(false);
+				console.error(err);
+			});
 		});
-	}
 
+		return promise;
+	}
+	
 	calculatePixel(obj: Mesh) {
 		const temp = new Vector3();
 		const vertices = obj.getBoundingInfo().boundingBox.vectorsWorld;
 		const viewport = this.camera.viewport.toGlobal(this.engine.getRenderWidth(), this.engine.getRenderHeight());
-		let minX = 1e10;
-		let minY = 1e10;
-		let maxX = -1e10;
-		let maxY = -1e10;
-
+		let minX = 1e10, minY = 1e10, maxX = -1e10, maxY = -1e10;
 		for (const vertex of vertices) {
 			Vector3.ProjectToRef(vertex, Matrix.IdentityReadOnly, this.scene.getTransformMatrix(), viewport, temp);
 			if (minX > temp.x) {
@@ -4426,39 +4456,39 @@ export class EngineService {
 				maxY = temp.y;
 			}
 		}
-		return { x: maxX - minX, y: maxY - minY };
+		return { x: (maxX - minX), y: (maxY - minY) };
 	}
-
+	
 	closeVideoStream(): void {
 		if (this.videoStream) {
 			// @ts-ignore
 			const videoEl = this.videoLayer.texture.video;
 			const videoElements = document.querySelectorAll('video');
 			const videos = videoElements.length ? videoElements : [videoEl];
-
-			videos.forEach((video) => (video.srcObject as MediaStream).getTracks().forEach((stream) => stream.stop()));
-			this.videoStream.getTracks().forEach((track) => track.stop());
+			
+			videos.forEach(video => (video.srcObject as MediaStream).getTracks().forEach(stream => stream.stop()));
+			this.videoStream.getTracks().forEach(track => track.stop());
 			this.videoLayer.texture.dispose();
-
+			
 			this.videoStream = null;
 		}
 	}
-
+	
 	updatePositionForHints(): void {
 		if (this.advancedTexture) {
 			this.advancedTexture.idealWidth = window.innerWidth;
 		}
 	}
-
+	
 	updateVideoTextureSize(): void {
 		if (this.videoTexture) {
 			const canvasAspectRatio = this.canvas.width / this.canvas.height;
 			const videoAspectRatio = this.videoTexture.video.videoWidth / this.videoTexture.video.videoHeight;
-
+			
 			if (canvasAspectRatio > videoAspectRatio) {
 				this.videoLayer.scale.x = videoAspectRatio / canvasAspectRatio;
 				this.videoLayer.scale.y = 1;
-
+				
 				this.videoTexture.uScale = 1 / this.videoLayer.scale.x;
 				this.videoTexture.vScale = 1;
 				this.videoTexture.uOffset = (1 - this.videoTexture.uScale) * 0.5;
@@ -4466,7 +4496,7 @@ export class EngineService {
 			} else {
 				this.videoLayer.scale.x = 1;
 				this.videoLayer.scale.y = canvasAspectRatio / videoAspectRatio;
-
+				
 				this.videoTexture.uScale = 1;
 				this.videoTexture.vScale = 1 / this.videoLayer.scale.y;
 				this.videoTexture.uOffset = 0;
@@ -4474,19 +4504,16 @@ export class EngineService {
 			}
 		}
 	}
-
+	
 	setPositionForHTMLHints(): void {
-		if (!this.scene.meshes[0]) {
-			return;
-		}
+		if (!this.scene.meshes[0]) { return; }
 
 		const temp = new Vector3();
 
 		this.afterRenderCallback = this.scene.onAfterRenderObservable.add(() => {
 			const vertices = this.scene.meshes[0].getBoundingInfo().boundingBox.vectorsWorld;
 			const viewport = this.camera.viewport.toGlobal(this.engine.getRenderWidth(), this.engine.getRenderHeight());
-			let minX = 1e10;
-			let minY = 1e10;
+			let minX = 1e10, minY = 1e10;
 
 			for (const vertex of vertices) {
 				Vector3.ProjectToRef(vertex, Matrix.IdentityReadOnly, this.scene.getTransformMatrix(), viewport, temp);
@@ -4499,17 +4526,16 @@ export class EngineService {
 				}
 			}
 
-			const canvasZone = this.engine.getRenderingCanvas();
-			const offsetX = canvasZone.offsetLeft;
-			const offsetY = canvasZone.offsetTop;
+			const canvasZone = this.engine.getRenderingCanvas() as HTMLElement;
+			const offsetX = canvasZone.offsetLeft, offsetY = canvasZone.offsetTop;
 
 			document.querySelectorAll(SELECTORS.cursor).forEach((hint: HTMLElement) => {
-				hint.style.left = minX + offsetX - hint.getBoundingClientRect().width / 2 + 'px';
-				hint.style.top = minY + offsetY - hint.getBoundingClientRect().height / 2 + 'px';
+				hint.style.left = ((minX + offsetX) - (hint.getBoundingClientRect().width / 2)) + 'px';
+				hint.style.top = (minY + offsetY) - (hint.getBoundingClientRect().height / 2) + 'px';
 			});
 		});
 	}
-
+	
 	removeAfterRenderObservable(): void {
 		this.scene.onAfterRenderObservable.remove(this.afterRenderCallback);
 	}
@@ -4517,18 +4543,11 @@ export class EngineService {
 	mobileAndTabletCheck(): boolean {
 		let check = false;
 		((a) => {
-			if (
-				/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(
-					a,
-				) ||
-				/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(
-					a.substr(0, 4),
-				)
-			) {
+			if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(a) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4))) {
 				check = true;
 			}
 		})(navigator.userAgent || navigator.vendor);
-		return check || 'ontouchstart' in window;
+		return check || ('ontouchstart' in window);
 	}
 
 	getMaterialTypes(): void {
@@ -4536,9 +4555,10 @@ export class EngineService {
 		const sessionDefaultDataType = sessionStorageDefaultData[this.blindType];
 
 		if (sessionDefaultDataType?.material) {
-			this.materialTypes = sessionDefaultDataType.material.map((m) => m.type);
+			this.materialTypes = sessionDefaultDataType.material.map(m => m.type);
 		}
 	}
+
 
 	onChangeBlindId(id: string): void {
 		this.setGizmoZoomModelBehavior(false);
@@ -4562,9 +4582,8 @@ export class EngineService {
 
 	setIdForSceneMeshes(id: string): void {
 		this.scene.meshes[0].name = id + this.scene.meshes[0].id;
-		this.scene.meshes[0]
-			.getChildMeshes()
-			.forEach((mesh: AbstractMesh) => (mesh.name = id ? `${id}${mesh.id}` : this.removeIdFromName(mesh.name)));
+		this.scene.meshes[0].getChildMeshes().forEach(
+			(mesh: AbstractMesh) => mesh.name = id ? `${id}${mesh.id}` : this.removeIdFromName(mesh.name));
 	}
 
 	removeIdFromName(name: string): string {
@@ -4573,32 +4592,29 @@ export class EngineService {
 
 	IVSceneHandler(id: string, type: string): void {
 		const rootMeshByCurrentId = this.getRootMeshById(id);
-		const setModelCreatedAndApplyBoundingBox = (mesh: AbstractMesh, clearSettingsStatus = false) => {
-			this.scene.onAfterRenderObservable.addOnce(() => {
-				this.shareDataService.getSceneCreated.pipe(first(), delay(10)).subscribe(() => {
-					if (clearSettingsStatus) {
-						delete this.boundingBoxesSettings[this.selectedGizmoId];
-						this.shareDataService.setScreenShotStatus(false);
-					}
-
-					this.setIVCameraSettings();
-					this.applyBoundingBoxToSelectedModel(mesh);
-					this.setIVSampleProjectById(id);
-					this.isCopyingModel = false;
-				});
-
+		const setModelCreatedAndApplyBoundingBox = (mesh: AbstractMesh, clearSettinsStatus = false) => {
+			this.scene.executeWhenReady(() => {
 				this.setSceneAndModelViewCreated(this.blindType, false);
+
+				if (clearSettinsStatus) {
+					delete this.boundingBoxesSettings[this.selectedGizmoId];
+					this.shareDataService.setScreenShotStatus(false);
+				}
+
+				this.setIVCameraSettings();
+				this.applyBoundingBoxToSelectedModel(mesh);
+				this.setIVSampleProjectById(id);
 			});
 		};
 
-		const addSettingsAfterCloning = (mesh: AbstractMesh, clearSettingsStatus = false) => {
+		const addSettingsAfterClonning = (mesh: AbstractMesh, clearSettinsStatus = false) => {
 			mesh.setParent(null);
 			mesh.position = new Vector3(0, 0, 0);
 			mesh.rotation = new Vector3(0, Math.PI / 2, 0);
 
 			this.setDefaultView();
-			setModelCreatedAndApplyBoundingBox(mesh, clearSettingsStatus);
-		};
+			setModelCreatedAndApplyBoundingBox(mesh, clearSettinsStatus);
+		}
 
 		if (!id) {
 			return;
@@ -4617,24 +4633,25 @@ export class EngineService {
 			this.preventScalingModel = false;
 			this.isModelCreated = false;
 			const blindType = type === 'outdoor' ? this.blindOutdoor : this.blindInterior;
-			this.loadModelWithRetry(this.baseUrl, blindType, this.scene).then((container) => {
-				this.blindType = type;
-				const newRootMesh = this.cloneRootMesh(id, container.meshes[0], type, false);
-				this.isModelCreated = true;
-				this.getGlobalMeshPositionAndScale(type);
-				addSettingsAfterCloning(newRootMesh, true);
+			this.loadModelWithRetry(this.baseUrl, blindType, this.scene)
+				.then(container => {
+					this.blindType = type;
+					const newRootMesh = this.cloneRootMesh(id, container.meshes[0], type, false);
+					this.isModelCreated = true;
+					this.getGlobalMeshPositionAndScale(type);
+					addSettingsAfterClonning(newRootMesh, true);
 
-				if (!this.rootMeshesByType[this.blindType]) {
-					this.rootMeshesByType[this.blindType] = container.meshes[0];
-				}
-			});
+					if (!this.rootMeshesByType[this.blindType]) {
+						this.rootMeshesByType[this.blindType] = container.meshes[0];
+					}
+				});
 		}
 
 		if (type === this.blindType && hasChildMeshes) {
 			this.preventScalingModel = false;
 			const meshForClone = this.rootMeshesByType[this.blindType];
 			const newRootMesh = this.cloneRootMesh(id, meshForClone, type, false);
-			addSettingsAfterCloning(newRootMesh, true);
+			addSettingsAfterClonning(newRootMesh, true);
 		}
 	}
 
@@ -4658,7 +4675,7 @@ export class EngineService {
 			rootMesh.parent.setEnabled(status);
 		}
 
-		this.setModelDisplay({ id, isEnabled: status });
+		this.setModelDisplay({id, isEnabled: status});
 	}
 
 	getRootMeshById(id: string): AbstractMesh {
@@ -4673,18 +4690,16 @@ export class EngineService {
 		const rootMeshes = this.getRootMeshes();
 
 		if (rootMeshes.length > 1) {
-			rootMeshes.filter((rootMesh) => !rootMesh.name.includes(this.selectedGizmoId)).forEach((rootMesh) => rootMesh.dispose());
+			rootMeshes.filter(rootMesh => !rootMesh.name.includes(this.selectedGizmoId)).forEach(rootMesh => rootMesh.dispose());
 		}
 	}
 
-	setModelAndBoundingBoxSettings(id?: string, resetOrderSettings = true): void {
-		if (!this.isImageVisualisation) {
-			return;
-		}
+	setModelAndBoundingBoxSettings(id?: string): void {
+		if (!this.isImageVisualisation) { return; }
 
 		const currentPosition = this.boundingBox.position.clone();
 		const currentScaling = this.boundingBox.scaling.clone();
-		const currentRotationQuaternion = this.boundingBox.rotationQuaternion.clone();
+		const currentRotationQuanterion = this.boundingBox.rotationQuaternion.clone();
 		const currentCameraRadius = this.camera.radius;
 		const currentIsEnabled = id ? this.getRootMeshById(id)?.isEnabled() : this.getCurrentRootMesh()?.isEnabled();
 		this.selectedGizmoId ||= this.blindId;
@@ -4694,23 +4709,18 @@ export class EngineService {
 			[id || this.selectedGizmoId]: {
 				position: currentPosition,
 				scaling: currentScaling,
-				rotationQuaternion: currentRotationQuaternion,
+				rotationQuaternion: currentRotationQuanterion,
 				cameraRadius: currentCameraRadius,
 				isEnabled: currentIsEnabled,
-			},
-		};
-
-		if (resetOrderSettings) {
-			this.resetModelRenderingSettings();
+			}
 		}
 
+		this.resetModelRenderingSettings();
 		this.setShutterControlEvent();
 	}
 
 	saveModelAndBoundingBoxSettings(setBoundingBoxStatus = true, clearSettingsStatus = true) {
-		if (setBoundingBoxStatus) {
-			this.setModelAndBoundingBoxSettings();
-		}
+		if (setBoundingBoxStatus) { this.setModelAndBoundingBoxSettings(); }
 
 		const ivCurrentBackground = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_image_visualisation_background);
 		const ivUploadedBackground = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_uploaded_image_visualisation_background);
@@ -4719,10 +4729,10 @@ export class EngineService {
 		const ivLastBackground = ivCurrentBackground?.type === null ? ivUploadedBackground : ivCurrentBackground;
 		const updatedLastBackground = {
 			...ivLastBackground,
-			settings: { ...this.boundingBoxesSettings },
-			shutterValues: { ...this.shutter.modelsValue },
-			sampleProjectBlinds: { ...this.sampleProjectBlinds },
-		};
+			settings: {...this.boundingBoxesSettings},
+			shutterValues: {...this.shutter.modelsValue},
+			sampleProjectBlinds: {...this.sampleProjectBlinds}
+		}
 
 		this.boundingBoxesSettings = clearSettingsStatus ? {} : this.boundingBoxesSettings;
 
@@ -4739,23 +4749,21 @@ export class EngineService {
 	}
 
 	getModelAndBoundingBoxSettings(savedSettings) {
-		if (!savedSettings) {
-			return;
-		}
+		if (!savedSettings) { return; }
 
 		this.boundingBoxesSettingsStatus = true;
 
-		for (const key of Object.keys(savedSettings)) {
-			const currentPosition = savedSettings[key].position;
+		for (let key in savedSettings) {
+			const currentPostition = savedSettings[key].position;
 			const currentScaling = savedSettings[key].scaling;
 			const currentRotation = savedSettings[key].rotationQuaternion;
 
 			this.boundingBoxesSettings[key] = {
 				...savedSettings[key],
 				scaling: new Vector3(currentScaling._x, currentScaling._y, currentScaling._z),
-				position: new Vector3(currentPosition._x, currentPosition._y, currentPosition._z),
+				position: new Vector3(currentPostition._x, currentPostition._y, currentPostition._z),
 				rotationQuaternion: new Quaternion(currentRotation._x, currentRotation._y, currentRotation._z, currentRotation._w),
-			};
+			}
 		}
 	}
 
@@ -4772,7 +4780,7 @@ export class EngineService {
 		model?.getChildren().forEach((mesh: AbstractMesh) => {
 			mesh.renderingGroupId = renderGroupId;
 			mesh.isPickable = isPickable;
-		});
+		})
 	}
 
 	applyBoundingBoxToSelectedModel(rootMesh: AbstractMesh, setEnabled = true): void {
@@ -4782,29 +4790,22 @@ export class EngineService {
 		const boxSettings = {
 			position: box.position.clone(),
 			scaling: box.scaling.clone(),
-			rotationQuaternion: box.rotation.toQuaternion().clone(),
-		};
+			rotationQuaternion: box.rotation.toQuaternion().clone()
+		}
 		rootMesh.setParent(null);
 		box.dispose();
 
-		if (childMesh) {
-			this.boundingBox.removeChild(childMesh);
-		}
-
+		childMesh && this.boundingBox.removeChild(childMesh);
 		this.boundingBox.position = this.boundingBoxesSettings[this.selectedGizmoId]?.position || boxSettings.position;
 		this.boundingBox.scaling = this.boundingBoxesSettings[this.selectedGizmoId]?.scaling || boxSettings.scaling;
-		this.boundingBox.rotationQuaternion =
-			this.boundingBoxesSettings[this.selectedGizmoId]?.rotationQuaternion || boxSettings.rotationQuaternion;
+		this.boundingBox.rotationQuaternion = this.boundingBoxesSettings[this.selectedGizmoId]?.rotationQuaternion || boxSettings.rotationQuaternion;
 		this.boundingBoxRotation = this.boundingBox.rotationQuaternion.toEulerAngles();
 		this.boundingBox.addChild(rootMesh);
 		this.boundingBox.setEnabled(true);
 		rootMesh.rotation = new Vector3(Math.PI, 0, 0);
 		rootMesh.setEnabled(setEnabled);
 
-		this.setModelDisplay({
-			id: +this.selectedGizmoId,
-			isEnabled: !!setEnabled,
-		});
+		this.setModelDisplay({id: +this.selectedGizmoId, isEnabled: !!setEnabled});
 		this.resetBoundingBoxDisplay();
 
 		// @ts-ignore
@@ -4820,9 +4821,7 @@ export class EngineService {
 	}
 
 	resetBoundingBoxDisplay(id: string = '', resetStatus = this.resetSelectedBlind): void {
-		if (!resetStatus) {
-			return;
-		}
+		if (!resetStatus) { return; }
 
 		if (id) {
 			delete this.boundingBoxesSettings[id];
@@ -4845,10 +4844,14 @@ export class EngineService {
 		const parent = meshForClone.parent;
 		meshForClone.setParent(null);
 
-		const newRootMesh = meshForClone.instantiateHierarchy(null, { doNotInstantiate: true }, (source, clone) => {
-			clone.name = `${id}${source.id}`;
-			clone.setEnabled(!GLOBAL_HIDDEN_PELMET.includes(source.id));
-		}) as AbstractMesh;
+		const newRootMesh = meshForClone.instantiateHierarchy(
+			null,
+			{doNotInstantiate: true},
+			(source, clone) => {
+				clone.name = `${id}${source.id}`;
+				clone.setEnabled(!GLOBAL_HIDDEN_PELMET.includes(source.id));
+			}
+		) as AbstractMesh;
 
 		if (!this.scene.meshes.includes(newRootMesh)) {
 			this.scene.addMesh(newRootMesh, true);
@@ -4871,7 +4874,7 @@ export class EngineService {
 				this.meshPosition[id] = {
 					x: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.position.x,
 					y: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.position.y,
-					z: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.position.z,
+					z: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.position.z
 				};
 
 				if (this.scene.getMeshByName(blindId + MESH_TYPE[id])?.material?.name.includes('aluminum')) {
@@ -4888,7 +4891,7 @@ export class EngineService {
 				this.meshScaling[id] = {
 					x: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.scaling.x,
 					y: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.scaling.y,
-					z: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.scaling.z,
+					z: this.scene.getMeshByName(blindId + MESH_TYPE[id])?.scaling.z
 				};
 			}
 		}
@@ -4901,11 +4904,8 @@ export class EngineService {
 	createModelsFromStorage(): void {
 		const sampleProjectProperties = this.getIVCurrentSampleProject();
 		const blinds: BlindData[] = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_blind_data);
-		const smapleProjectBlinds = blinds
-			.filter((blind: BlindData) => blind.type === this.sampleImage?.type)
-			.slice(0, sampleProjectProperties.length)
-			.map((blind) => blind.blind_id);
-		const notCreatedBlinds = blinds.filter((blind) => blind.blind_id.toString() !== this.selectedGizmoId);
+		const smapleProjectBlinds = blinds.filter((blind: BlindData) => blind.type === this.sampleImage?.type).slice(0, sampleProjectProperties.length).map(blind => blind.blind_id);
+		const notCreatedBlinds = blinds.filter(blind => blind.blind_id.toString() !== this.selectedGizmoId);
 		const prevBlindType = this.blindType;
 		const prevSelectedGizmoId = this.selectedGizmoId;
 		let prevBoundingBoxPosition = null;
@@ -4930,15 +4930,12 @@ export class EngineService {
 				prevBoundingBoxPosition = currentBoundingBoxTopPosition.subtract(diff);
 
 				const offsetValue = 0.2 * (i + indexOffset);
-				this.boundingBox.position.addInPlaceFromFloats(0, -(offsetValue + diff.y), -(offsetValue + diff.z));
+				this.boundingBox.position.addInPlaceFromFloats(0,-(offsetValue + diff.y), -(offsetValue + diff.z));
 				this.camera.radius = 5.5;
-			};
+			}
 
 			const resetBoundingBoxScaling = () => {
-				if (
-					(this.sampleImage?.type && !smapleProjectBlinds.some((blindId) => blindId === +this.selectedGizmoId)) ||
-					!this.sampleImage?.type
-				) {
+				if ((this.sampleImage?.type && !smapleProjectBlinds.some(blindId => blindId === +this.selectedGizmoId)) || !this.sampleImage?.type) {
 					this.setGizmoModelMeshScaling(false);
 
 					if (this.sampleImage?.type && !this.boundingBoxesSettingsStatus) {
@@ -4947,7 +4944,7 @@ export class EngineService {
 				} else {
 					indexOffset -= 1;
 				}
-			};
+			}
 
 			const setSetup = (mesh: AbstractMesh) => {
 				mesh.setParent(null);
@@ -4959,9 +4956,7 @@ export class EngineService {
 				this.selectedGizmoId = this.blindId = blind.blind_id.toString();
 
 				const subscription = this.getSize().subscribe((res) => {
-					if (!Object.hasOwn(res, 'height')) {
-						return;
-					}
+					if (!res.hasOwnProperty('height')) { return }
 					resetBoundingBoxScaling();
 
 					this.startIVCameraRadius = null;
@@ -4985,20 +4980,25 @@ export class EngineService {
 				});
 
 				this.setConfig(blind);
-			};
+			}
 
 			if (this.getRootMeshById(blind.blind_id.toString())) {
 				const mesh = this.getRootMeshById(blind.blind_id.toString());
 				setSetup(mesh);
 			} else if (this.rootMeshesByType[blind.type]?.getChildMeshes().length) {
-				const mesh = this.cloneRootMesh(blind.blind_id.toString(), this.rootMeshesByType[blind.type], blind.type, false);
+				const mesh = this.cloneRootMesh(
+					blind.blind_id.toString(),
+					this.rootMeshesByType[blind.type],
+					blind.type,
+					false
+				);
 
 				setSetup(mesh);
 			} else {
 				const blindType = blind.type === 'outdoor' ? this.blindOutdoor : this.blindInterior;
 				let rootMesh: AbstractMesh;
 				this.loadModelWithRetry(this.baseUrl, blindType, this.scene)
-					.then((container) => {
+					.then(container => {
 						container.addAllToScene();
 						rootMesh = container.meshes[0];
 						rootMesh['blind_type'] = blind.type;
@@ -5008,13 +5008,12 @@ export class EngineService {
 							mesh.name = `${blind.blind_id}${mesh.id}`;
 						});
 						this.rootMeshesByType[blind.type] = rootMesh;
-					})
-					.then(() => {
+					}).then(() => {
 						this.getGlobalMeshPositionAndScale(blind.type, blind.blind_id.toString());
 						setSetup(rootMesh);
 					});
 			}
-		};
+		}
 
 		if (notCreatedBlinds.length) {
 			createModelAndSetSetup(notCreatedBlinds[i]);
@@ -5053,13 +5052,13 @@ export class EngineService {
 				this.setColor(meshId, isClearPVC ? frames.frame_color.color : color, 1, isClearPVC ? 'frame' : type, blind.type);
 			}
 
-			const materialColor = MATERIAL_COLORS.find((item) => item.name === 'Monument').color;
-
 			if (isInterior) {
-				this.setColor('WEATHER STRIP', materialColor, 1, material.type, blind.type);
+				const color = MATERIAL_COLORS.find(item => item.name === 'Monument').color;
+				this.setColor('WEATHER STRIP', color, 1, material.type, blind.type);
 			} else if (isOutdoor) {
-				this.setColor('STANDARD_WHEATER_STRIP', materialColor, 1, 'frame', blind.type);
-				this.setColor('LARGE_WEATHER_STRIP', materialColor, 1, 'frame', blind.type);
+				const color = MATERIAL_COLORS.find(item => item.name === 'Monument').color;
+				this.setColor('STANDARD_WHEATER_STRIP', color, 1, 'frame', blind.type);
+				this.setColor('LARGE_WEATHER_STRIP', color, 1, 'frame', blind.type);
 			}
 		}
 
@@ -5067,19 +5066,19 @@ export class EngineService {
 			const { top_style, bottom_bar, optionals } = frames;
 
 			if (top_style && isOutdoor) {
-				const topStyleMeshes = TOP_STYLE_IDS.filter((item) => item.id === top_style.id)[0].meshes;
+				const topStyleMeshes = TOP_STYLE_IDS.filter(item => item.id === top_style.id)[0].meshes;
 				this.setTopStyle({ meshes: topStyleMeshes });
 			}
 
 			if (bottom_bar && isOutdoor) {
-				const bottomBarMeshes = BOTTOM_BAR_IDS.filter((item) => item.id === bottom_bar.id)[0].meshes;
+				const bottomBarMeshes = BOTTOM_BAR_IDS.filter(item => item.id === bottom_bar.id)[0].meshes;
 				this.setBottomBar({ meshes: bottomBarMeshes });
 			}
 
 			if (optionals) {
 				const state = !!optionals.length;
 				const mountingName = mounting?.name?.toLowerCase();
-				const bottomChannel = BOTTOM_CHANNEL_HANDLE.filter((name) => !state || name.toLowerCase().includes(mountingName));
+				const bottomChannel = BOTTOM_CHANNEL_HANDLE.filter(name => !state || name.toLowerCase().includes(mountingName));
 
 				if (bottomChannel) {
 					this.setBottomChannel({ meshes: bottomChannel, state: false });
@@ -5093,8 +5092,7 @@ export class EngineService {
 		}
 
 		if (fixtures_color && frames && isInterior) {
-			const meshArray =
-				frames.top_style.id === INTERIOR_FRAME_TOP_STYLE[2].id ? INTERIOR_COLOR_FIXTURES : INTERIOR_COLOR_FIXTURES.slice(0, -2);
+			const meshArray = frames.top_style.id === INTERIOR_FRAME_TOP_STYLE[2].id ? INTERIOR_COLOR_FIXTURES : INTERIOR_COLOR_FIXTURES.slice(0, -2);
 
 			for (const meshId of meshArray) {
 				this.setColor(meshId, fixtures_color.color, 1, 'frame', blind.type);
@@ -5102,27 +5100,22 @@ export class EngineService {
 		}
 
 		if (mounting) {
-			const meshArray = isOutdoor
-				? mounting.id === 1
-					? REVEAL_CHANNEL
-					: FACE_FIX
-				: mounting.id === 1
-					? REVEAL_CHANNEL_INTERIOR
-					: FACE_FIX_INTERIOR;
+			const meshArray = isOutdoor ? (mounting.id === 1 ? REVEAL_CHANNEL : FACE_FIX)
+				 : (mounting.id === 1 ? REVEAL_CHANNEL_INTERIOR : FACE_FIX_INTERIOR);
 
 			this.setMounting({
 				meshes: meshArray,
 				id: mounting.id,
-				from_config: true,
+				from_config: true
 			});
 		}
 
 		if (operation && isOutdoor) {
 			const meshArray = operation.id === 1 ? SPRING_BALANCE : [...SPRING_BALANCE, ...REVERSE_HANDLE];
-			const reverseLock = operation.optional.find((x) => x.id === 2);
+			const reverseLock = operation.optional.find(x => x.id === 2);
 
 			this.setOperation({
-				id: operation.id,
+				id: operation.id ,
 				meshes: meshArray,
 			});
 
@@ -5138,12 +5131,12 @@ export class EngineService {
 			const meshArray = [...REVERSE_HANDLE, ...BLACK_PLASTIC_MESH];
 
 			for (const meshId of meshArray) {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Ebony').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Ebony').color;
 				this.setColor(meshId, color, 1, 'frame', blind.type);
 			}
 
 			for (const meshId of ALUMINIUM_MESH) {
-				const color = MATERIAL_COLORS.find((item) => item.name === 'Mist').color;
+				const color = MATERIAL_COLORS.find(item => item.name === 'Mist').color;
 				this.setColor(meshId, color, 1, 'frame', blind.type);
 			}
 		}
@@ -5157,7 +5150,7 @@ export class EngineService {
 		}
 	}
 
-	onDeleteModel(id: string): void {
+	onDeleteModel(id: string, lasBlind: boolean): void {
 		const rootMesh = this.getRootMeshById(id);
 
 		if (rootMesh && this.isImageVisualisation) {
@@ -5172,9 +5165,7 @@ export class EngineService {
 	updateIVBackgroundOnDelete(id: string): void {
 		const ivCurrentBackground = this.sessionStorageService.getBlindData(STORAGE_NAMES.zip_image_visualisation_background);
 
-		if (!ivCurrentBackground?.type) {
-			return;
-		}
+		if (!ivCurrentBackground?.type) { return; }
 
 		delete ivCurrentBackground.sampleProjectBlinds?.[id];
 		delete ivCurrentBackground.settings?.[id];
@@ -5184,22 +5175,19 @@ export class EngineService {
 
 	setBoundingBoxForCopiedModel(currentId: string, newId: string): void {
 		const { scaling, rotationQuaternion, cameraRadius, position } = this.boundingBoxesSettings[currentId];
-		this.boundingBoxesSettings[newId] = {
-			position: new Vector3(position.x, 0, 0),
+		const newSettings = {
+			position: new Vector3(position.x, 0 ,0),
 			scaling,
 			rotationQuaternion,
 			cameraRadius,
-			isEnabled: true,
-		};
-		this.setShutterValueForCopiedModel(currentId, newId);
-	}
+			isEnabled: true
+		}
 
-	setShutterValueForCopiedModel(currentId: string, newId: string): void {
+		this.boundingBoxesSettings[newId] = newSettings;
 		this.shutter.modelsValue[newId] = this.shutter.modelsValue[currentId];
 	}
 
 	copyModel(newId: string, copyId: string, type: string): void {
-		this.isCopyingModel = true;
 		this.setModelAndBoundingBoxSettings();
 		const rootMeshForCopy = this.rootMeshesByType[type];
 
@@ -5222,26 +5210,25 @@ export class EngineService {
 	}
 
 	setShutterControlEvent(): void {
-		if (!this.getCurrentRootMesh()) {
-			return;
-		}
+		if (!this.getCurrentRootMesh()) { return; }
 
 		this.setShutterControlValue({
 			id: this.selectedGizmoId,
-			value: this.getShutterValue(),
+			value: this.getShutterValue()
 		});
 	}
 
 	setShutterDefaultValue(value = this.shutter.value): void {
-		Object.keys(this.shutter.modelsValue).forEach((key) => (this.shutter.modelsValue[key] = value));
+		Object.keys(this.shutter.modelsValue).forEach(key => this.shutter.modelsValue[key] = value);
 	}
 
 	appendVideoToHTML(video: HTMLVideoElement): void {
 		if (!document.body.contains(video)) {
-			document.querySelectorAll(SELECTORS.live_background).forEach((item) => item.remove());
+			document.querySelectorAll(SELECTORS.live_background).forEach(item => item.remove());
 			document.body.appendChild(video);
 		}
 
 		video.classList.add(CLASSES.live_background);
 	}
+
 }
