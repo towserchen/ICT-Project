@@ -3,17 +3,25 @@ window.onload = function() {
     cv['onRuntimeInitialized'] = async () => {
         // Load the image from a URL
         const renderCanvas = document.getElementById('renderCanvas')
-        let imageUrl = './sample/1.jpg';    
+        
+        let imageUrl = './sample/5.jpg';    
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
         let result = await autoDetectBlindOpenings(imageUrl, false);
         console.log(result);
-
-        imageUrl = './sample/5.jpg';    
-        renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        result = await autoDetectBlindOpenings(imageUrl, false);
-        console.log(result);
         result = await manualDetectBlindOpenings();
         console.log(result);
+        
+        // let imageUrl = './sample/1.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // let result = await autoDetectBlindOpenings(imageUrl, false);
+        // console.log(result);
+
+        // let imageUrl = './sample/5.jpg';    
+        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+        // let result = await autoDetectBlindOpenings(imageUrl, false);
+        // console.log(result);
+        // result = await manualDetectBlindOpenings();
+        // console.log(result);
 
         // imageUrl = './sample/7.jpg';    
         // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
