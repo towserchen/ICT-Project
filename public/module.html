@@ -31,6 +31,15 @@
         box-sizing: border-box;
       }
 
+      #testCanvas {
+        left: 0;
+        position: absolute;
+        width: 100vw;
+        z-index: 11;
+        pointer-events: none;
+        background-color: transparent;
+      }
+
       #modeToggle {
         position: absolute;
         z-index: 10;
@@ -93,9 +102,11 @@
     <img id="help" src="./sample/help_button.png">
     <img id="blindControls" src="./sample/blind_controls.png">
     <canvas id="renderCanvas"></canvas>
+    <canvas id="testCanvas"></canvas>
     <script>
       const header = document.getElementById('header');
       const renderCanvas = document.getElementById('renderCanvas');
+      const testCanvas = document.getElementById('testCanvas');
 
       function resizeRenderCanvas() {
         const headerHeight = header.clientHeight;
@@ -104,9 +115,18 @@
         renderCanvas.style.top = `${headerHeight}px`;
       }
 
+      function resizeTestCanvas() {
+        const headerHeight = header.clientHeight;
+        testCanvas.width = window.innerWidth;
+        testCanvas.height = window.innerHeight - headerHeight;
+        testCanvas.style.top = `${headerHeight}px`;
+      }
+
       // Resize canvas on load and when the window is resized
       window.addEventListener('load', resizeRenderCanvas);
+      window.addEventListener('load', resizeTestCanvas);
       window.addEventListener('resize', resizeRenderCanvas);
+      window.addEventListener('resize', resizeTestCanvas);
     </script>
   </body>
 </html>
