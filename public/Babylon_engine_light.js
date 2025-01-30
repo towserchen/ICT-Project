@@ -411,42 +411,38 @@ function scaleOps(scene, babCoords) {
     const openingY = Math.max(babCoords[0].y - babCoords[3].y, babCoords[1].y - babCoords[2].y);
     const openingX = Math.max(babCoords[0].x - babCoords[1].x, babCoords[3].x - babCoords[2].x);
 
-    const boundingBoxVectors = boundingBox.getHierarchyBoundingVectors();
-    const minimumBox = boundingBoxVectors.min;
-    const maximumBox = boundingBoxVectors.max;
+    let boundingBoxVectors = boundingBox.getHierarchyBoundingVectors();
+    let minimumBox = boundingBoxVectors.min;
+    let maximumBox = boundingBoxVectors.max;
 
-    const boxWidth = maximumBox.x - minimumBox.x;   // Size along the X-axis
-    const boxHeight = maximumBox.y - minimumBox.y; // Size along the Y-axis
-    const boxDepth = maximumBox.z - minimumBox.z;  // Size along the Z-axis
+    let boxWidth = maximumBox.x - minimumBox.x;   // Size along the X-axis
+    let boxHeight = maximumBox.y - minimumBox.y; // Size along the Y-axis
+    let boxDepth = maximumBox.z - minimumBox.z;  // Size along the Z-axis
 
     console.log("Box Dimensions:");
     console.log(`Width: ${boxWidth}, Height: ${boxHeight}, Depth: ${boxDepth}`);
+    console.log("Box scaling: ", boundingBox._scaling);
 
     boundingBox._scaling.y = openingY / 2;
     boundingBox._scaling.x = openingX / 2;
 
     setModelMeshScaling(scene);
+
+    boundingBoxVectors = boundingBox.getHierarchyBoundingVectors();
+    minimumBox = boundingBoxVectors.min;
+    maximumBox = boundingBoxVectors.max;
+
+    boxWidth = maximumBox.x - minimumBox.x;   // Size along the X-axis
+    boxHeight = maximumBox.y - minimumBox.y; // Size along the Y-axis
+    boxDepth = maximumBox.z - minimumBox.z;  // Size along the Z-axis
+
+    console.log("Box Dimensions:");
+    console.log(`Width: ${boxWidth}, Height: ${boxHeight}, Depth: ${boxDepth}`);
+    console.log("Box scaling: ", boundingBox._scaling);
 };
 
-function placeMarkers(scene, viewportSize) {
-    const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
-    const min = boundingVectors.min;
-    const max = boundingVectors.max;
-
-    let center = boundingVectors.min.add(boundingVectors).scale(0.5);
-    //scene.meshes[0].position.subtractInPlace(center);
-
-    // Step 2: Define the 8 corners of the bounding box
-    let corners = [
-        new BABYLON.Vector3(min.x, min.y, min.z),
-        new BABYLON.Vector3(max.x, min.y, max.z),
-        new BABYLON.Vector3(min.x, max.y, min.z),
-        new BABYLON.Vector3(max.x, max.y, max.z),
-        // new BABYLON.Vector3(min.x, min.y, max.z),
-        // new BABYLON.Vector3(max.x, min.y, max.z),
-        // new BABYLON.Vector3(min.x, max.y, max.z),
-        // new BABYLON.Vector3(max.x, max.y, max.z),
-    ];
+function placeMarkers(scene, viewportSize, modDepth) {
+    let corners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
 
     // Step 3: Get necessary matrices
     let worldMatrix = scene.meshes[0].getWorldMatrix();
@@ -506,11 +502,28 @@ function placeMarkers(scene, viewportSize) {
         sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
     });
 
-    // corners.forEach(coord => {
-    //     const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
-    //     sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
-    // });
+    corners.forEach(coord => {
+        const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
+        sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
+    });
 };
+
+function getModelPoints (scene, viewportSize) {
+    const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+    const min = boundingVectors.min;
+    const max = boundingVectors.max;
+
+    let corners = [
+        new BABYLON.Vector3(min.x, min.y, min.z),
+        new BABYLON.Vector3(max.x, min.y, max.z),
+        new BABYLON.Vector3(min.x, max.y, min.z),
+        new BABYLON.Vector3(max.x, max.y, max.z),
+        // new BABYLON.Vector3(min.x, min.y, max.z),
+        // new BABYLON.Vector3(max.x, min.y, max.z),
+        // new BABYLON.Vector3(min.x, max.y, max.z),
+        // new BABYLON.Vector3(max.x, max.y, max.z),
+    ];
+}
 
 function calculateAngleBetweenLines(p1, p2, q1, q2) {
     // Calculate the direction vectors of the two lines
@@ -558,10 +571,139 @@ function beginFit(coords) {
     // }
 }
 
+function getTrueLocalDimensions(rootMesh, scene) { // unused and unreliable
+    let localMin = new BABYLON.Vector3(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
+    let localMax = new BABYLON.Vector3(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
+
+    // let originalParent = rootMesh.parent;
+    // rootMesh.setParent(null); // Detach from the gizmo
+
+    // rootMesh.computeWorldMatrix(true);
+
+    // Get the inverse world matrix of the root mesh
+    let rootInverseWorldMatrix = BABYLON.Matrix.Invert(rootMesh.getWorldMatrix());
+    // let rootInverseWorldMatrix = BABYLON.Matrix.Invert(boundingBox.getWorldMatrix());
+
+    let num = 0;
+
+    // Recursive function to process each mesh
+    function processMesh(mesh) {
+        // Get bounding info of the current mesh
+        let boundingInfo = mesh.getBoundingInfo();
+        let worldMin = boundingInfo.boundingBox.minimumWorld;
+        let worldMax = boundingInfo.boundingBox.maximumWorld;
+
+        // Transform the world bounding box into the root mesh's local space
+        let localMinForMesh = BABYLON.Vector3.TransformCoordinates(worldMin, rootInverseWorldMatrix);
+        let localMaxForMesh = BABYLON.Vector3.TransformCoordinates(worldMax, rootInverseWorldMatrix);
+
+        // let localMinForMesh = worldMin;
+        // let localMaxForMesh = worldMax;
+
+        // let transformMatrix = mesh.getWorldMatrix().multiply(rootMesh.getWorldMatrix().invert());
+        // let localMinForMesh = BABYLON.Vector3.TransformCoordinates(worldMin, transformMatrix);
+        // let localMaxForMesh = BABYLON.Vector3.TransformCoordinates(worldMax, transformMatrix);
+
+        // Update the overall local min and max
+        localMin = BABYLON.Vector3.Minimize(localMin, localMinForMesh);
+        localMax = BABYLON.Vector3.Maximize(localMax, localMaxForMesh);
+
+        num += 1;
+    }
+
+    // Process the root mesh and all child meshes
+    rootMesh.getChildMeshes().forEach(processMesh);
+    processMesh(rootMesh); // Include the root mesh itself
+    
+    // Reattach the gizmo
+    // rootMesh.setParent(originalParent);
+
+    // Calculate dimensions
+    let dimensions = localMax.subtract(localMin);
+
+    console.log("dimensions: ", dimensions);
+    console.log("localMin: ", localMin);
+    console.log("localMax: ", localMax);
+    console.log("num: ", num);
+    return { dimensions, localMin, localMax };
+};
+
+function getDimensions(scene) {
+    const saveQuaternion = boundingBox.rotationQuaternion || boundingBox.rotation.toQuaternion();
+    boundingBox.rotationQuaternion = BABYLON.Quaternion.Zero();
+    boundingBox.computeWorldMatrix(true);
+    scene.meshes[0].computeWorldMatrix(true);
+
+    const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+    let localMin = boundingVectors.min;
+    let localMax = boundingVectors.max;
+
+    // Calculate the size of the model
+    const width = localMax.x - localMin.x;   // Size along the X-axis
+    const height = localMax.y - localMin.y; // Size along the Y-axis
+    const depth = localMax.z - localMin.z;  // Size along the Z-axis
+    const dimensions = localMax.subtract(localMin);
+
+    console.log("Model Dimensions from func:");
+    console.log(`Width: ${width}, Height: ${height}, Depth: ${depth}`);
+
+    boundingBox.rotationQuaternion = saveQuaternion;
+
+    return { dimensions, localMin, localMax };
+};
+
+function getRotatedRectangleCorners(rotationQuaternion, scene) {
+    // Step 1: Define the rectangle in local space (assuming it's in the XY plane)
+    
+    let { _, localMin, localMax } = getDimensions(scene);
+    
+    let localCorners = [
+        new BABYLON.Vector3(localMax.x, localMax.y, localMax.z / 2),
+        new BABYLON.Vector3(localMin.x, localMax.y, localMax.z / 2),
+        new BABYLON.Vector3(localMin.x, localMin.y, localMax.z / 2),
+        new BABYLON.Vector3(localMax.x, localMin.y, localMax.z / 2),
+    ];
+
+    // Step 3: Apply rotation to each corner
+    let rotatedCorners = [];
+
+    for (let i = 0; i < localCorners.length; i++) {
+        let temp = new BABYLON.Vector3();
+        localCorners[i].rotateByQuaternionAroundPointToRef(rotationQuaternion, scene.meshes[0].getAbsolutePivotPoint(), temp);
+        rotatedCorners.push(temp);
+    }
+
+    // Step 4: Compute the bounding box of the rotated rectangle
+    let minX = Math.min(...rotatedCorners.map(c => c.x));
+    let maxX = Math.max(...rotatedCorners.map(c => c.x));
+    let minY = Math.min(...rotatedCorners.map(c => c.y));
+    let maxY = Math.max(...rotatedCorners.map(c => c.y));
+    let minZ = Math.min(...rotatedCorners.map(c => c.z));
+    let maxZ = Math.max(...rotatedCorners.map(c => c.z));
+
+    // Step 5: Compute required translation to fit the given bounding box
+    let translateX = localMin.x - minX + (localMax.x - maxX) / 2;
+    let translateY = localMin.y - minY + (localMax.y - maxY) / 2;
+    let translateZ = localMin.z - minZ + (localMax.z - maxZ) / 2;
+    let translationVector = new BABYLON.Vector3(translateX, translateY, translateZ);
+
+    // Step 6: Apply translation
+    // let finalCorners = rotatedCorners.map(corner => corner.add(translationVector));
+
+    // rotatedCorners.forEach(coord => {
+    //     const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
+    //     sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
+    // });
+
+    console.log("translationVector: ", translationVector);
+
+    return rotatedCorners;
+};
+
 (async () => {
     const scene = await createScene();
     console.log(scene.meshes);
-
+   
     setGlobalMeshPositionAndScale(scene);
 
     const axesViewer = new BABYLON.AxesViewer(scene);
@@ -600,20 +742,23 @@ function beginFit(coords) {
     console.log(`Width: ${modWidth}, Height: ${modHeight}, Depth: ${modDepth}`);
     
     const quaternion =  new BABYLON.Quaternion.FromEulerAngles(
-        BABYLON.Tools.ToRadians(0),
-        BABYLON.Tools.ToRadians(-75),
+        BABYLON.Tools.ToRadians(10),
+        BABYLON.Tools.ToRadians(135),
         BABYLON.Tools.ToRadians(0)
     );
 
-    // console.log(quaternion);
-    scene.meshes[48].rotationQuaternion = quaternion;
-
     // console.log(scene.meshes[0].rotationQuaternion);
+    console.log("local root pp: ", scene.meshes[0].getPivotPoint());
+    console.log("absolute root pp: ", scene.meshes[0].getAbsolutePivotPoint());
+    console.log("local box pp: ", scene.meshes[48].getPivotPoint());
+    console.log("absolute box pp: ", scene.meshes[48].getAbsolutePivotPoint());
 
-    setTimeout(function() { scaleOps(scene, babCoords); }, 1000);
-    setTimeout(function() { placeMarkers(scene, viewportSize); }, 1100);
+    setTimeout(function() { scaleOps(scene, babCoords); }, 500);
+    setTimeout(function() {scene.meshes[48].rotationQuaternion = quaternion;}, 1000);
+    setTimeout(function() { placeMarkers(scene, viewportSize, modDepth); }, 1100);
+    // setTimeout(function() { getRotatedRectangleCorners(scene.meshes[48].rotationQuaternion, scene); }, 1100);
 
-    beginFit(coordsJ);
+    //beginFit(coordsJ);
 
     engine.runRenderLoop(() => {
         scene.render();
