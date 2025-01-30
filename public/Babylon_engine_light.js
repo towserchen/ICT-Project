@@ -111,6 +111,98 @@ async function loadModelWithRetry(
     }
 };
 
+const createScene = async () => {
+    const scene = new BABYLON.Scene(engine);
+    //scene.useRightHandedSystem = true
+
+    const camera = new BABYLON.ArcRotateCamera(
+        "ArcRotateCamera",
+        Math.PI / 2,
+        Math.PI / 2,
+        10,
+        new BABYLON.Vector3(0, 0, 0),
+        scene
+    );
+    camera.attachControl(canvas, true);
+
+    const light = new BABYLON.HemisphericLight(
+        "light",
+        new BABYLON.Vector3(0, 1, 0),
+        scene
+    );
+    light.intensity = 0.7;
+
+    try {
+        const assetContainer = await loadModelWithRetry(
+            "./assets/model/", // Replace with your model path
+            "outdoor.glb",          // Replace with your model name
+            scene
+        );
+
+        // Add the loaded models to the scene
+        assetContainer.addAllToScene();
+
+        console.log("Model loaded successfully!");
+    } catch (error) {
+        console.error("Model loading failed:", error);
+    }
+
+    boundingBox = BABYLON.BoundingBoxGizmo.MakeNotPickableAndWrapInBoundingBox(scene.meshes[0]);
+
+    scene.clearColor = null;
+
+    // Add a grid material
+    const gridMaterial = new BABYLON.GridMaterial("gridMaterial", scene);
+    gridMaterial.majorUnitFrequency = 2; // Distance between major grid lines
+    gridMaterial.minorUnitVisibility = 0.5; // Visibility of minor lines
+    gridMaterial.gridRatio = 0.5; // Size of each grid cell
+    gridMaterial.backFaceCulling = false; // Make grid visible from both sides
+    gridMaterial.mainColor = new BABYLON.Color4(1, 1, 1, 1); // Grid line color
+    gridMaterial.lineColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Secondary line color
+    gridMaterial.opacity = 0.8;
+
+    // Create the ground plane
+    const gridPlane = BABYLON.MeshBuilder.CreateGround("gridPlane", {
+        width: 20, // Width of the grid
+        height: 20, // Height of the grid
+        subdivisions: 20 // Number of subdivisions
+    }, scene);
+
+    // Apply the grid material to the ground plane
+    gridPlane.material = gridMaterial;
+
+    return scene;
+};
+
+function getViewportSizeAtDepth(camera, scene, depth) {
+    // Get the field of view (FOV) in radians
+    const fov = camera.fov; // Babylon.js stores FOV in radians
+    
+    // Calculate the aspect ratio of the viewport
+    const aspectRatio = scene.getEngine().getAspectRatio(camera);
+    
+    // Calculate the viewport height and width at the specified depth
+    const height = 2 * Math.tan(fov / 2) * depth;
+    const width = height * aspectRatio;
+    
+    return { width, height };
+}
+
+function scaleToBabylonSpace(cornerCoords, imageWidth, imageHeight, viewportWidth, viewportHeight) {
+    const babylonCoords = [];
+    for (let i = 0; i < cornerCoords.length; i += 2) {
+        const x = cornerCoords[i];
+        const y = cornerCoords[i + 1];
+
+        // Normalize coordinates and scale to Babylon space
+        const babylonX = -(x / imageWidth - 0.5) * viewportWidth;
+        const babylonY = -((y / imageHeight - 0.5) * viewportHeight); // Invert Y for Babylon space
+
+        babylonCoords.push({ x: babylonX, y: babylonY, z: 0 }); // Assuming Z = 0 for a flat plane
+    }
+    return babylonCoords;
+}
+
 function setGlobalMeshPositionAndScale(scene) {
     const MESH_TYPE = MESHES_IDS;
     const SCALING_TYPE = SCALING_MESHES;
@@ -286,127 +378,6 @@ function outdoorHeightSizeHandler(heightDiff, scene) {
     // getTopSceneHandler(shutter.modelsValue[id]);
 };
 
-function getViewportSizeAtDepth(camera, scene, depth) {
-    // Get the field of view (FOV) in radians
-    const fov = camera.fov; // Babylon.js stores FOV in radians
-    
-    // Calculate the aspect ratio of the viewport
-    const aspectRatio = scene.getEngine().getAspectRatio(camera);
-    
-    // Calculate the viewport height and width at the specified depth
-    const height = 2 * Math.tan(fov / 2) * depth;
-    const width = height * aspectRatio;
-    
-    return { width, height };
-}
-
-function calcRotation() { // unused
-    const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, 1, 0, 1, 1, 0, 1]);
-    const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [85, 78, 586, 172, 586, 452, 103, 586]);
-    const homography = cv.findHomography(srcPts, dstPts);
-
-    const cameraMatrix = cv.matFromArray(3, 3, cv.CV_32F, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-    const Rvecs = new cv.MatVector();
-    const Tvecs = new cv.MatVector();
-    const normals = new cv.MatVector();
-    cv.decomposeHomographyMat(homography, cameraMatrix, Rvecs, Tvecs, normals);
-
-    const rotationMatrix = Rvecs.get(0);
-    const m = rotationMatrix.data32F;
-
-    // Convert to Quaternion
-    const r11 = m[0], r12 = m[1], r13 = m[2];
-    const r21 = m[3], r22 = m[4], r23 = m[5];
-    const r31 = m[6], r32 = m[7], r33 = m[8];
-
-    const qw = Math.sqrt(1 + r11 + r22 + r33) / 2;
-    const qx = (r32 - r23) / (4 * qw);
-    const qy = (r13 - r31) / (4 * qw);
-    const qz = (r21 - r12) / (4 * qw);
-
-    const quaternion = new BABYLON.Quaternion(qx, qy, qz, qw);
-
-    return quaternion;
-}
-
-function scaleToBabylonSpace(cornerCoords, imageWidth, imageHeight, viewportWidth, viewportHeight) {
-    const babylonCoords = [];
-    for (let i = 0; i < cornerCoords.length; i += 2) {
-        const x = cornerCoords[i];
-        const y = cornerCoords[i + 1];
-
-        // Normalize coordinates and scale to Babylon space
-        const babylonX = -(x / imageWidth - 0.5) * viewportWidth;
-        const babylonY = -((y / imageHeight - 0.5) * viewportHeight); // Invert Y for Babylon space
-
-        babylonCoords.push({ x: babylonX, y: babylonY, z: 0 }); // Assuming Z = 0 for a flat plane
-    }
-    return babylonCoords;
-}
-
-const createScene = async () => {
-    const scene = new BABYLON.Scene(engine);
-    //scene.useRightHandedSystem = true
-
-    const camera = new BABYLON.ArcRotateCamera(
-        "ArcRotateCamera",
-        Math.PI / 2,
-        Math.PI / 2,
-        10,
-        new BABYLON.Vector3(0, 0, 0),
-        scene
-    );
-    camera.attachControl(canvas, true);
-
-    const light = new BABYLON.HemisphericLight(
-        "light",
-        new BABYLON.Vector3(0, 1, 0),
-        scene
-    );
-    light.intensity = 0.7;
-
-    try {
-        const assetContainer = await loadModelWithRetry(
-            "./assets/model/", // Replace with your model path
-            "outdoor.glb",          // Replace with your model name
-            scene
-        );
-
-        // Add the loaded models to the scene
-        assetContainer.addAllToScene();
-
-        console.log("Model loaded successfully!");
-    } catch (error) {
-        console.error("Model loading failed:", error);
-    }
-
-    boundingBox = BABYLON.BoundingBoxGizmo.MakeNotPickableAndWrapInBoundingBox(scene.meshes[0]);
-
-    scene.clearColor = null;
-
-    // Add a grid material
-    const gridMaterial = new BABYLON.GridMaterial("gridMaterial", scene);
-    gridMaterial.majorUnitFrequency = 2; // Distance between major grid lines
-    gridMaterial.minorUnitVisibility = 0.5; // Visibility of minor lines
-    gridMaterial.gridRatio = 0.5; // Size of each grid cell
-    gridMaterial.backFaceCulling = false; // Make grid visible from both sides
-    gridMaterial.mainColor = new BABYLON.Color4(1, 1, 1, 1); // Grid line color
-    gridMaterial.lineColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Secondary line color
-    gridMaterial.opacity = 0.8;
-
-    // Create the ground plane
-    const gridPlane = BABYLON.MeshBuilder.CreateGround("gridPlane", {
-        width: 20, // Width of the grid
-        height: 20, // Height of the grid
-        subdivisions: 20 // Number of subdivisions
-    }, scene);
-
-    // Apply the grid material to the ground plane
-    gridPlane.material = gridMaterial;
-
-    return scene;
-};
-
 function scaleOps(scene, babCoords) {
     const openingY = Math.max(babCoords[0].y - babCoords[3].y, babCoords[1].y - babCoords[2].y);
     const openingX = Math.max(babCoords[0].x - babCoords[1].x, babCoords[3].x - babCoords[2].x);
@@ -480,8 +451,8 @@ function placeMarkers(scene, viewportSize, modDepth) {
         projectedCorners.push(projectedCorner);
     }
 
-    const overlayCanvas = document.getElementById('overlayCanvas');
-    const ctx = overlayCanvas.getContext('2d');
+    const testCanvas = document.getElementById('testCanvas');
+    const ctx = testCanvas.getContext('2d');
     ctx.fillStyle = 'rgb(0, 255, 0)';
 
     projectedCorners.forEach(point => {
@@ -506,126 +477,6 @@ function placeMarkers(scene, viewportSize, modDepth) {
         const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
         sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
     });
-};
-
-function getModelPoints (scene, viewportSize) {
-    const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
-    const min = boundingVectors.min;
-    const max = boundingVectors.max;
-
-    let corners = [
-        new BABYLON.Vector3(min.x, min.y, min.z),
-        new BABYLON.Vector3(max.x, min.y, max.z),
-        new BABYLON.Vector3(min.x, max.y, min.z),
-        new BABYLON.Vector3(max.x, max.y, max.z),
-        // new BABYLON.Vector3(min.x, min.y, max.z),
-        // new BABYLON.Vector3(max.x, min.y, max.z),
-        // new BABYLON.Vector3(min.x, max.y, max.z),
-        // new BABYLON.Vector3(max.x, max.y, max.z),
-    ];
-}
-
-function calculateAngleBetweenLines(p1, p2, q1, q2) {
-    // Calculate the direction vectors of the two lines
-    let v1 = { x: p2.x - p1.x, y: p2.y - p1.y };
-    let v2 = { x: q2.x - q1.x, y: q2.y - q1.y };
-
-    console.log("line 1:", v1);
-    console.log("line 2:", v2);
-
-    // Calculate the dot product of the vectors
-    let dotProduct = v1.x * v2.x + v1.y * v2.y;
-
-    // Calculate the magnitudes of the vectors
-    let magnitudeV1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-    let magnitudeV2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-
-    // Avoid division by zero
-    if (magnitudeV1 === 0 || magnitudeV2 === 0) {
-        throw new Error("Zero-length vector encountered.");
-    }
-
-    // Calculate the cosine of the angle
-    let cosTheta = dotProduct / (magnitudeV1 * magnitudeV2);
-
-    // Clamp the value to avoid precision issues
-    cosTheta = Math.max(-1, Math.min(1, cosTheta));
-
-    // Calculate the angle in radians and convert to degrees
-    let angleRadians = Math.acos(cosTheta);
-    let angleDegrees = angleRadians * (180 / Math.PI);
-
-    return angleDegrees;
-};
-
-function beginFit(coords) {
-    let areSidesPara = true; // could reverse
-    let leftRightAngle = calculateAngleBetweenLines(coords[0], coords[3], coords[1], coords[2]);
-    let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
-    let rightInlination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
-
-    let diff = rightInlination - leftInclination;
-
-    // if ( angle > 0.001 || angle < -0.001) {
-    //     areSidesPara = false;
-    // }
-}
-
-function getTrueLocalDimensions(rootMesh, scene) { // unused and unreliable
-    let localMin = new BABYLON.Vector3(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
-    let localMax = new BABYLON.Vector3(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
-
-    // let originalParent = rootMesh.parent;
-    // rootMesh.setParent(null); // Detach from the gizmo
-
-    // rootMesh.computeWorldMatrix(true);
-
-    // Get the inverse world matrix of the root mesh
-    let rootInverseWorldMatrix = BABYLON.Matrix.Invert(rootMesh.getWorldMatrix());
-    // let rootInverseWorldMatrix = BABYLON.Matrix.Invert(boundingBox.getWorldMatrix());
-
-    let num = 0;
-
-    // Recursive function to process each mesh
-    function processMesh(mesh) {
-        // Get bounding info of the current mesh
-        let boundingInfo = mesh.getBoundingInfo();
-        let worldMin = boundingInfo.boundingBox.minimumWorld;
-        let worldMax = boundingInfo.boundingBox.maximumWorld;
-
-        // Transform the world bounding box into the root mesh's local space
-        let localMinForMesh = BABYLON.Vector3.TransformCoordinates(worldMin, rootInverseWorldMatrix);
-        let localMaxForMesh = BABYLON.Vector3.TransformCoordinates(worldMax, rootInverseWorldMatrix);
-
-        // let localMinForMesh = worldMin;
-        // let localMaxForMesh = worldMax;
-
-        // let transformMatrix = mesh.getWorldMatrix().multiply(rootMesh.getWorldMatrix().invert());
-        // let localMinForMesh = BABYLON.Vector3.TransformCoordinates(worldMin, transformMatrix);
-        // let localMaxForMesh = BABYLON.Vector3.TransformCoordinates(worldMax, transformMatrix);
-
-        // Update the overall local min and max
-        localMin = BABYLON.Vector3.Minimize(localMin, localMinForMesh);
-        localMax = BABYLON.Vector3.Maximize(localMax, localMaxForMesh);
-
-        num += 1;
-    }
-
-    // Process the root mesh and all child meshes
-    rootMesh.getChildMeshes().forEach(processMesh);
-    processMesh(rootMesh); // Include the root mesh itself
-    
-    // Reattach the gizmo
-    // rootMesh.setParent(originalParent);
-
-    // Calculate dimensions
-    let dimensions = localMax.subtract(localMin);
-
-    console.log("dimensions: ", dimensions);
-    console.log("localMin: ", localMin);
-    console.log("localMax: ", localMax);
-    console.log("num: ", num);
-    return { dimensions, localMin, localMax };
 };
 
 function getDimensions(scene) {
@@ -700,6 +551,52 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
     return rotatedCorners;
 };
 
+function calculateAngleBetweenLines(p1, p2, q1, q2) {
+    // Calculate the direction vectors of the two lines
+    let v1 = { x: p2.x - p1.x, y: p2.y - p1.y };
+    let v2 = { x: q2.x - q1.x, y: q2.y - q1.y };
+
+    console.log("line 1:", v1);
+    console.log("line 2:", v2);
+
+    // Calculate the dot product of the vectors
+    let dotProduct = v1.x * v2.x + v1.y * v2.y;
+
+    // Calculate the magnitudes of the vectors
+    let magnitudeV1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+    let magnitudeV2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+
+    // Avoid division by zero
+    if (magnitudeV1 === 0 || magnitudeV2 === 0) {
+        throw new Error("Zero-length vector encountered.");
+    }
+
+    // Calculate the cosine of the angle
+    let cosTheta = dotProduct / (magnitudeV1 * magnitudeV2);
+
+    // Clamp the value to avoid precision issues
+    cosTheta = Math.max(-1, Math.min(1, cosTheta));
+
+    // Calculate the angle in radians and convert to degrees
+    let angleRadians = Math.acos(cosTheta);
+    let angleDegrees = angleRadians * (180 / Math.PI);
+
+    return angleDegrees;
+};
+
+function beginFit(coords) {
+    let areSidesPara = true; // could reverse
+    let leftRightAngle = calculateAngleBetweenLines(coords[0], coords[3], coords[1], coords[2]);
+    let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
+    let rightInlination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
+
+    let diff = rightInlination - leftInclination;
+
+    // if ( angle > 0.001 || angle < -0.001) {
+    //     areSidesPara = false;
+    // }
+}
+
 (async () => {
     const scene = await createScene();
     console.log(scene.meshes);
@@ -742,8 +639,8 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
     console.log(`Width: ${modWidth}, Height: ${modHeight}, Depth: ${modDepth}`);
     
     const quaternion =  new BABYLON.Quaternion.FromEulerAngles(
-        BABYLON.Tools.ToRadians(10),
-        BABYLON.Tools.ToRadians(135),
+        BABYLON.Tools.ToRadians(0),
+        BABYLON.Tools.ToRadians(180),
         BABYLON.Tools.ToRadians(0)
     );
 
@@ -753,15 +650,16 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
     console.log("local box pp: ", scene.meshes[48].getPivotPoint());
     console.log("absolute box pp: ", scene.meshes[48].getAbsolutePivotPoint());
 
-    setTimeout(function() { scaleOps(scene, babCoords); }, 500);
-    setTimeout(function() {scene.meshes[48].rotationQuaternion = quaternion;}, 1000);
-    setTimeout(function() { placeMarkers(scene, viewportSize, modDepth); }, 1100);
-    // setTimeout(function() { getRotatedRectangleCorners(scene.meshes[48].rotationQuaternion, scene); }, 1100);
-
-    //beginFit(coordsJ);
-
     engine.runRenderLoop(() => {
         scene.render();
+    });
+
+    scaleOps(scene, babCoords);
+    scene.meshes[48].rotationQuaternion = quaternion;
+
+    scene.onReadyObservable.addOnce(() => {
+        placeMarkers(scene, viewportSize, modDepth);
+        beginFit(coordsJ);
     });
 
     window.addEventListener("resize", () => {
