@@ -228,6 +228,91 @@ function setGlobalMeshPositionAndScale(scene) {
     }
 };
 
+// direction: "n" for negative, will grow the blind towards the negative x or y direction. 
+// "p" for positive, will grow the blind towards the positive x or y direction.
+function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", scene) {
+    let boundingBoxInfo = mesh.getBoundingInfo();
+    let boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+    let oMin = boundingVectors.min;
+    let oMax = boundingVectors.max;
+
+    console.log("BB o max: ", boundingBoxInfo.boundingBox.maximumWorld);
+    console.log("oMax: ", oMax);
+
+    // Calculate the size of the model
+    const originalWidth = oMax.x - oMin.x;   // Size along the X-axis
+    const originalHeight = oMax.y - oMin.y; // Size along the Y-axisw
+
+    // 2. Store the original position to adjust it later
+    const originalPosition = mesh.position.clone();
+
+    // 3. Define scale vector (default is uniform scaling)
+    let scaleVector = new BABYLON.Vector3(0, 0, 0);
+    if (scaleAxis === "x") {
+        scaleVector.x = scaleFactor;
+    } else if (scaleAxis === "y") {
+        scaleVector.y = scaleFactor;
+    } else if (scaleAxis === "z") {
+        scaleVector.z = scaleFactor;
+    }
+
+    // 4. Apply scaling to the mesh
+    mesh.scaling.addInPlace(scaleVector);
+
+    mesh.computeWorldMatrix(true);
+
+    setModelMeshScaling(scene);
+
+    scene.meshes[0].computeWorldMatrix(true);
+
+    boundingBoxInfo = mesh.getBoundingInfo();
+
+    boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+    let nMin = boundingVectors.min;
+    let nMax = boundingVectors.max;
+
+    console.log("BB max: ", boundingBoxInfo.boundingBox.maximumWorld);
+    console.log("nMax: ", nMax);
+
+    // Calculate the size of the model
+    const newWidth = nMax.x - nMin.x;   // Size along the X-axis
+    const newHeight = nMax.y - nMin.y; // Size along the Y-axisw
+
+    // 6. Calculate the shift needed to keep one side fixed
+    let shiftVector = new BABYLON.Vector3(0, 0, 0);
+    if (scaleAxis === "x") {
+        if (direction === "n") {
+            shiftVector.x = (nMax.x - oMax.x);
+        } else if (direction === "p") {
+            shiftVector.x = (nMin.x - oMin.x);
+        }
+    } else if (scaleAxis === "y") {
+        if (direction === "n") {
+            shiftVector.y = (nMax.y - oMax.y);
+        } else if (direction === "p") {
+            shiftVector.y = Math.abs(nMin.y - oMin.y);
+        }
+    }
+
+    console.log("Shift Vector: ", shiftVector);
+
+    // 7. Move the mesh in the opposite direction of the scale expansion
+    if (direction === "n") {
+        mesh.position = originalPosition.subtract(shiftVector);
+    } else if (direction === "p") {
+        mesh.position = originalPosition.addInPlace(shiftVector);
+    }
+
+    mesh.computeWorldMatrix(true);
+    boundingBoxInfo = mesh.getBoundingInfo();
+    scene.meshes[0].computeWorldMatrix(true);
+    boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+    //Min = boundingVectors.min;
+    nMax = boundingVectors.max;
+    console.log("BB f max: ", boundingBoxInfo.boundingBox.maximumWorld);
+    console.log("fMax: ", nMax);
+};
+
 function setModelMeshScaling(scene) {
     const currentRootMesh = scene.meshes[0];
 
@@ -394,7 +479,7 @@ function scaleOps(scene, babCoords) {
     console.log(`Width: ${boxWidth}, Height: ${boxHeight}, Depth: ${boxDepth}`);
     console.log("Box scaling: ", boundingBox._scaling);
 
-    boundingBox._scaling.y = openingY / 2;
+    boundingBox._scaling.y = openingY / 4;
     boundingBox._scaling.x = openingX / 2;
 
     setModelMeshScaling(scene);
@@ -412,36 +497,13 @@ function scaleOps(scene, babCoords) {
     console.log("Box scaling: ", boundingBox._scaling);
 };
 
-function placeMarkers(scene, viewportSize, modDepth) {
+function placeMarkers(scene, viewportSize) {
     let corners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
 
-    // Step 3: Get necessary matrices
-    let worldMatrix = scene.meshes[0].getWorldMatrix();
-    let viewMatrix = scene.activeCamera.getViewMatrix();
-    let projectionMatrix = scene.activeCamera.getProjectionMatrix();
-
-    // Step 4: Project each corner to screen space
     const projectedCorners = []
     let viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
 
-    // corners.forEach(corner => {
-    //     // Transform the point from model space to clip space
-    //     //let transformedCorner = BABYLON.Vector3.TransformCoordinates(corner, worldMatrix);
-    //     let clipSpace = BABYLON.Vector3.TransformCoordinates(corner, viewMatrix.multiply(projectionMatrix));
-
-    //     // Perspective divide (convert from clip space to NDC)
-    //     let ndcX = clipSpace.x / clipSpace.z;
-    //     let ndcY = clipSpace.y / clipSpace.z;
-
-    //     // Convert from normalized device coordinates (NDC) to screen space
-    //     let screenX = (ndcX * 0.5 + 0.5) * viewport.width;
-    //     let screenY = (1.0 - (ndcY * 0.5 + 0.5)) * viewport.height; // Invert Y for screen coordinates
-
-    //     projectedCorners.push(new BABYLON.Vector2(screenX, screenY));
-    // });
-
     for (let i = 0; i < corners.length; i++) {
-        //let transformedCorner = BABYLON.Vector3.TransformCoordinates(corners[i], worldMatrix);
         let projectedCorner = BABYLON.Vector3.Project(
             corners[i],
             BABYLON.Matrix.Identity(),
@@ -479,6 +541,40 @@ function placeMarkers(scene, viewportSize, modDepth) {
     });
 };
 
+function clearMarkers(scene) {
+    // Get all meshes named "point"
+    let pointMeshes = scene.meshes.filter(mesh => mesh.name === "point");
+
+    // Remove the last 8 meshes
+    for (let i = pointMeshes.length - 8; i < pointMeshes.length; i++) {
+        if (i >= 0) {
+            pointMeshes[i].dispose();
+        }
+    }
+
+    const testCanvas = document.getElementById('testCanvas');
+    const ctx = testCanvas.getContext('2d');
+    ctx.clearRect(0, 0, testCanvas.width, testCanvas.height);
+};
+
+function getProjectedCorners(scene) {
+    let corners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    const projectedCorners = []
+    let viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < corners.length; i++) {
+        let projectedCorner = BABYLON.Vector3.Project(
+            corners[i],
+            BABYLON.Matrix.Identity(),
+            scene.getTransformMatrix(),
+            viewport
+        );
+        projectedCorners.push(projectedCorner);
+    }
+
+    return projectedCorners;
+};
+
 function getDimensions(scene) {
     const saveQuaternion = boundingBox.rotationQuaternion || boundingBox.rotation.toQuaternion();
     boundingBox.rotationQuaternion = BABYLON.Quaternion.Zero();
@@ -499,6 +595,7 @@ function getDimensions(scene) {
     console.log(`Width: ${width}, Height: ${height}, Depth: ${depth}`);
 
     boundingBox.rotationQuaternion = saveQuaternion;
+    boundingBox.computeWorldMatrix(true);
 
     return { dimensions, localMin, localMax };
 };
@@ -556,9 +653,6 @@ function calculateAngleBetweenLines(p1, p2, q1, q2) {
     let v1 = { x: p2.x - p1.x, y: p2.y - p1.y };
     let v2 = { x: q2.x - q1.x, y: q2.y - q1.y };
 
-    console.log("line 1:", v1);
-    console.log("line 2:", v2);
-
     // Calculate the dot product of the vectors
     let dotProduct = v1.x * v2.x + v1.y * v2.y;
 
@@ -584,7 +678,84 @@ function calculateAngleBetweenLines(p1, p2, q1, q2) {
     return angleDegrees;
 };
 
-function beginFit(coords) {
+function getYValue(x1, y1, x2, y2, x) {
+    if (x1 === x2) {
+        throw new Error("The line is vertical; y cannot be determined for a given x.");
+    }
+    
+    let m = (y2 - y1) / (x2 - x1); // Calculate slope
+    let b = y1 - m * x1; // Calculate y-intercept
+    
+    return m * x + b; // Compute y for given x
+};
+
+function beginFit2(babCoords, coords, scene, viewportSize) {
+    let YmaxOrign = getYValue(babCoords[0].x, babCoords[0].y, babCoords[1].x, babCoords[1].y, 0);
+    let YminOrign = getYValue(babCoords[3].x, babCoords[3].y, babCoords[2].x, babCoords[2].y, 0);
+    let boundingBoxInfo = scene.meshes[0].getHierarchyBoundingVectors();
+    let min = boundingBoxInfo.min;
+    let max = boundingBoxInfo.max;
+    let yBottomDiff = YminOrign - min.y;
+    let yTopDiff = YmaxOrign - max.y;
+
+    scaleFromOneSide(boundingBox, Math.abs(yBottomDiff), "y", "n",scene);
+    scaleFromOneSide(boundingBox, Math.abs(yTopDiff), "y", "p", scene);
+    placeMarkers(scene, viewportSize);
+
+    let topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000});
+    let bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
+
+    topInclination = Math.abs(topInclination - 90);
+    bottomInclination = Math.abs(bottomInclination - 90);
+
+    let topBottomDiff = Math.abs(topInclination - bottomInclination);
+
+    let modelCorners = getProjectedCorners(scene);
+
+    if (topBottomDiff > 0) {
+        let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
+        let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+        while (bottomDiff > topDiff + 0.5 || bottomDiff < topDiff - 0.5) {
+            // // Create a small rotation quaternion for the x-axis
+            // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Y, -0.01); // Adjust the angle as needed
+            // // Apply the small rotation to the bounding box's current rotation quaternion
+            // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
+
+            boundingBox.rotate(BABYLON.Axis.Y, -0.01, BABYLON.Space.LOCAL);
+
+            boundingBox.computeWorldMatrix(true);
+            modelCorners = getProjectedCorners(scene);
+            bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
+            topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+            const camera = scene.cameras[0];
+            const depth = camera.radius; // Distance from the camera
+            const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+            clearMarkers(scene);
+            placeMarkers(scene, viewportSize);
+        }
+
+        while (topDiff > 0.1) {
+            boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+    
+            boundingBox.computeWorldMatrix(true);
+            modelCorners = getProjectedCorners(scene);
+            topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+            const camera = scene.cameras[0];
+            const depth = camera.radius; // Distance from the camera
+            const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+            clearMarkers(scene);
+            placeMarkers(scene, viewportSize);
+        }
+        
+        console.log("exit");
+    }
+
+};
+
+function beginFit1(coords, scene) {
     let areSidesPara = true; // could reverse
     let leftRightAngle = calculateAngleBetweenLines(coords[0], coords[3], coords[1], coords[2]);
     let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
@@ -592,10 +763,139 @@ function beginFit(coords) {
 
     let diff = rightInlination - leftInclination;
 
-    // if ( angle > 0.001 || angle < -0.001) {
-    //     areSidesPara = false;
-    // }
+    if ( leftRightAngle > 0.001 || leftRightAngle < -0.001) {
+        areSidesPara = false;
+    }
+
+    let modelCorners = getProjectedCorners(scene); 
+
+    if (!areSidesPara) {
+        let leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]); // TODO: fix this as the corners are in a differnt order
+        if (diff > 0) {
+            while (leftSideDiff > (diff / 2)) {
+                // // Create a small rotation quaternion for the x-axis
+                // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.X, 0.01); // Adjust the angle as needed
+                // // Apply the small rotation to the bounding box's current rotation quaternion
+                // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
+
+                boundingBox.rotate(BABYLON.Axis.X, -0.01, BABYLON.Space.LOCAL);
+
+                boundingBox.computeWorldMatrix(true);
+                modelCorners = getProjectedCorners(scene);
+                leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
+                
+                const camera = scene.cameras[0];
+                const depth = camera.radius; // Distance from the camera
+                const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+                clearMarkers(scene);
+                placeMarkers(scene, viewportSize);
+            }
+
+            if (leftInclination < 90) {
+                while (leftSideDiff > 0.1) {
+                    // // Create a small rotation quaternion for the x-axis
+                    // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, -0.001); // Adjust the angle as needed
+                    // // Apply the small rotation to the bounding box's current rotation quaternion
+                    // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
+
+                    boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+    
+                    boundingBox.computeWorldMatrix(true);
+                    modelCorners = getProjectedCorners(scene);
+                    leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
+    
+                    const camera = scene.cameras[0];
+                    const depth = camera.radius; // Distance from the camera
+                    const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+                    clearMarkers(scene);
+                    placeMarkers(scene, viewportSize);
+                }
+            }
+
+            let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+            // while (topDiff > 1) {
+            //     // // Create a small rotation quaternion for the x-axis
+            //     // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Y, -0.01); // Adjust the angle as needed
+            //     // // Apply the small rotation to the bounding box's current rotation quaternion
+            //     // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
+
+            //     boundingBox.rotate(BABYLON.Axis.Y, -0.01, BABYLON.Space.LOCAL);
+
+            //     boundingBox.computeWorldMatrix(true);
+            //     modelCorners = getProjectedCorners(scene);
+            //     topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+            //     console.log("top diff: ", topDiff);
+
+            //     const camera = scene.cameras[0];
+            //     const depth = camera.radius; // Distance from the camera
+            //     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+            //     clearMarkers(scene);
+            //     placeMarkers(scene, viewportSize);
+            // }
+        }
+    }
+
+    let modelrightInlination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
+    let modelLeftInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
+    let fTopDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+    console.log("here");
 }
+
+function begin3DTransformFit(coords, scene) {
+    let recP = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+
+    const rectanglePoints = [
+        new BABYLON.Vector2(recP[1].x, recP[1].y),  // Bottom-left
+        new BABYLON.Vector2(recP[0].x, recP[0].y),  // Bottom-right
+        new BABYLON.Vector2(recP[3].x, recP[3].y),  // Top-right
+        new BABYLON.Vector2(recP[2].x, recP[2].y)   // Top-left
+    ];
+    
+    // Step 2: Define quadrilateral target points (After transformation)
+    const quadPoints = [
+        new BABYLON.Vector2(coords[0].x, coords[0].y), // Corresponds to rect[0]
+        new BABYLON.Vector2(coords[1].x, coords[1].y), // Corresponds to rect[1]
+        new BABYLON.Vector2(coords[2].x, coords[2].y), // Corresponds to rect[2]
+        new BABYLON.Vector2(coords[3].x, coords[3].y)   // Corresponds to rect[3]
+    ];
+    
+    function computeBestFit3DTransform(reference, target) {
+        let A = [];
+        let B = [];
+    
+        for (let i = 0; i < reference.length; i++) {
+            A.push([reference[i].x, reference[i].y, 1]);
+            B.push([target[i].x, target[i].y, 1]);
+        }
+    
+        // Compute A^T * B
+        let AT = numeric.transpose(A);
+        let M = numeric.dot(AT, B);
+    
+        // Compute Singular Value Decomposition (SVD)
+        let { U, S, V } = numeric.svd(M);
+    
+        // Compute Rotation Matrix: R = V * U^T
+        let R = numeric.dot(V, numeric.transpose(U));
+    
+        // Extract Scaling Factors (Non-Uniform Scaling)
+        // let scaleX = numeric.norm2(numeric.sub(target[1], target[0])) / numeric.norm2(numeric.sub(reference[1], reference[0]));
+        // let scaleY = numeric.norm2(numeric.sub(target[2], target[1])) / numeric.norm2(numeric.sub(reference[2], reference[1]));
+    
+        return R;
+    }
+
+    let R = computeBestFit3DTransform(rectanglePoints, quadPoints);
+    let rotationMatrix = BABYLON.Matrix.FromArray([
+        R[0][0], R[0][1], R[0][2], 0,
+        R[1][0], R[1][1], R[1][2], 0,
+        R[2][0], R[2][1], R[2][2], 0,
+        0, 0, 0, 1
+    ]);
+    let rotationQuaternion = BABYLON.Quaternion.FromRotationMatrix(rotationMatrix);
+    boundingBox.rotationQuaternion = rotationQuaternion;
+};
 
 (async () => {
     const scene = await createScene();
@@ -658,8 +958,8 @@ function beginFit(coords) {
     scene.meshes[48].rotationQuaternion = quaternion;
 
     scene.onReadyObservable.addOnce(() => {
-        placeMarkers(scene, viewportSize, modDepth);
-        beginFit(coordsJ);
+        placeMarkers(scene, viewportSize);
+        beginFit2(babCoords, coordsJ, scene, viewportSize);
     });
 
     window.addEventListener("resize", () => {
