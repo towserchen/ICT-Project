@@ -246,6 +246,8 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
     // 2. Store the original position to adjust it later
     const originalPosition = mesh.position.clone();
 
+    const originalModelCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+
     // 3. Define scale vector (default is uniform scaling)
     let scaleVector = new BABYLON.Vector3(0, 0, 0);
     if (scaleAxis === "x") {
@@ -281,9 +283,9 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
     // 6. Calculate the shift needed to keep one side fixed
     let shiftVector = new BABYLON.Vector3(0, 0, 0);
     if (scaleAxis === "x") {
-        if (direction === "n") {
+        if (direction === "p") {
             shiftVector.x = (nMax.x - oMax.x);
-        } else if (direction === "p") {
+        } else if (direction === "n") {
             shiftVector.x = (nMin.x - oMin.x);
         }
     } else if (scaleAxis === "y") {
@@ -302,6 +304,8 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
     } else if (direction === "p") {
         mesh.position = originalPosition.addInPlace(shiftVector);
     }
+
+    let zOffset = scene.meshes[0]._absolutePosition.z - getZValue(originalModelCorners[0], originalModelCorners[1], originalModelCorners[2], mesh.position.x, mesh.position.y);
 
     mesh.computeWorldMatrix(true);
     boundingBoxInfo = mesh.getBoundingInfo();
@@ -596,6 +600,7 @@ function getDimensions(scene) {
 
     boundingBox.rotationQuaternion = saveQuaternion;
     boundingBox.computeWorldMatrix(true);
+    scene.meshes[0].computeWorldMatrix(true);
 
     return { dimensions, localMin, localMax };
 };
@@ -606,10 +611,10 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
     let { _, localMin, localMax } = getDimensions(scene);
     
     let localCorners = [
-        new BABYLON.Vector3(localMax.x, localMax.y, localMax.z / 2),
-        new BABYLON.Vector3(localMin.x, localMax.y, localMax.z / 2),
-        new BABYLON.Vector3(localMin.x, localMin.y, localMax.z / 2),
-        new BABYLON.Vector3(localMax.x, localMin.y, localMax.z / 2),
+        new BABYLON.Vector3(localMax.x, localMax.y, scene.meshes[0].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMin.x, localMax.y, scene.meshes[0].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMin.x, localMin.y, scene.meshes[0].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMax.x, localMin.y, scene.meshes[0].getAbsolutePivotPoint().z),
     ];
 
     // Step 3: Apply rotation to each corner
@@ -689,6 +694,31 @@ function getYValue(x1, y1, x2, y2, x) {
     return m * x + b; // Compute y for given x
 };
 
+function getZValue(point1, point2, point3, x, y) {
+    const { x: x1, y: y1, z: z1 } = point1;
+    const { x: x2, y: y2, z: z2 } = point2;
+    const { x: x3, y: y3, z: z3 } = point3;
+
+    // Compute two vectors on the plane
+    const v1 = { x: x2 - x1, y: y2 - y1, z: z2 - z1 };
+    const v2 = { x: x3 - x1, y: y3 - y1, z: z3 - z1 };
+
+    // Compute the normal vector (adjusted for left-handed system)
+    const A = -(v1.y * v2.z - v1.z * v2.y);
+    const B = -(v1.z * v2.x - v1.x * v2.z);
+    const C = -(v1.x * v2.y - v1.y * v2.x);
+
+    if (C === 0) {
+        throw new Error("The plane is vertical, z cannot be determined for a given x, y.");
+    }
+
+    // Compute D using one of the points
+    const D = -(A * x1 + B * y1 + C * z1);
+
+    // Solve for z in Ax + By + Cz + D = 0
+    return (-A * x - B * y - D) / C;
+};
+
 function beginFit2(babCoords, coords, scene, viewportSize) {
     let YmaxOrign = getYValue(babCoords[0].x, babCoords[0].y, babCoords[1].x, babCoords[1].y, 0);
     let YminOrign = getYValue(babCoords[3].x, babCoords[3].y, babCoords[2].x, babCoords[2].y, 0);
@@ -751,6 +781,17 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         }
         
         console.log("exit");
+
+        scene.render();
+    
+        boundingBoxInfo = scene.meshes[0].getHierarchyBoundingVectors();
+        max = boundingBoxInfo.max;
+        min = boundingBoxInfo.min;
+        let xLeftDiff = Math.max(...babCoords.map(obj => obj.x)) - max.x;
+        let xRightDiff = Math.min(...babCoords.map(obj => obj.x)) - min.x;
+
+        //scaleFromOneSide(boundingBox, Math.abs(xLeftDiff), "x", "p", scene);
+        // scaleFromOneSide(boundingBox, Math.abs(xRightDiff), "x", "n", scene);
     }
 
 };
