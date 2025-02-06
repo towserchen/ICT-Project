@@ -8,6 +8,7 @@ let rootMeshScale = new BABYLON.Vector3(0.9, -0.73, -3.5);
 let boundingBoxAbsoluteScale = new BABYLON.Vector3(1.44, 1, 0.29);
 let rootStartMeshScale = boundingBoxAbsoluteScale.divide(rootMeshScale).multiply(new BABYLON.Vector3(1, -1, -1));
 let boundingBox = null;
+let gizmo = null;
 let rootMeshAbsoluteScale = new BABYLON.Vector3(1,-1,1);
 let meshScaling = {};
 let meshPosition = {};
@@ -148,6 +149,13 @@ const createScene = async () => {
     }
 
     boundingBox = BABYLON.BoundingBoxGizmo.MakeNotPickableAndWrapInBoundingBox(scene.meshes[0]);
+    boundingBox.position = new BABYLON.Vector3(0, 0, 0);
+    boundingBox._absolutePosition = new BABYLON.Vector3(0, 0, 0);
+
+    // let utilityLayer = new BABYLON.UtilityLayerRenderer(scene);
+	// gizmo = new BABYLON.BoundingBoxGizmo(BABYLON.Color3.FromHexString('#0984e3'), utilityLayer);
+    // gizmo.fixedDragMeshScreenSize = true;
+    // gizmo.attachedMesh = boundingBox;
 
     scene.clearColor = null;
 
@@ -307,6 +315,10 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
 
     let zOffset = scene.meshes[0]._absolutePosition.z - getZValue(originalModelCorners[0], originalModelCorners[1], originalModelCorners[2], mesh.position.x, mesh.position.y);
 
+    if (Math.abs(zOffset) > 0.01) {
+        mesh.position.z -= zOffset;
+    };
+
     mesh.computeWorldMatrix(true);
     boundingBoxInfo = mesh.getBoundingInfo();
     scene.meshes[0].computeWorldMatrix(true);
@@ -315,6 +327,57 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
     nMax = boundingVectors.max;
     console.log("BB f max: ", boundingBoxInfo.boundingBox.maximumWorld);
     console.log("fMax: ", nMax);
+};
+
+function scaleFromOneSide2(scene, distance, scaleAxis, direction) {
+    const originalParent = scene.meshes[48].parent;
+    const anchor = new BABYLON.TransformNode("anchor");
+    anchor.scaling = new BABYLON.Vector3(1, 1, 1);
+    anchor.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(anchor.rotation.y, anchor.rotation.x, anchor.rotation.z);
+    anchor.rotationQuaternion.copyFrom(scene.meshes[48].rotationQuaternion);
+    anchor.position.copyFrom(scene.meshes[48].absolutePosition);
+    let boundingBoxInfo = scene.meshes[0].getHierarchyBoundingVectors();
+    let min = boundingBoxInfo.min;
+    let max = boundingBoxInfo.max;
+    const boundingDimensions = max.subtract(min);
+
+    let modelCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+
+    BABYLON.PivotTools._RemoveAndStorePivotPoint(scene.meshes[48]);
+    const deltaScale = new BABYLON.Vector3(1, 1, 1);
+    if (scaleAxis === "x") {
+        if (direction === "p") {
+            let targetScale = scene.meshes[48].scaling.x + (distance * (3.175703287124634 / 2.9016152629628778));
+            deltaScale.x = targetScale / scene.meshes[48].scaling.x;
+            let midPoint = getMidpoint(modelCorners[0], modelCorners[3]);
+            anchor.position = new BABYLON.Vector3(midPoint.x, midPoint.y, midPoint.z);
+        } else if (direction === "n") {
+            let targetScale = scene.meshes[48].scaling.x + (distance * (3.175703287124634 / 2.9016152629628778)); // need to replace with no magic numbers
+            deltaScale.x = targetScale / scene.meshes[48].scaling.x;
+            let midPoint = getMidpoint(modelCorners[1], modelCorners[2]);
+            anchor.position = new BABYLON.Vector3(midPoint.x, midPoint.y, midPoint.z);
+        }
+    } else if (scaleAxis === "y") {
+        if (direction === "p") {
+            deltaScale.y = distance;
+            let midPoint = getMidpoint(modelCorners[1], modelCorners[0]);
+            anchor.position = new BABYLON.Vector3(midPoint.x, midPoint.y, midPoint.z);
+        } else if (direction === "n") {
+            deltaScale.y = distance;
+            let midPoint = getMidpoint(modelCorners[2], modelCorners[3]);
+            anchor.position = new BABYLON.Vector3(midPoint.x, midPoint.y, midPoint.z);
+        }
+    }
+
+    anchor.addChild(scene.meshes[48]);
+    anchor.scaling = deltaScale;
+    anchor.removeChild(scene.meshes[48]);
+    scene.meshes[48].setParent(originalParent);
+    BABYLON.PivotTools._RestorePivotPoint(scene.meshes[48]);
+
+    scene.meshes[48].computeWorldMatrix(true);
+    scene.meshes[0].computeWorldMatrix(true);
+    //setModelMeshScaling(scene);
 };
 
 function setModelMeshScaling(scene) {
@@ -622,7 +685,7 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
 
     for (let i = 0; i < localCorners.length; i++) {
         let temp = new BABYLON.Vector3();
-        localCorners[i].rotateByQuaternionAroundPointToRef(rotationQuaternion, scene.meshes[0].getAbsolutePivotPoint(), temp);
+        localCorners[i].rotateByQuaternionAroundPointToRef(rotationQuaternion, scene.meshes[48].getAbsolutePivotPoint(), temp);
         rotatedCorners.push(temp);
     }
 
@@ -719,6 +782,82 @@ function getZValue(point1, point2, point3, x, y) {
     return (-A * x - B * y - D) / C;
 };
 
+function getMidpoint(point1, point2) {
+    return {
+        x: (point1.x + point2.x) / 2,
+        y: (point1.y + point2.y) / 2,
+        z: (point1.z + point2.z) / 2
+    };
+};
+
+function getPointOnLineByX(point1, point2, x) {
+    const { x: x1, y: y1, z: z1 } = point1;
+    const { x: x2, y: y2, z: z2 } = point2;
+
+    if (x1 === x2) {
+        throw new Error("The line is vertical; y and z cannot be determined for a given x.");
+    }
+
+    // Solve for t
+    const t = (x - x1) / (x2 - x1);
+
+    // Calculate y and z using t
+    return {
+        x: x,
+        y: y1 + t * (y2 - y1),
+        z: z1 + t * (z2 - z1)
+    };
+};
+
+function getLineLength(point1, point2) {
+    return Math.sqrt(
+        Math.pow(point2.x - point1.x, 2) +
+        Math.pow(point2.y - point1.y, 2) +
+        Math.pow(point2.z - point1.z, 2)
+    );
+};
+
+function getPlaneLineIntersection(planePoint1, planePoint2, planePoint3, linePoint1, linePoint2) {
+    const { x: x1, y: y1, z: z1 } = planePoint1;
+    const { x: x2, y: y2, z: z2 } = planePoint2;
+    const { x: x3, y: y3, z: z3 } = planePoint3;
+
+    // Compute two vectors on the plane
+    const v1 = { x: x2 - x1, y: y2 - y1, z: z2 - z1 };
+    const v2 = { x: x3 - x1, y: y3 - y1, z: z3 - z1 };
+
+    // Compute the normal vector (negated cross product for left-handed system)
+    const A = -(v1.y * v2.z - v1.z * v2.y);
+    const B = -(v1.z * v2.x - v1.x * v2.z);
+    const C = -(v1.x * v2.y - v1.y * v2.x);
+    const D = -(A * x1 + B * y1 + C * z1);
+
+    // Line points
+    const { x: xL1, y: yL1, z: zL1 } = linePoint1;
+    const { x: xL2, y: yL2, z: zL2 } = linePoint2;
+
+    // Parametric line equation components
+    const dx = xL2 - xL1;
+    const dy = yL2 - yL1;
+    const dz = zL2 - zL1;
+
+    // Solve for t in Ax + By + Cz + D = 0
+    const denominator = A * dx + B * dy + C * dz;
+
+    if (denominator === 0) {
+        throw new Error("The line is parallel to the plane or lies within it; no unique intersection.");
+    }
+
+    const t = -(A * xL1 + B * yL1 + C * zL1 + D) / denominator;
+
+    // Compute intersection point
+    return {
+        x: xL1 + t * dx,
+        y: yL1 + t * dy,
+        z: zL1 + t * dz
+    };
+};
+
 function beginFit2(babCoords, coords, scene, viewportSize) {
     let YmaxOrign = getYValue(babCoords[0].x, babCoords[0].y, babCoords[1].x, babCoords[1].y, 0);
     let YminOrign = getYValue(babCoords[3].x, babCoords[3].y, babCoords[2].x, babCoords[2].y, 0);
@@ -784,14 +923,39 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
         scene.render();
     
-        boundingBoxInfo = scene.meshes[0].getHierarchyBoundingVectors();
-        max = boundingBoxInfo.max;
-        min = boundingBoxInfo.min;
-        let xLeftDiff = Math.max(...babCoords.map(obj => obj.x)) - max.x;
-        let xRightDiff = Math.min(...babCoords.map(obj => obj.x)) - min.x;
+        let modelBabCoreners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+        let midPointRight = getMidpoint(modelBabCoreners[0], modelBabCoreners[3]); // right mid point
+        let midPointLeft = getMidpoint(modelBabCoreners[1], modelBabCoreners[2]); //left mid point
+        let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft);
+        // let targetX = getMidpoint(babCoords[0], babCoords[3]).x;
+        // let targetPoint = getPointOnLineByX(midPointRight, midPointLeft, targetX);
+        let leftDiff = getLineLength(midPointLeft, targetPoint);
+        scaleFromOneSide2(scene, leftDiff, "x", "p");
+
+        modelBabCoreners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+        midPointRight = getMidpoint(modelBabCoreners[0], modelBabCoreners[3]); // right mid point
+        midPointLeft = getMidpoint(modelBabCoreners[1], modelBabCoreners[2]); //left mid point
+        targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft);
+        let rightDiff = getLineLength(midPointRight, targetPoint);
+        scaleFromOneSide2(scene, rightDiff + 0.2, "x", "n"); // maybe need to a add a fix ammount or a percentage of the diff or total or set mid point to min z for the furthest side
+
+        placeMarkers(scene, viewportSize);
+        
+        scene.render();
+
+        modelBabCoreners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+        midPointRight = getMidpoint(modelBabCoreners[0], modelBabCoreners[3]); // right mid point
+        midPointLeft = getMidpoint(modelBabCoreners[1], modelBabCoreners[2]); //left mid point
+
+        const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
+        sphere.position = new BABYLON.Vector3(midPointRight.x, midPointRight.y, midPointRight.z);
+
+        const sphere2 = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
+        sphere2.position = new BABYLON.Vector3(midPointLeft.x, midPointLeft.y, midPointLeft.z);
 
         //scaleFromOneSide(boundingBox, Math.abs(xLeftDiff), "x", "p", scene);
         // scaleFromOneSide(boundingBox, Math.abs(xRightDiff), "x", "n", scene);
+        console.log("exit");
     }
 
 };
