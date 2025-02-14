@@ -942,14 +942,6 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         clockwiseYRotation = null;
     }
 
-    if (leftInclination + (180 - rightInlination) > 180) {
-        forwardsXRotation = false;
-    } else if (leftInclination + (180 - rightInlination) < 180) {
-        forwardsXRotation = true;
-    } else {
-        forwardsXRotation = null;
-    }
-
     let modelCorners = getProjectedCorners(scene);
 
     if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) { // correct z axis first
@@ -1083,7 +1075,12 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let closest = {bottom: 360, top: 0};
 
         while (topDiff > 0.1) {
-            boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+
+            if (clockwiseZRotation) {
+                boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
+            } else {
+                boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+            }
     
             boundingBox.computeWorldMatrix(true);
             modelCorners = getProjectedCorners(scene);
@@ -1117,7 +1114,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
         targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft);
         let rightDistanceDiff = getLineLength(midPointRight, targetPoint);
-        scaleFromOneSide2(scene, rightDistanceDiff + 0.25, "x", "n"); // maybe need to a add a fix ammount or a percentage of the diff or total or set mid point to min z for the furthest side
+        scaleFromOneSide2(scene, rightDistanceDiff, "x", "n"); // maybe need to a add a fix ammount or a percentage of the diff or total or set mid point to min z for the furthest side
 
         placeMarkers(scene, viewportSize);
         
@@ -1138,6 +1135,17 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
         let rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
 
+        let leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
+        let rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
+
+        if (leftModelInclination + (180 - rightModelInclination) > 180) {
+            forwardsXRotation = false;
+        } else if (leftModelInclination + (180 - rightModelInclination) < 180) {
+            forwardsXRotation = true;
+        } else {
+            forwardsXRotation = null;
+        }
+
         tolerance = 0.015;
 
         while (Math.abs(leftDiff - rightDiff) > tolerance) { 
@@ -1145,7 +1153,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             
             // Adjust step size based on error magnitude
             let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
-            if (forwardsXRotation) {
+            if (!forwardsXRotation) {
                 step = -step;
             }            
 
@@ -1165,93 +1173,6 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
 };
 
-function beginFit1(coords, scene) {
-    let areSidesPara = true; // could reverse
-    let leftRightAngle = calculateAngleBetweenLines(coords[0], coords[3], coords[1], coords[2]);
-    let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
-    let rightInlination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
-
-    let diff = rightInlination - leftInclination;
-
-    if ( leftRightAngle > 0.001 || leftRightAngle < -0.001) {
-        areSidesPara = false;
-    }
-
-    let modelCorners = getProjectedCorners(scene); 
-
-    if (!areSidesPara) {
-        let leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]); // TODO: fix this as the corners are in a differnt order
-        if (diff > 0) {
-            while (leftSideDiff > (diff / 2)) {
-                // // Create a small rotation quaternion for the x-axis
-                // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.X, 0.01); // Adjust the angle as needed
-                // // Apply the small rotation to the bounding box's current rotation quaternion
-                // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
-
-                boundingBox.rotate(BABYLON.Axis.X, -0.01, BABYLON.Space.LOCAL);
-
-                boundingBox.computeWorldMatrix(true);
-                modelCorners = getProjectedCorners(scene);
-                leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
-                
-                const camera = scene.cameras[0];
-                const depth = camera.radius; // Distance from the camera
-                const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
-                clearMarkers(scene);
-                placeMarkers(scene, viewportSize);
-            }
-
-            if (leftInclination < 90) {
-                while (leftSideDiff > 0.1) {
-                    // // Create a small rotation quaternion for the x-axis
-                    // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, -0.001); // Adjust the angle as needed
-                    // // Apply the small rotation to the bounding box's current rotation quaternion
-                    // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
-
-                    boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
-    
-                    boundingBox.computeWorldMatrix(true);
-                    modelCorners = getProjectedCorners(scene);
-                    leftSideDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
-    
-                    const camera = scene.cameras[0];
-                    const depth = camera.radius; // Distance from the camera
-                    const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
-                    clearMarkers(scene);
-                    placeMarkers(scene, viewportSize);
-                }
-            }
-
-            let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-
-            while (topDiff > 1) {
-                // // Create a small rotation quaternion for the x-axis
-                // let smallRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Y, -0.01); // Adjust the angle as needed
-                // // Apply the small rotation to the bounding box's current rotation quaternion
-                // boundingBox.rotationQuaternion = smallRotation.multiply(boundingBox.rotationQuaternion);
-
-                boundingBox.rotate(BABYLON.Axis.Y, -0.01, BABYLON.Space.LOCAL);
-
-                boundingBox.computeWorldMatrix(true);
-                modelCorners = getProjectedCorners(scene);
-                topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-                console.log("top diff: ", topDiff);
-
-                const camera = scene.cameras[0];
-                const depth = camera.radius; // Distance from the camera
-                const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
-                clearMarkers(scene);
-                placeMarkers(scene, viewportSize);
-            }
-        }
-    }
-
-    let modelrightInlination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
-    let modelLeftInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
-    let fTopDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-    console.log("here");
-};
-
 (async () => {
     const scene = await createScene();
     console.log(scene.meshes);
@@ -1264,9 +1185,9 @@ function beginFit1(coords, scene) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-
-    const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999] // drawn quad for 1.jpg
-    // const coords = [363.2151424287856, 92.14992503748127, 955.1011994002998, 203.2023988005997, 955.1011994002998, 533.9970014992504, 384.48050974512745, 692.3058470764618]; // drawn quad for 5.jpg
+    // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
+    // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
+    const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
     for (let i = 0; i < coords.length; i += 2) {
         coordsJ.push({ x: coords[i], y: coords[i + 1]});
