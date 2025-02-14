@@ -954,22 +954,51 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let minStep = 0.001; // Smallest step size for fine-tuning
         let stepFactor = 0.01; // Determines step size scaling
 
-        while (Math.abs(bottomDiff - topDiff) > tolerance) { 
-            let error = bottomDiff - topDiff;
+        let optimise = false;
+        let reverse = false;
+
+        let error = Math.abs(bottomDiff - topDiff);
+        let total = bottomDiff + topDiff;
+
+        while (!optimise || error > tolerance) { // need to test
+            let magnitude = total;
+            if (optimise) {
+                magnitude = error;
+            }
             
-            // Adjust step size based on error magnitude
-            let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
+            let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // this needs to be improved
 
             if (clockwiseZRotation) {
                 step = -step;
             }
+            if (reverse) {
+                step = -step;
+            }
 
             boundingBox.rotate(BABYLON.Axis.Z, error > 0 ? -step : step, BABYLON.Space.LOCAL);
-
             boundingBox.computeWorldMatrix(true); // do we need to update the mesh here? I'm thinking not as the mesh itself is not being changed
             modelCorners = getProjectedCorners(scene);
             bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
             topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+            let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+            let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
+
+            if (clockwiseZRotation && (topModelInclination <= topInclination || bottomModelInclination <= bottomInclination)) {
+                optimise = true;
+            }
+
+            if (!clockwiseZRotation && (topModelInclination >= topInclination || bottomModelInclination >= bottomInclination)) {
+                optimise = true;
+            }
+
+            if (clockwiseZRotation && topModelInclination < topInclination && bottomModelInclination < bottomInclination) {
+                reverse = true;
+            } else {
+                reverse = false; // don't like this could cause osillations
+            }
+
+            error =  Math.abs(bottomDiff - topDiff)
+            total = topDiff + bottomDiff;
 
             clearMarkers(scene);
             placeMarkers(scene, viewportSize);
@@ -1039,7 +1068,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
             let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
-            if (!clockwiseYRotation && topModelInclination < topInclination) {
+            if (!clockwiseYRotation && topModelInclination < topInclination) { // can simplify like z algo
                 topPastEven = true;
             } else if (clockwiseYRotation && topModelInclination > topInclination) {
                 topPastEven = true;
@@ -1061,7 +1090,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             if (topPastEven && bottomPastEven) {
                 reverse = true;
             } else {
-                reverse = false;
+                reverse = false; // don't like this could cause osillations
             }
 
             error =  Math.abs(bottomDiff - topDiff)
@@ -1104,8 +1133,6 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // right mid point
         let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
         targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft);
-        // let targetX = getMidpoint(babCoords[0], babCoords[3]).x;
-        // let targetPoint = getPointOnLineByX(midPointRight, midPointLeft, targetX);
         let leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
         scaleFromOneSide2(scene, leftDistanceDiff, "x", "p");
 
