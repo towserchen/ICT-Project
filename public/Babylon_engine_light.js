@@ -908,7 +908,10 @@ function getQuadrilateralCenterByDiagonalIntersection(p1, p2, p3, p4) {
 };
 
 function beginFit2(babCoords, coords, scene, viewportSize) {
-    const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]);
+    const localXAxis = 'x';
+    const localZAxis = 'z';
+
+    const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // will need a rework for z x axis switch
     boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
     boundingBox.computeWorldMatrix(true);
     scene.meshes[0].computeWorldMatrix(true);
@@ -920,6 +923,9 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
     let rightInlination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
 
+    let topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000});
+    let bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
+
     if ((leftInclination < 90 && rightInlination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInlination)) {
         clockwiseZRotation = false;
     } else if ((rightInlination > 90 && leftInclination > 90) || (rightInlination > 90 && 180 - rightInlination < leftInclination)) {
@@ -928,18 +934,25 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         clockwiseZRotation = null;
     }
 
-    if (leftInclination + 180 - rightInlination > 180) {
+    if (topInclination - bottomInclination > 0) {
+        clockwiseYRotation = true;
+    } else if (topInclination - bottomInclination < 0) {
+        clockwiseYRotation = false;
+    } else  {
+        clockwiseYRotation = null;
+    }
+
+    if (leftInclination + (180 - rightInlination) > 180) {
         forwardsXRotation = false;
-    } else if (leftInclination + 180 - rightInlination < 180) {
+    } else if (leftInclination + (180 - rightInlination) < 180) {
         forwardsXRotation = true;
     } else {
         forwardsXRotation = null;
     }
 
-    let topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000});
-    let bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
+    let modelCorners = getProjectedCorners(scene);
 
-    if ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90)) {
+    if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) { // correct z axis first
         // rotate on z axis until top and bottom diff are even (assuming yz -> xz -> yz flow) // this is flawed as it doesn't account for local minimas. 
         let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
         let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
@@ -961,7 +974,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
             boundingBox.rotate(BABYLON.Axis.Z, error > 0 ? -step : step, BABYLON.Space.LOCAL);
 
-            boundingBox.computeWorldMatrix(true);
+            boundingBox.computeWorldMatrix(true); // do we need to update the mesh here? I'm thinking not as the mesh itself is not being changed
             modelCorners = getProjectedCorners(scene);
             bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
             topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
@@ -971,9 +984,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         }
     }
 
-    scene.meshes[0].computeWorldMatrix(true);
-
-    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // this may need a rework for z x axis switch
     let topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // top mid point
     let bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // bottom mid point
     let targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[0], babCoords[1]);
@@ -988,24 +999,13 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     //scaleFromOneSide2(scene, Math.abs(yTopDiff), "y", "p");
     //setModelMeshScaling(scene);
 
-    scaleFromOneSide(boundingBox, Math.abs(bottomHeightDiff), "y", "n",scene); // This works so much better than scaleFromOneSide2 and not 100% sure why
+    scaleFromOneSide(boundingBox, Math.abs(bottomHeightDiff), "y", "n",scene); // This works so much better than scaleFromOneSide2 and not 100% sure why yet
     scaleFromOneSide(boundingBox, Math.abs(topHeightDiff), "y", "p", scene);
     placeMarkers(scene, viewportSize);
 
-    if (topInclination - bottomInclination > 0) {
-        clockwiseYRotation = true;
-    } else if (topInclination - bottomInclination < 0) {
-        clockwiseYRotation = false;
-    } else  {
-        clockwiseYRotation = null;
-    }
+    let topBottomDiff = Math.abs(Math.abs(topInclination - 90) - Math.abs(bottomInclination - 90));
 
-    topInclination = Math.abs(topInclination - 90);
-    bottomInclination = Math.abs(bottomInclination - 90);
-
-    let topBottomDiff = Math.abs(topInclination - bottomInclination);
-
-    let modelCorners = getProjectedCorners(scene);
+    modelCorners = getProjectedCorners(scene);
 
     if (topBottomDiff > 0.1) {
         let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
@@ -1013,21 +1013,67 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
         let tolerance = 0.01;
         let maxStep = 0.1; // Start with a larger step size
-        let minStep = 0.001; // Smallest step size for fine-tuning
+        let minStep = 0.0001; // Smallest step size for fine-tuning
         let stepFactor = 0.01; // Determines step size scaling
 
-        while (Math.abs(bottomDiff - topDiff) > tolerance) { 
-            let error = bottomDiff - topDiff;
+        let optimise = false;
+        let reverse = false;
+        let topPastEven = false;
+        let bottomPastEven = false;
+
+        let error =  Math.abs(bottomDiff - topDiff)
+        let total = topDiff + bottomDiff;
+
+        while (!optimise || error > tolerance) { // side with the smaller inclination will have to go past the even point before we can start optimising for even diff between sides otherwise could find a local minima that z axis cant correct for. // this is flawed as it doesn't account for uneven rate of change           
+            let magnitude = total;
+            if (optimise) {
+                magnitude = error;
+            }
+        
+            let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // this needs to be improved
             
-            // Adjust step size based on error magnitude
-            let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
+            if (clockwiseYRotation) {
+                step = -step;
+            }
+            if (reverse) {
+                step = -step;
+            }
 
-            boundingBox.rotate(BABYLON.Axis.Y, error > 0 ? -step : step, BABYLON.Space.LOCAL);
-
+            boundingBox.rotate(BABYLON.Axis.Y, error > 0 ? -step : -step, BABYLON.Space.LOCAL);
             boundingBox.computeWorldMatrix(true);
             modelCorners = getProjectedCorners(scene);
             bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
             topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+            let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+            let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
+
+            if (!clockwiseYRotation && topModelInclination < topInclination) {
+                topPastEven = true;
+            } else if (clockwiseYRotation && topModelInclination > topInclination) {
+                topPastEven = true;
+            } else {
+                topPastEven = false;
+            }
+
+            if (!clockwiseYRotation && bottomModelInclination > bottomInclination) {
+                bottomPastEven = true;
+            } else if (clockwiseYRotation && bottomModelInclination < bottomInclination) {
+                bottomPastEven = true;
+            } else {
+                bottomPastEven = false
+            }
+
+            if (topPastEven || bottomPastEven) {
+                optimise = true;
+            }
+            if (topPastEven && bottomPastEven) {
+                reverse = true;
+            } else {
+                reverse = false;
+            }
+
+            error =  Math.abs(bottomDiff - topDiff)
+            total = topDiff + bottomDiff;
 
             clearMarkers(scene);
             placeMarkers(scene, viewportSize);
@@ -1063,15 +1109,15 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft);
         // let targetX = getMidpoint(babCoords[0], babCoords[3]).x;
         // let targetPoint = getPointOnLineByX(midPointRight, midPointLeft, targetX);
-        let leftDiff = getLineLength(midPointLeft, targetPoint);
-        scaleFromOneSide2(scene, leftDiff, "x", "p");
+        let leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
+        scaleFromOneSide2(scene, leftDistanceDiff, "x", "p");
 
         modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
         midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // right mid point
         midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
         targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft);
-        let rightDiff = getLineLength(midPointRight, targetPoint);
-        scaleFromOneSide2(scene, rightDiff + 0.2, "x", "n"); // maybe need to a add a fix ammount or a percentage of the diff or total or set mid point to min z for the furthest side
+        let rightDistanceDiff = getLineLength(midPointRight, targetPoint);
+        scaleFromOneSide2(scene, rightDistanceDiff + 0.25, "x", "n"); // maybe need to a add a fix ammount or a percentage of the diff or total or set mid point to min z for the furthest side
 
         placeMarkers(scene, viewportSize);
         
@@ -1087,8 +1133,33 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         const sphere2 = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
         sphere2.position = new BABYLON.Vector3(midPointLeft.x, midPointLeft.y, midPointLeft.z);
 
-        //scaleFromOneSide(boundingBox, Math.abs(xLeftDiff), "x", "p", scene);
-        // scaleFromOneSide(boundingBox, Math.abs(xRightDiff), "x", "n", scene);
+        modelCorners = getProjectedCorners(scene);
+
+        let leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
+        let rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
+
+        tolerance = 0.015;
+
+        while (Math.abs(leftDiff - rightDiff) > tolerance) { 
+            let error = leftDiff - rightDiff;
+            
+            // Adjust step size based on error magnitude
+            let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
+            if (forwardsXRotation) {
+                step = -step;
+            }            
+
+            boundingBox.rotate(BABYLON.Axis.X, error > 0 ? -step : step, BABYLON.Space.LOCAL);
+
+            boundingBox.computeWorldMatrix(true);
+            modelCorners = getProjectedCorners(scene);
+            leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
+            rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
+
+            clearMarkers(scene);
+            placeMarkers(scene, viewportSize);
+        }
+
         console.log("exit");
     }
 
@@ -1194,7 +1265,8 @@ function beginFit1(coords, scene) {
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
 
-    const coords = [363.2151424287856, 92.14992503748127, 955.1011994002998, 203.2023988005997, 955.1011994002998, 533.9970014992504, 384.48050974512745, 692.3058470764618];
+    const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999] // drawn quad for 1.jpg
+    // const coords = [363.2151424287856, 92.14992503748127, 955.1011994002998, 203.2023988005997, 955.1011994002998, 533.9970014992504, 384.48050974512745, 692.3058470764618]; // drawn quad for 5.jpg
     const coordsJ = [];
     for (let i = 0; i < coords.length; i += 2) {
         coordsJ.push({ x: coords[i], y: coords[i + 1]});
