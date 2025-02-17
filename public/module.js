@@ -1,51 +1,39 @@
+import { putModel } from "./Babylon_engine_light.js";
+
 // Call the function after OpenCV is ready
 window.onload = function() {
     cv['onRuntimeInitialized'] = async () => {
         // Load the image from a URL
-        const renderCanvas = document.getElementById('renderCanvas')
+        /*const renderCanvas = document.getElementById('renderCanvas')
         
         let imageUrl = './sample/5.jpg';    
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
         let result = await autoDetectBlindOpenings(imageUrl, false);
         console.log(result);
         result = await manualDetectBlindOpenings();
-        console.log(result);
-        
-        // let imageUrl = './sample/1.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // let result = await autoDetectBlindOpenings(imageUrl, false);
-        // console.log(result);
+        console.log(result);*/
 
-        // let imageUrl = './sample/5.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // let result = await autoDetectBlindOpenings(imageUrl, false);
-        // console.log(result);
-        // result = await manualDetectBlindOpenings();
-        // console.log(result);
+        const btnDoms = document.getElementsByClassName('show-img');
 
-        // imageUrl = './sample/7.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // result = await autoDetectBlindOpenings(imageUrl, false);
-        // console.log(result);
-        // result = await manualDetectBlindOpenings();
-        // console.log(result);
-        
-        // imageUrl = './sample/14.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // result = await autoDetectBlindOpenings(imageUrl);
-        // console.log(result);
-        // result = await manualDetectBlindOpenings();
-        // console.log(result);
-        
-        // imageUrl = './sample/12.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // result = await autoDetectBlindOpenings(imageUrl);
-        // console.log(result);
-        
-        // imageUrl = './sample/16.jpg';    
-        // renderCanvas.style.backgroundImage = `url(${imageUrl})`;
-        // result = await autoDetectBlindOpenings(imageUrl);
-        // console.log(result);
+        for (let i = 0; i < btnDoms.length; i++) {
+            btnDoms[i].addEventListener('click', async function(e) {
+                const imageId = e.target.getAttribute('data-id');
+                const isWindowDetected = e.target.getAttribute('data-is-window') || 0;
+                const renderCanvas = document.getElementById('renderCanvas')
+                
+                let imageUrl = `./sample/${imageId}.jpg`;
+                renderCanvas.style.backgroundImage = `url(${imageUrl})`;
+                
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const imageFile = new File([blob], 'userImage.jpg', { type: blob.type });
+
+                const result = await autoDetectBlindOpeningsByAI(imageFile, isWindowDetected, 0);
+                console.log(result[0].flat());
+                putModel(result[0].flat());
+                //putModel([337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]);
+            });
+        }
     };
 };
 

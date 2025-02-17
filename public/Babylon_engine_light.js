@@ -198,6 +198,7 @@ function getViewportSizeAtDepth(camera, scene, depth) {
 
 function scaleToBabylonSpace(cornerCoords, imageWidth, imageHeight, viewportWidth, viewportHeight) {
     const babylonCoords = [];
+
     for (let i = 0; i < cornerCoords.length; i += 2) {
         const x = cornerCoords[i];
         const y = cornerCoords[i + 1];
@@ -1184,7 +1185,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         tolerance = 0.015;
 
         while (Math.abs(leftDiff - rightDiff) > tolerance) { 
-            let error = leftDiff - rightDiff;
+            
+            let error = Math.abs(leftDiff - rightDiff)
             
             // Adjust step size based on error magnitude
             let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
@@ -1208,74 +1210,77 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
 };
 
-(async () => {
-    const scene = await createScene();
-    console.log(scene.meshes);
-   
-    setGlobalMeshPositionAndScale(scene);
 
-    const axesViewer = new BABYLON.AxesViewer(scene);
-
-    const camera = scene.cameras[0];
-    const depth = camera.radius; // Distance from the camera
-    const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
-    console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
-    // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
-    const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
-    const coordsJ = [];
-    for (let i = 0; i < coords.length; i += 2) {
-        coordsJ.push({ x: coords[i], y: coords[i + 1]});
-    }
-    const babCoords = scaleToBabylonSpace(coords, canvas.width, canvas.height, viewportSize.width, viewportSize.height);
-
-    console.log("Quad bab coords: ", babCoords);
-
-    babCoords.forEach(coord => {
-        const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.2 }, scene);
-        sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
-    });
-
-    const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
-
-    // Get the minimum and maximum bounds of the entire hierarchy
-    const minimum = boundingVectors.min;
-    const maximum = boundingVectors.max;
-
-    // Calculate the size of the model
-    const modWidth = maximum.x - minimum.x;   // Size along the X-axis
-    const modHeight = maximum.y - minimum.y; // Size along the Y-axis
-    const modDepth = maximum.z - minimum.z;  // Size along the Z-axis
-
-    console.log("Model Dimensions:");
-    console.log(`Width: ${modWidth}, Height: ${modHeight}, Depth: ${modDepth}`);
+export async function putModel(coords) {
+        const scene = await createScene();
+        console.log(scene.meshes);
     
-    const quaternion =  new BABYLON.Quaternion.FromEulerAngles(
-        BABYLON.Tools.ToRadians(0),
-        BABYLON.Tools.ToRadians(180),
-        BABYLON.Tools.ToRadians(0)
-    );
+        setGlobalMeshPositionAndScale(scene);
 
-    // console.log(scene.meshes[0].rotationQuaternion);
-    console.log("local root pp: ", scene.meshes[0].getPivotPoint());
-    console.log("absolute root pp: ", scene.meshes[0].getAbsolutePivotPoint());
-    console.log("local box pp: ", scene.meshes[48].getPivotPoint());
-    console.log("absolute box pp: ", scene.meshes[48].getAbsolutePivotPoint());
+        const axesViewer = new BABYLON.AxesViewer(scene);
 
-    engine.runRenderLoop(() => {
-        scene.render();
-    });
+        console.log(coords);
 
-    scaleOps(scene, babCoords); // shouldn't technically need this but works better with it
-    scene.meshes[48].rotationQuaternion = quaternion;
+        const camera = scene.cameras[0];
+        const depth = camera.radius; // Distance from the camera
+        const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
+        console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
+        // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
+        // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
+        
+        const coordsJ = [];
+        for (let i = 0; i < coords.length; i += 2) {
+            coordsJ.push({ x: coords[i], y: coords[i + 1]});
+        }
+        const babCoords = scaleToBabylonSpace(coords, canvas.width, canvas.height, viewportSize.width, viewportSize.height);
 
-    scene.onReadyObservable.addOnce(() => {
-        placeMarkers(scene, viewportSize);
-        beginFit2(babCoords, coordsJ, scene, viewportSize);
-        //beginFit1(coordsJ, scene);
-    });
+        console.log("Quad bab coords: ", babCoords);
 
-    window.addEventListener("resize", () => {
-        engine.resize();
-    });
-})();
+        babCoords.forEach(coord => {
+            const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.2 }, scene);
+            sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
+        });
+
+        const boundingVectors = scene.meshes[0].getHierarchyBoundingVectors();
+
+        // Get the minimum and maximum bounds of the entire hierarchy
+        const minimum = boundingVectors.min;
+        const maximum = boundingVectors.max;
+
+        // Calculate the size of the model
+        const modWidth = maximum.x - minimum.x;   // Size along the X-axis
+        const modHeight = maximum.y - minimum.y; // Size along the Y-axis
+        const modDepth = maximum.z - minimum.z;  // Size along the Z-axis
+
+        console.log("Model Dimensions:");
+        console.log(`Width: ${modWidth}, Height: ${modHeight}, Depth: ${modDepth}`);
+        
+        const quaternion =  new BABYLON.Quaternion.FromEulerAngles(
+            BABYLON.Tools.ToRadians(0),
+            BABYLON.Tools.ToRadians(180),
+            BABYLON.Tools.ToRadians(0)
+        );
+
+        // console.log(scene.meshes[0].rotationQuaternion);
+        console.log("local root pp: ", scene.meshes[0].getPivotPoint());
+        console.log("absolute root pp: ", scene.meshes[0].getAbsolutePivotPoint());
+        console.log("local box pp: ", scene.meshes[48].getPivotPoint());
+        console.log("absolute box pp: ", scene.meshes[48].getAbsolutePivotPoint());
+
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        scaleOps(scene, babCoords); // shouldn't technically need this but works better with it
+        scene.meshes[48].rotationQuaternion = quaternion;
+
+        scene.onReadyObservable.addOnce(() => {
+            placeMarkers(scene, viewportSize);
+            beginFit2(babCoords, coordsJ, scene, viewportSize);
+            //beginFit1(coordsJ, scene);
+        });
+
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
+    }

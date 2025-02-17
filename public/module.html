@@ -81,19 +81,19 @@
         width: 159px;
         height: auto;
       }
+
+      #control-area {
+        position: fixed;
+        z-index: 99999;
+      }
     </style>
     <!-- Load the OpenCV.js and other libraries -->
-    <script async src="./libs/opencv.js" type="text/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.js"></script>
 
     <!-- Load main JavaScript file -->
-    
-    <script src="./Babylon_engine_light.js" type="module"></script>
-   
-    <script src="./module.js" type="module"></script>
   </head>
   <body>
     <img id="header" src="./sample/header.png">
@@ -101,6 +101,12 @@
     <img id="closeSlider" src="./sample/close_slider.png">
     <img id="help" src="./sample/help_button.png">
     <img id="blindControls" src="./sample/blind_controls.png">
+
+    <div id="control-area">
+      <button class="show-img" data-id="1" data-is-window="1">1.jpg</button>
+      <button class="show-img" data-id="5" data-is-window="0">5.jpg</button>
+    </div>
+
     <canvas id="renderCanvas"></canvas>
     <canvas id="testCanvas"></canvas>
     <script>
@@ -128,5 +134,10 @@
       window.addEventListener('resize', resizeRenderCanvas);
       window.addEventListener('resize', resizeTestCanvas);
     </script>
+
+    <script src="./Babylon_engine_light.js" type="module"></script>
+    <script src="./module.js" type="module"></script>
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+
   </body>
 </html>
