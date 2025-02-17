@@ -916,7 +916,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
     boundingBox.computeWorldMatrix(true);
     scene.meshes[0].computeWorldMatrix(true);
-
+    
+    // set rotation directions (ones that can be set now)
     let forwardsXRotation;
     let clockwiseYRotation;
     let clockwiseZRotation;
@@ -945,8 +946,9 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
     let modelCorners = getProjectedCorners(scene);
 
-    if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) { // correct z axis first
-        // rotate on z axis until top and bottom diff are even (assuming yz -> xz -> yz flow) // this is flawed as it doesn't account for local minimas. 
+    // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz rotation algorithm
+    if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
+        // rotate on z axis until top and bottom diff are even (assuming yz -> xz -> yz flow) 
         let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
         let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
 
@@ -994,8 +996,10 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
             if (clockwiseZRotation && topModelInclination < topInclination && bottomModelInclination < bottomInclination) {
                 reverse = true;
+            } else if (!clockwiseZRotation && topModelInclination > topInclination && bottomModelInclination > bottomInclination) {
+                reverse = true;
             } else {
-                reverse = false; // don't like this could cause osillations
+                reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor
             }
 
             error =  Math.abs(bottomDiff - topDiff)
@@ -1046,11 +1050,12 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let error =  Math.abs(bottomDiff - topDiff)
         let total = topDiff + bottomDiff;
 
-        while (!optimise || error > tolerance) { // side with the smaller inclination will have to go past the even point before we can start optimising for even diff between sides otherwise could find a local minima that z axis cant correct for. // this is flawed as it doesn't account for uneven rate of change           
+        while (!optimise || error > tolerance) {           
             let magnitude = total;
             if (optimise) {
                 magnitude = error;
             }
+            // magnitude is in degrees but step is in radians. could be better for optimisation to be consistant however doesn't make large difference because 1 degree of rotation != 1 degree of diff change (it may be pretty close when rotating on z though).
         
             let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // this needs to be improved
             
@@ -1069,29 +1074,20 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
             let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
-            if (!clockwiseYRotation && topModelInclination < topInclination) { // can simplify like z algo
-                topPastEven = true;
-            } else if (clockwiseYRotation && topModelInclination > topInclination) {
-                topPastEven = true;
-            } else {
-                topPastEven = false;
-            }
-
-            if (!clockwiseYRotation && bottomModelInclination > bottomInclination) {
-                bottomPastEven = true;
-            } else if (clockwiseYRotation && bottomModelInclination < bottomInclination) {
-                bottomPastEven = true;
-            } else {
-                bottomPastEven = false
-            }
-
-            if (topPastEven || bottomPastEven) {
+            if (clockwiseYRotation && (topModelInclination >= topInclination || bottomModelInclination <= bottomInclination)) {
                 optimise = true;
             }
-            if (topPastEven && bottomPastEven) {
+
+            if (!clockwiseYRotation && (topModelInclination <= topInclination || bottomModelInclination >= bottomInclination)) {
+                optimise = true;
+            }
+            
+            if (clockwiseYRotation && topModelInclination > topInclination && bottomModelInclination < bottomInclination) {
+                reverse = true;
+            } else if (!clockwiseZRotation && topModelInclination < topInclination && bottomModelInclination > bottomInclination) {
                 reverse = true;
             } else {
-                reverse = false; // don't like this could cause osillations
+                reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor to stop osillations
             }
 
             error =  Math.abs(bottomDiff - topDiff)
@@ -1185,8 +1181,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         tolerance = 0.015;
 
         while (Math.abs(leftDiff - rightDiff) > tolerance) { 
-            
-            let error = Math.abs(leftDiff - rightDiff)
+            let error = Math.abs(leftDiff - rightDiff);
             
             // Adjust step size based on error magnitude
             let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
@@ -1206,7 +1201,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         }
 
         console.log("exit");
-    }
+    } // need to do for if inclinations are the same. Probably extremely rare. 
 
 };
 
