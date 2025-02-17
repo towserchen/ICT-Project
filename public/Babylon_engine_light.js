@@ -1103,6 +1103,14 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let diffBetweenTopBottomDiff = Math.abs(topDiff - bottomDiff);
         let closest = {bottom: 360, top: 0};
 
+        let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+
+        if (topModelInclination > topInclination) {
+            clockwiseZRotation = true;
+        } else {
+            clockwiseZRotation = false;
+        }
+
         while (topDiff > 0.1) {
 
             if (clockwiseZRotation) {
