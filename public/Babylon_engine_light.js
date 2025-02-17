@@ -907,6 +907,8 @@ function getQuadrilateralCenterByDiagonalIntersection(p1, p2, p3, p4) {
     return getLineIntersection(p1, p3, p2, p4);
 };
 
+
+
 function beginFit2(babCoords, coords, scene, viewportSize) {
     const localXAxis = 'x';
     const localZAxis = 'z';
@@ -922,14 +924,14 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     let clockwiseZRotation;
 
     let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
-    let rightInlination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
+    let rightInclination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
 
     let topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000});
     let bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
 
-    if ((leftInclination < 90 && rightInlination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInlination)) {
+    if ((leftInclination < 90 && rightInclination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInclination)) {
         clockwiseZRotation = false;
-    } else if ((rightInlination > 90 && leftInclination > 90) || (rightInlination > 90 && 180 - rightInlination < leftInclination)) {
+    } else if ((rightInclination > 90 && leftInclination > 90) || (rightInclination > 90 && 180 - rightInclination < leftInclination)) {
         clockwiseZRotation = true;
     } else {
         clockwiseZRotation = null;
@@ -970,7 +972,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             
             let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // this needs to be improved
 
-            if (clockwiseZRotation) {
+            if (!clockwiseZRotation) {
                 step = -step;
             }
             if (reverse) {
@@ -1007,6 +1009,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             clearMarkers(scene);
             placeMarkers(scene, viewportSize);
         }
+
+        console.log("exit Z");
     }
 
     let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // this may need a rework for z x axis switch
@@ -1043,11 +1047,20 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
         let optimise = false;
         let reverse = false;
-        let topPastEven = false;
-        let bottomPastEven = false;
 
         let error =  Math.abs(bottomDiff - topDiff)
         let total = topDiff + bottomDiff;
+
+        let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+        let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
+
+        if (clockwiseYRotation && (topModelInclination >= topInclination || bottomModelInclination <= bottomInclination)) {
+            optimise = true;
+        }
+
+        if (!clockwiseYRotation && (topModelInclination <= topInclination || bottomModelInclination >= bottomInclination)) {
+            optimise = true;
+        }
 
         while (!optimise || error > tolerance) {           
             let magnitude = total;
@@ -1070,8 +1083,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             modelCorners = getProjectedCorners(scene);
             bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
             topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-            let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
-            let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
+            topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+            bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
             if (clockwiseYRotation && (topModelInclination >= topInclination || bottomModelInclination <= bottomInclination)) {
                 optimise = true;
@@ -1099,7 +1112,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let diffBetweenTopBottomDiff = Math.abs(topDiff - bottomDiff);
         let closest = {bottom: 360, top: 0};
 
-        let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+        topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
 
         if (topModelInclination > topInclination) {
             clockwiseZRotation = true;
@@ -1107,7 +1120,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             clockwiseZRotation = false;
         }
 
-        while (topDiff > 0.1) {
+        while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
 
             if (clockwiseZRotation) {
                 boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
@@ -1169,17 +1182,19 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
         let rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
 
-        if (leftModelInclination + (180 - rightModelInclination) > 180) {
-            forwardsXRotation = false;
-        } else if (leftModelInclination + (180 - rightModelInclination) < 180) {
+        if (leftModelInclination + (180 - rightModelInclination) > leftInclination + (180 - rightInclination)) { // this is going to need some seriously crazy and complex logic to figure out what rotation should actually be applied as the effect of x rotaion differs after a y rotation. current system works for image 20 but not 21 or 5 and probably not 1 either.
             forwardsXRotation = true;
+        } else if (leftModelInclination + (180 - rightModelInclination) < leftInclination + (180 - rightInclination)) {
+            forwardsXRotation = false;
         } else {
-            forwardsXRotation = null;
+            forwardsXRotation = null; // unreachable
         }
 
         tolerance = 0.015;
 
-        while (Math.abs(leftDiff - rightDiff) > tolerance) { 
+        optimise = false;
+
+        while (!optimise || Math.abs(leftDiff - rightDiff) > tolerance) {
             let error = Math.abs(leftDiff - rightDiff);
             
             // Adjust step size based on error magnitude
@@ -1194,6 +1209,14 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             modelCorners = getProjectedCorners(scene);
             leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
             rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
+            leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
+            rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
+
+            if ((leftModelInclination < leftInclination && rightModelInclination > rightInclination) || (leftModelInclination > leftInclination && rightModelInclination < rightInclination)) {
+                optimise = false;
+            } else {
+                optimise = true;
+            }
 
             clearMarkers(scene);
             placeMarkers(scene, viewportSize);
@@ -1216,6 +1239,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
+    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
     // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
     const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
