@@ -622,8 +622,8 @@ function clearMarkers(scene) {
     ctx.clearRect(0, 0, testCanvas.width, testCanvas.height);
 };
 
-function getProjectedCorners(scene) {
-    let corners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuaternion) {
+    let corners = getRotatedRectangleCorners(rotateQuaternion, scene);
     const projectedCorners = []
     let viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
 
@@ -1182,21 +1182,22 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         let leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
         let rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
 
-        if (leftModelInclination + (180 - rightModelInclination) > leftInclination + (180 - rightInclination)) { // this is going to need some seriously crazy and complex logic to figure out what rotation should actually be applied as the effect of x rotaion differs after a y rotation. current system works for image 20 but not 21 or 5 and probably not 1 either.
-            forwardsXRotation = true;
-        } else if (leftModelInclination + (180 - rightModelInclination) < leftInclination + (180 - rightInclination)) {
-            forwardsXRotation = false;
+        let tempRotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.X, 0.001);
+        tempRotationQuaternion = boundingBox.rotationQuaternion.multiply(tempRotationQuaternion);
+        let testCorners = getProjectedCorners(scene, tempRotationQuaternion);
+        if (calculateAngleBetweenLines(coords[0], coords[3], testCorners[1], testCorners[2]) < leftDiff) {
+            forwardsXRotation = false; 
         } else {
-            forwardsXRotation = null; // unreachable
+            forwardsXRotation = true;
         }
 
         tolerance = 0.015;
 
         optimise = false;
 
-        while (!optimise || Math.abs(leftDiff - rightDiff) > tolerance) {
-            let error = Math.abs(leftDiff - rightDiff);
-            
+        error = Math.abs(leftDiff - rightDiff);
+
+        while (!optimise || error > tolerance) {
             // Adjust step size based on error magnitude
             let step = Math.max(minStep, Math.min(maxStep, Math.abs(error) * stepFactor)); // this needs to be improved
             if (!forwardsXRotation) {
@@ -1212,11 +1213,11 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
             leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
             rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
 
-            if ((leftModelInclination < leftInclination && rightModelInclination > rightInclination) || (leftModelInclination > leftInclination && rightModelInclination < rightInclination)) {
-                optimise = false;
-            } else {
+            if ((leftModelInclination <= leftInclination && rightModelInclination <= rightInclination + 0.5) || (leftModelInclination >= leftInclination && rightModelInclination >= rightInclination)) { // this is a bit janky. maybe should put +/- 1 degree range on everything
                 optimise = true;
             }
+
+            error = Math.abs(leftDiff - rightDiff);
 
             clearMarkers(scene);
             placeMarkers(scene, viewportSize);
