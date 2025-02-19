@@ -377,7 +377,6 @@ function scaleFromOneSide2(scene, distance, scaleAxis, direction) {
 
     scene.meshes[48].computeWorldMatrix(true);
     scene.meshes[0].computeWorldMatrix(true);
-    //setModelMeshScaling(scene); // Not sure if I need to fire this at some point but makes scaling extremely annoying as it makes the model bigger.
 };
 
 function setModelMeshScaling(scene) {
@@ -909,10 +908,196 @@ function getQuadrilateralCenterByDiagonalIntersection(p1, p2, p3, p4) {
     return getLineIntersection(p1, p3, p2, p4);
 };
 
+function optimizeRotationCTB(coords, axis, clockwiseRotation, topInclination, bottomInclination){
+    let modelCorners = getProjectedCorners(scene);
+
+    const tolerance = 0.01;  // convergence tolerance // arbitrary picked number 0.573°
+    const stepFactor = 0.01; // determines magnitude size scaling // arbitrary
+    const maxStep = 0.1;     // largest step size (5.73°)
+    const minStep = axis === BABYLON.Axis.Z ? 0.001 : 0.0001; // smallest step size for fine-tuning // based on axis and is either 0.0573° (3.44′) for z or 0.00573° (20.63″) for y
+
+    let optimise = false; // used to stop convergence on a local minima
+    let reverse = false; // used to reverse direction of rotation if optimal convergence is passed
+
+    let error = Math.abs(bottomDiff - topDiff); // difference between top and bottom diff
+    let total = bottomDiff + topDiff; // total combined error of top and bottom diff
+    
+    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides
+    let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
+    let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});    // inclination of the top of the model as measure from the bottom left inside
+    let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000}); // inclination of the bottom of the model as measure from the bottom left inside
+
+    optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination);
+
+    while (!optimise || error > tolerance) {
+        const magnitude = optimise ? error : total;
+        let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor));
+
+        if ((!clockwiseRotation && axis === BABYLON.Axis.Y) || (clockwiseRotation && axis === BABYLON.Axis.Z)) {
+            step = -step
+        }
+        step = reverse ? -step : step;
+
+        boundingBox.rotate(axis, step, BABYLON.Space.LOCAL);
+        boundingBox.computeWorldMatrix(true); // do we need to update the mesh here? I'm thinking not as the mesh itself is not being changed
+        modelCorners = getProjectedCorners(scene);
+        bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
+        topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+        topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+        bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
+
+        optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination);
+        reverse = setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination);
+
+        error =  Math.abs(bottomDiff - topDiff)
+        total = topDiff + bottomDiff;
+    }
+};
+
+function setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination){
+    if (axis === BABYLON.Axis.Z) {
+        if (clockwiseRotation && (topModelInclination <= topInclination || bottomModelInclination <= bottomInclination)) {
+            optimise = true;
+        }
+        if (!clockwiseRotation && (topModelInclination >= topInclination || bottomModelInclination >= bottomInclination)) {
+            optimise = true;
+        }
+    } else if (axis === BABYLON.Axis.Y) {
+        if (clockwiseRotation && (topModelInclination >= topInclination || bottomModelInclination <= bottomInclination)) {
+            optimise = true;
+        }
+        if (!clockwiseRotation && (topModelInclination <= topInclination || bottomModelInclination >= bottomInclination)) {
+            optimise = true;
+        }
+    }
+
+    return optimise
+};
+
+function setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
+    let reverse;
+    
+    if (axis === BABYLON.Axis.Z) {
+        if (clockwiseZRotation && topModelInclination < topInclination && bottomModelInclination < bottomInclination) {
+            reverse = true;
+        } else if (!clockwiseZRotation && topModelInclination > topInclination && bottomModelInclination > bottomInclination) {
+            reverse = true;
+        } else {
+            reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor
+        }
+    } else if (axis === BABYLON.Axis.Y) {
+        if (clockwiseYRotation && topModelInclination > topInclination && bottomModelInclination < bottomInclination) {
+            reverse = true;
+        } else if (!clockwiseZRotation && topModelInclination < topInclination && bottomModelInclination > bottomInclination) {
+            reverse = true;
+        } else {
+            reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor to stop osillations
+        }
+    }
+
+    return reverse;
+}
+
+function beginFit3(babCoords, coords, scene, viewportSize) {
+    //position blind in the middle of the quad
+    const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // will need a rework for z x axis switch
+    boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
+    boundingBox.computeWorldMatrix(true);
+    scene.meshes[0].computeWorldMatrix(true); // needed apparently
+
+    // get inclinations
+    const leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0}); // taken from the bottom left inside (-> + <180°)
+    const rightInclination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
+
+    const topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000}); // taken from the bottom left inside (↑ + <180°)
+    const bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
+
+    // set rotation directions (ones that can be set now)
+    const clockwiseYRotation = (topInclination - bottomInclination > 0) ? true : (topInclination - bottomInclination < 0) ? false : null;
+    let clockwiseZRotation =
+        ((rightInclination > 90 && leftInclination > 90) || (rightInclination > 90 && 180 - rightInclination < leftInclination)) ? true :
+        ((leftInclination < 90 && rightInclination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInclination)) ? false :
+        null;
+
+    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
+
+    // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz rotation algorithm
+    if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
+        // rotate on z axis until top and bottom diff converge under the tolerance (assuming yz -> xz -> yz flow)
+        optimizeRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination);
+    }
+
+    // Calculate the difference in height between the model and quad and adjust accordingly
+    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space // this section may need a rework for z -> x axis switch
+    const topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // half way along the top of the model
+    const bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // half way along the bottom of the model
+    let targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[0], babCoords[1]); // find the point at which the line drawn through the middle of the model intersects with the top of the quad
+    targetPoint.z = topMidPoint.z; // sets a default z as getLineLength requires z values
+    const topHeightDiff = getLineLength(targetPoint, topMidPoint);
+
+    targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[2], babCoords[3]); // find the point at which the line drawn through the middle of the model intersects with the bottom of the quad
+    targetPoint.z = bottomMidPoint.z; // sets a default z as getLineLength requires z values // should theoretically be the same as before
+    const bottomHeightDiff = getLineLength(targetPoint, bottomMidPoint);
+
+    scaleFromOneSide(boundingBox, Math.abs(bottomHeightDiff), "y", "n",scene); // This works so much better than scaleFromOneSide2 for y and not 100% sure why yet // need to retest this but if it aint broke dont fix it?
+    scaleFromOneSide(boundingBox, Math.abs(topHeightDiff), "y", "p", scene);
+    
+    // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
+    optimizeRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination); // this is under the assumption that scaleFromOneSide updates the model (which it does)
+
+    // determine z axis rotation direction for yz fine tuning
+    const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+    if (topModelInclination > topInclination) {
+        clockwiseZRotation = true;
+    } else {
+        clockwiseZRotation = false;
+    }
+
+    // rotate the model on z axis to align top and bottom
+    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+    while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
+        if (clockwiseZRotation) {
+            boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
+        } else {
+            boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+        }
+
+        boundingBox.computeWorldMatrix(true);
+        modelCorners = getProjectedCorners(scene);
+        topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+    }
+
+    scene.meshes[0].computeWorldMatrix(true); // make sure model data is updated
+
+    // calculate the difference in width between the model and quad and adjust accordingly
+    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    let midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // mid point is used as this is which point the model is rotated around 
+    let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
+    targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
+    const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
+    scaleFromOneSide2(scene, leftDistanceDiff, "x", "p");
+
+    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // right mid point
+    midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
+    targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
+    const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
+    scaleFromOneSide2(scene, rightDistanceDiff, "x", "n");
+
+    setModelMeshScaling(scene);
+
+    scene.meshes[48].computeWorldMatrix(true); // make sure model data is updated
+    scene.meshes[0].computeWorldMatrix(true);
+
+    // need to functionalise and add x rotation
+}
+
 function beginFit2(babCoords, coords, scene, viewportSize) {
     const localXAxis = 'x';
     const localZAxis = 'z';
 
+    //position blind in the middle of the quad
     const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // will need a rework for z x axis switch
     boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
     boundingBox.computeWorldMatrix(true);
@@ -923,7 +1108,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     let clockwiseYRotation;
     let clockwiseZRotation;
 
-    let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0});
+    let leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0}); // get inclinations
     let rightInclination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
 
     let topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000});
@@ -945,24 +1130,24 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
         clockwiseYRotation = null;
     }
 
-    let modelCorners = getProjectedCorners(scene);
+    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
 
     // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz rotation algorithm
     if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
-        // rotate on z axis until top and bottom diff are even (assuming yz -> xz -> yz flow) 
-        let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
+        // rotate on z axis until top and bottom diff converge under the tolerance (assuming yz -> xz -> yz flow) 
+        let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides
         let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
 
-        let tolerance = 0.01;
-        let maxStep = 0.1; // Start with a larger step size
-        let minStep = 0.001; // Smallest step size for fine-tuning
-        let stepFactor = 0.01; // Determines step size scaling
+        let tolerance = 0.01;  // convergence tolerance // arbitrary picked number
+        let maxStep = 0.1;     // largest step size (5.73°)
+        let minStep = 0.001;   // smallest step size for fine-tuning (0.0573° or 3.44′)
+        let stepFactor = 0.01; // determines magnitude size scaling // arbitrary
 
-        let optimise = false;
-        let reverse = false;
+        let optimise = false; // used to stop convergence on a local minima
+        let reverse = false; // used to reverse direction of rotation if optimal convergence is passed
 
-        let error = Math.abs(bottomDiff - topDiff);
-        let total = bottomDiff + topDiff;
+        let error = Math.abs(bottomDiff - topDiff); // difference between top and bottom diff
+        let total = bottomDiff + topDiff; // total combined error of top and bottom
 
         let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
         let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
