@@ -316,7 +316,7 @@ function scaleFromOneSide(mesh, scaleFactor, scaleAxis = "y", direction = "n", s
     let zOffset = scene.meshes[0]._absolutePosition.z - getZValue(originalModelCorners[0], originalModelCorners[1], originalModelCorners[2], mesh.position.x, mesh.position.y);
 
     if (Math.abs(zOffset) > 0.01) {
-        mesh.position.z -= zOffset;
+        //mesh.position.z -= zOffset;
     };
 
     mesh.computeWorldMatrix(true);
@@ -1049,7 +1049,44 @@ function optimizeRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
         error = Math.abs(leftDiff - rightDiff);
         total = leftDiff + rightDiff;
     }
-}
+};
+
+function adjustYscaling(babCoords, scene) {
+    // Calculate the difference in height between the model and quad and adjust accordingly
+    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space // this section may need a rework for z -> x axis switch
+    const topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // half way along the top of the model
+    const bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // half way along the bottom of the model
+    //let targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[0], babCoords[1]); // find the point at which the line drawn through the middle of the model intersects with the top of the quad
+    let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[1], scene.cameras[0].position, topMidPoint, bottomMidPoint);
+    targetPoint.z = topMidPoint.z; // sets a default z as getLineLength requires z values
+    const topHeightDiff = getLineLength(targetPoint, topMidPoint);
+
+    targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[2], babCoords[3]); // find the point at which the line drawn through the middle of the model intersects with the bottom of the quad
+    targetPoint.z = bottomMidPoint.z; // sets a default z as getLineLength requires z values // should theoretically be the same as before
+    const bottomHeightDiff = getLineLength(targetPoint, bottomMidPoint);
+
+    scaleFromOneSide(boundingBox, Math.abs(bottomHeightDiff), "y", "n",scene); // This works so much better than scaleFromOneSide2 for y and not 100% sure why yet // need to retest this but if it aint broke dont fix it?
+    scaleFromOneSide(boundingBox, Math.abs(topHeightDiff), "y", "p", scene);
+};
+
+function adjustXscaling(babCoords, scene) {
+    // calculate the difference in width between the model and quad and adjust accordingly
+    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    let midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // mid point is used as this is which point the model is rotated around 
+    let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
+    let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
+    const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
+    scaleFromOneSide2(scene, leftDistanceDiff, "x", "p");
+
+    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // right mid point
+    midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
+    targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
+    const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
+    scaleFromOneSide2(scene, rightDistanceDiff, "x", "n");
+
+    setModelMeshScaling(scene);
+};
 
 function beginFit3(babCoords, coords, scene) {
     //position blind in the middle of the quad
@@ -1079,22 +1116,9 @@ function beginFit3(babCoords, coords, scene) {
         // rotate on z axis until top and bottom diff converge under the tolerance (assuming yz -> xz -> yz flow)
         optimizeRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination, scene);
     }
-
-    // Calculate the difference in height between the model and quad and adjust accordingly
-    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space // this section may need a rework for z -> x axis switch
-    const topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // half way along the top of the model
-    const bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // half way along the bottom of the model
-    let targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[0], babCoords[1]); // find the point at which the line drawn through the middle of the model intersects with the top of the quad
-    targetPoint.z = topMidPoint.z; // sets a default z as getLineLength requires z values
-    const topHeightDiff = getLineLength(targetPoint, topMidPoint);
-
-    targetPoint = getLineIntersection(topMidPoint, bottomMidPoint, babCoords[2], babCoords[3]); // find the point at which the line drawn through the middle of the model intersects with the bottom of the quad
-    targetPoint.z = bottomMidPoint.z; // sets a default z as getLineLength requires z values // should theoretically be the same as before
-    const bottomHeightDiff = getLineLength(targetPoint, bottomMidPoint);
-
-    scaleFromOneSide(boundingBox, Math.abs(bottomHeightDiff), "y", "n",scene); // This works so much better than scaleFromOneSide2 for y and not 100% sure why yet // need to retest this but if it aint broke dont fix it?
-    scaleFromOneSide(boundingBox, Math.abs(topHeightDiff), "y", "p", scene);
     
+    adjustYscaling(babCoords, scene);
+
     // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
     optimizeRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene); // this is under the assumption that scaleFromOneSide updates the model (which it does)
 
@@ -1125,28 +1149,15 @@ function beginFit3(babCoords, coords, scene) {
 
     scene.meshes[0].computeWorldMatrix(true); // make sure model data is updated
 
-    // calculate the difference in width between the model and quad and adjust accordingly
-    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
-    let midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // mid point is used as this is which point the model is rotated around 
-    let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
-    targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
-    const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
-    scaleFromOneSide2(scene, leftDistanceDiff, "x", "p");
-
-    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
-    midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]); // right mid point
-    midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]); //left mid point
-    targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
-    const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
-    scaleFromOneSide2(scene, rightDistanceDiff, "x", "n");
-
-    setModelMeshScaling(scene);
+    adjustXscaling(babCoords, scene);
 
     scene.meshes[48].computeWorldMatrix(true); // make sure model data is updated
     scene.meshes[0].computeWorldMatrix(true);
 
     // TODO: need to functionalise and add x rotation and probably resizes as well. maybe change y resize to use plane instead of line so can reuse after x rotation
-    optimizeRotationCLR(coords, BABYLON.Axis.X, true, leftInclination, rightInclination, scene)
+    optimizeRotationCLR(coords, BABYLON.Axis.X, true, leftInclination, rightInclination, scene);
+    adjustYscaling(babCoords, scene); // slightly hazardous using this here as it may cause plane creep
+    console.log("here");
 };
 
 function beginFit2(babCoords, coords, scene, viewportSize) {
@@ -1499,10 +1510,10 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
     // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
-    const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
+    // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
     for (let i = 0; i < coords.length; i += 2) {
         coordsJ.push({ x: coords[i], y: coords[i + 1]});
