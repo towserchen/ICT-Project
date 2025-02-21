@@ -1077,14 +1077,16 @@ function adjustXscaling(babCoords, scene) {
     let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
     const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
-    scaleFromOneSide2(scene, targetPoint.x < midPointLeft.x ? -leftDistanceDiff : leftDistanceDiff, "x", "p");
+    let offset = midPointLeft.z < midPointRight.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    scaleFromOneSide2(scene, targetPoint.x < midPointLeft.x ? -leftDistanceDiff : leftDistanceDiff + offset, "x", "p");
 
     modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
     midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]);
     midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
     const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
-    scaleFromOneSide2(scene, targetPoint.x > midPointRight.x ? -rightDistanceDiff : rightDistanceDiff, "x", "n");
+    offset = midPointRight.z < midPointLeft.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    scaleFromOneSide2(scene, targetPoint.x > midPointRight.x ? -rightDistanceDiff : rightDistanceDiff + offset, "x", "n");
 
     setModelMeshScaling(scene);
 };
@@ -1502,8 +1504,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
-    // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
+    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
     // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
