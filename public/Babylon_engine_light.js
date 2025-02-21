@@ -1092,8 +1092,6 @@ function beginFit3(babCoords, coords, scene) {
     //position blind in the middle of the quad
     const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // will need a rework for z x axis switch
     boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
-    boundingBox.computeWorldMatrix(true);
-    scene.meshes[0].computeWorldMatrix(true); // needed apparently
 
     // get inclinations
     const leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0}); // taken from the bottom left inside (-> + <180°)
@@ -1109,8 +1107,6 @@ function beginFit3(babCoords, coords, scene) {
         ((leftInclination < 90 && rightInclination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInclination)) ? false :
         null;
 
-    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
-
     // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz rotation algorithm
     if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
         // rotate on z axis until top and bottom diff converge under the tolerance (assuming yz -> xz -> yz flow)
@@ -1122,7 +1118,7 @@ function beginFit3(babCoords, coords, scene) {
     // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
     optimizeRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene); // this is under the assumption that scaleFromOneSide updates the model (which it does)
 
-    modelCorners = getProjectedCorners(scene);
+    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
 
     // determine z axis rotation direction for yz fine tuning
     const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
@@ -1147,17 +1143,12 @@ function beginFit3(babCoords, coords, scene) {
         topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
     }
 
-    scene.meshes[0].computeWorldMatrix(true); // make sure model data is updated
-
     adjustXscaling(babCoords, scene);
-
-    scene.meshes[48].computeWorldMatrix(true); // make sure model data is updated
-    scene.meshes[0].computeWorldMatrix(true);
 
     // TODO: need to functionalise and add x rotation and probably resizes as well. maybe change y resize to use plane instead of line so can reuse after x rotation
     optimizeRotationCLR(coords, BABYLON.Axis.X, true, leftInclination, rightInclination, scene);
     adjustYscaling(babCoords, scene); // slightly hazardous using this here as it may cause plane creep
-    console.log("here");
+    console.log("exit fit 3");
 };
 
 function beginFit2(babCoords, coords, scene, viewportSize) {
