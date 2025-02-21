@@ -4,7 +4,7 @@ window.onload = function() {
         // Load the image from a URL
         const renderCanvas = document.getElementById('renderCanvas')
         
-        let imageUrl = './sample/20.jpg';    
+        let imageUrl = './sample/21.jpg';    
         renderCanvas.style.backgroundImage = `url(${imageUrl})`;
         let result = await autoDetectBlindOpenings(imageUrl, false);
         console.log(result);
