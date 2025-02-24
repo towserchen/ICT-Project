@@ -673,10 +673,10 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
     let { _, localMin, localMax } = getDimensions(scene);
     
     let localCorners = [
-        new BABYLON.Vector3(localMax.x, localMax.y, scene.meshes[0].getAbsolutePivotPoint().z),
-        new BABYLON.Vector3(localMin.x, localMax.y, scene.meshes[0].getAbsolutePivotPoint().z),
-        new BABYLON.Vector3(localMin.x, localMin.y, scene.meshes[0].getAbsolutePivotPoint().z),
-        new BABYLON.Vector3(localMax.x, localMin.y, scene.meshes[0].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMax.x, localMax.y, scene.meshes[48].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMin.x, localMax.y, scene.meshes[48].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMin.x, localMin.y, scene.meshes[48].getAbsolutePivotPoint().z),
+        new BABYLON.Vector3(localMax.x, localMin.y, scene.meshes[48].getAbsolutePivotPoint().z),
     ];
 
     // Step 3: Apply rotation to each corner
@@ -1077,7 +1077,7 @@ function adjustXscaling(babCoords, scene) {
     let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
     const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
-    let offset = midPointLeft.z < midPointRight.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    let offset = midPointLeft.z < midPointRight.z ? 0.05 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
     scaleFromOneSide2(scene, targetPoint.x < midPointLeft.x ? -leftDistanceDiff : leftDistanceDiff + offset, "x", "p");
 
     modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
@@ -1085,7 +1085,7 @@ function adjustXscaling(babCoords, scene) {
     midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
     const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
-    offset = midPointRight.z < midPointLeft.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    offset = midPointRight.z < midPointLeft.z ? 0.05 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
     scaleFromOneSide2(scene, targetPoint.x > midPointRight.x ? -rightDistanceDiff : rightDistanceDiff + offset, "x", "n");
 
     setModelMeshScaling(scene);
