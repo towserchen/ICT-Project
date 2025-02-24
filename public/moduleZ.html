@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="../src/assets/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Module test</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #header {
+        width: 100vw;
+        height: auto;
+        display: block;
+      }
+
+      #renderCanvas {
+        width: 100vw;
+        background-image: url('/sample/1.jpg');
+        background-color: rgb(243, 245, 248);
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        box-sizing: border-box;
+      }
+
+      #testCanvas {
+        left: 0;
+        position: absolute;
+        width: 100vw;
+        z-index: 11;
+        pointer-events: none;
+        background-color: transparent;
+      }
+
+      #modeToggle {
+        position: absolute;
+        z-index: 10;
+        top: 80px;
+        left: 60px;
+        width: 48px;
+        height: 94px;
+        border-radius: 100px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05), -2px -2px 10px rgba(0, 0, 0, 0.05);
+      }
+
+      #closeSlider {
+        position: absolute;
+        z-index: 10;
+        left: 60px;
+        margin-bottom: 50px;
+        width: 46px;
+        height: auto;
+        border-radius: 6px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05), -2px -2px 10px rgba(0, 0, 0, 0.05);
+        top: 50%;        
+        transform: translateY(calc(-50% - 39px));
+      }
+
+      #help {
+        position: absolute;
+        z-index: 9;
+        bottom: 30px;
+        left: 72px;
+        width: 42px;
+        height: 42px;
+      }
+
+      #blindControls {
+        position: absolute;
+        z-index: 9;
+        top: 80px;
+        right: 60px;
+        width: 159px;
+        height: auto;
+      }
+    </style>
+    <!-- Load the OpenCV.js and other libraries -->
+    <script async src="./libs/opencv.js" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.js"></script>
+
+    <!-- Load main JavaScript file -->
+    
+    <script src="./Babylon_engine_light_z.js" type="module"></script>
+   
+    <script src="./module.js" type="module"></script>
+  </head>
+  <body>
+    <img id="header" src="./sample/header.png">
+    <img id="modeToggle" src="./sample/mode_toggle.png">
+    <img id="closeSlider" src="./sample/close_slider.png">
+    <img id="help" src="./sample/help_button.png">
+    <img id="blindControls" src="./sample/blind_controls.png">
+    <canvas id="renderCanvas"></canvas>
+    <canvas id="testCanvas"></canvas>
+    <script>
+      const header = document.getElementById('header');
+      const renderCanvas = document.getElementById('renderCanvas');
+      const testCanvas = document.getElementById('testCanvas');
+
+      function resizeRenderCanvas() {
+        const headerHeight = header.clientHeight;
+        renderCanvas.width = window.innerWidth;
+        renderCanvas.height = window.innerHeight - headerHeight;
+        renderCanvas.style.top = `${headerHeight}px`;
+      }
+
+      function resizeTestCanvas() {
+        const headerHeight = header.clientHeight;
+        testCanvas.width = window.innerWidth;
+        testCanvas.height = window.innerHeight - headerHeight;
+        testCanvas.style.top = `${headerHeight}px`;
+      }
+
+      // Resize canvas on load and when the window is resized
+      window.addEventListener('load', resizeRenderCanvas);
+      window.addEventListener('load', resizeTestCanvas);
+      window.addEventListener('resize', resizeRenderCanvas);
+      window.addEventListener('resize', resizeTestCanvas);
+    </script>
+  </body>
+</html>

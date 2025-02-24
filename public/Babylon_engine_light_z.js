@@ -206,7 +206,7 @@ function scaleToBabylonSpace(cornerCoords, imageWidth, imageHeight, viewportWidt
         const babylonX = -(x / imageWidth - 0.5) * viewportWidth;
         const babylonY = -((y / imageHeight - 0.5) * viewportHeight); // Invert Y for Babylon space
 
-        babylonCoords.push({ x: babylonX, y: babylonY, z: 0 }); // Assuming Z = 0 for a flat plane
+        babylonCoords.push({ x: 0, y: babylonY, z: babylonX }); // Assuming X = 0 for a flat plane 
     }
     return babylonCoords;
 }
@@ -437,9 +437,6 @@ function outdoorHeightSizeHandler(heightDiff, scene) {
 };
 
 function scaleOps(scene, babCoords) {
-    const openingY = Math.max(babCoords[0].y - babCoords[3].y, babCoords[1].y - babCoords[2].y);
-    const openingX = Math.max(babCoords[0].x - babCoords[1].x, babCoords[3].x - babCoords[2].x);
-
     let boundingBoxVectors = boundingBox.getHierarchyBoundingVectors();
     let minimumBox = boundingBoxVectors.min;
     let maximumBox = boundingBoxVectors.max;
@@ -448,12 +445,12 @@ function scaleOps(scene, babCoords) {
     let boxHeight = maximumBox.y - minimumBox.y; // Size along the Y-axis
     let boxDepth = maximumBox.z - minimumBox.z;  // Size along the Z-axis
 
-    console.log("Box Dimensions:");
+    console.log("Default box Dimensions:");
     console.log(`Width: ${boxWidth}, Height: ${boxHeight}, Depth: ${boxDepth}`);
     console.log("Box scaling: ", boundingBox._scaling);
 
-    boundingBox._scaling.y = openingY / 2;
-    boundingBox._scaling.x = openingX / 2;
+    boundingBox._scaling.y = 2.5;
+    boundingBox._scaling.x = 2.5;
 
     setModelMeshScaling(scene);
 
@@ -530,7 +527,7 @@ function clearMarkers(scene) {
     ctx.clearRect(0, 0, testCanvas.width, testCanvas.height);
 };
 
-function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuaternion) {
+function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuaternion) { // should work for z
     let corners = getRotatedRectangleCorners(rotateQuaternion, scene);
     const projectedCorners = []
     let viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
@@ -548,7 +545,7 @@ function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuate
     return projectedCorners;
 };
 
-function getDimensions(scene) {
+function getDimensions(scene) { // checking for z -> x switch
     const saveQuaternion = boundingBox.rotationQuaternion || boundingBox.rotation.toQuaternion();
     boundingBox.rotationQuaternion = BABYLON.Quaternion.Zero();
     boundingBox.computeWorldMatrix(true);
@@ -574,7 +571,7 @@ function getDimensions(scene) {
     return { dimensions, localMin, localMax };
 };
 
-function getRotatedRectangleCorners(rotationQuaternion, scene) {
+function getRotatedRectangleCorners(rotationQuaternion, scene) { // reworking for z -> x switch // now should be good
     // Step 1: Define the rectangle in local space (assuming it's in the XY plane)
     
     let { _, localMin, localMax } = getDimensions(scene);
@@ -594,30 +591,6 @@ function getRotatedRectangleCorners(rotationQuaternion, scene) {
         localCorners[i].rotateByQuaternionAroundPointToRef(rotationQuaternion, scene.meshes[48].getAbsolutePivotPoint(), temp);
         rotatedCorners.push(temp);
     }
-
-    // Step 4: Compute the bounding box of the rotated rectangle
-    let minX = Math.min(...rotatedCorners.map(c => c.x));
-    let maxX = Math.max(...rotatedCorners.map(c => c.x));
-    let minY = Math.min(...rotatedCorners.map(c => c.y));
-    let maxY = Math.max(...rotatedCorners.map(c => c.y));
-    let minZ = Math.min(...rotatedCorners.map(c => c.z));
-    let maxZ = Math.max(...rotatedCorners.map(c => c.z));
-
-    // Step 5: Compute required translation to fit the given bounding box
-    let translateX = localMin.x - minX + (localMax.x - maxX) / 2;
-    let translateY = localMin.y - minY + (localMax.y - maxY) / 2;
-    let translateZ = localMin.z - minZ + (localMax.z - maxZ) / 2;
-    let translationVector = new BABYLON.Vector3(translateX, translateY, translateZ);
-
-    // Step 6: Apply translation
-    // let finalCorners = rotatedCorners.map(corner => corner.add(translationVector));
-
-    // rotatedCorners.forEach(coord => {
-    //     const sphere = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.1 }, scene);
-    //     sphere.position = new BABYLON.Vector3(coord.x, coord.y, coord.z);
-    // });
-
-    console.log("translationVector: ", translationVector);
 
     return rotatedCorners;
 };
@@ -712,12 +685,12 @@ function getPlaneLineIntersection(planePoint1, planePoint2, planePoint3, linePoi
 function getQuadrilateralCenterByDiagonalIntersection(p1, p2, p3, p4) {
     function getLineIntersection(A, B, C, D) {
         const a1 = B.y - A.y;
-        const b1 = A.x - B.x;
-        const c1 = a1 * A.x + b1 * A.y;
+        const b1 = A.z - B.z;
+        const c1 = a1 * A.z + b1 * A.y;
 
         const a2 = D.y - C.y;
-        const b2 = C.x - D.x;
-        const c2 = a2 * C.x + b2 * C.y;
+        const b2 = C.z - D.z;
+        const c2 = a2 * C.z + b2 * C.y;
 
         const determinant = a1 * b2 - a2 * b1;
 
@@ -725,10 +698,10 @@ function getQuadrilateralCenterByDiagonalIntersection(p1, p2, p3, p4) {
             throw new Error("Diagonals are parallel, no intersection.");
         }
 
-        return {
-            x: (b2 * c1 - b1 * c2) / determinant,
+        return {            
+            x: (A.x + C.x) / 2, // Approximating Z by averaging diagonal endpoints
             y: (a1 * c2 - a2 * c1) / determinant,
-            z: (A.z + C.z) / 2 // Approximating Z by averaging diagonal endpoints
+            z: (b2 * c1 - b1 * c2) / determinant            
         };
     }
 
@@ -743,7 +716,7 @@ function optimizeRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
     const maxStep = 0.1;     // largest step size (5.73°)
     const minStep = axis === BABYLON.Axis.Z ? 0.001 : 0.0001; // smallest step size for fine-tuning // based on axis and is either 0.0573° (3.44′) for z or 0.00573° (20.63″) for y
 
-    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides
+    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides // these are broken for some reason.
     let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
     let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});    // inclination of the top of the model as measure from the bottom left inside
     let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000}); // inclination of the bottom of the model as measure from the bottom left inside
@@ -878,16 +851,16 @@ function optimizeRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
     }
 };
 
-function adjustYscaling (babCoords, scene) {
+function adjustYscaling (babCoords, scene) { // good for x -> z switch
     // Calculate the difference in height between the model and quad and adjust accordingly
-    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space // this section may need a rework for z -> x axis switch
+    let modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space
     let topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // half way along the top of the model
     let bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // half way along the bottom of the model
     let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[1], scene.cameras[0].position, topMidPoint, bottomMidPoint);
     const topHeightDiff = getLineLength(targetPoint, topMidPoint);
     scaleFromOneSide2(scene, targetPoint.y < topMidPoint.y ? -topHeightDiff : topHeightDiff, "y", "p");
 
-    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space // this section may need a rework for z -> x axis switch
+    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // gets the corner for the model in babylon world space
     topMidPoint = getMidpoint(modelBabCorners[0], modelBabCorners[1]); // half way along the top of the model
     bottomMidPoint = getMidpoint(modelBabCorners[2], modelBabCorners[3]); // half way along the bottom of the model
     targetPoint = getPlaneLineIntersection(babCoords[3], babCoords[2], scene.cameras[0].position, topMidPoint, bottomMidPoint);
@@ -904,23 +877,25 @@ function adjustXscaling(babCoords, scene) {
     let midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     let targetPoint = getPlaneLineIntersection(babCoords[0], babCoords[3], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the left side of the quad so that model appears visually the right width.
     const leftDistanceDiff = getLineLength(midPointLeft, targetPoint);
-    let offset = midPointLeft.z < midPointRight.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
-    scaleFromOneSide2(scene, targetPoint.x < midPointLeft.x ? -leftDistanceDiff : leftDistanceDiff + offset, "x", "p");
+    let offset = midPointLeft.x > midPointRight.x ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    scaleFromOneSide2(scene, targetPoint.z < midPointLeft.z ? -leftDistanceDiff : leftDistanceDiff + offset, "x", "p");
 
-    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene);
+    modelBabCorners = getRotatedRectangleCorners(boundingBox.rotationQuaternion, scene); // something not right in here
     midPointRight = getMidpoint(modelBabCorners[0], modelBabCorners[3]);
     midPointLeft = getMidpoint(modelBabCorners[1], modelBabCorners[2]);
     targetPoint = getPlaneLineIntersection(babCoords[1], babCoords[2], scene.cameras[0].position, midPointRight, midPointLeft); // gets the intersection between the line drawn through the middle of the model and a plane drawn from the camera to the right side of the quad so that model appears visually the right width.
     const rightDistanceDiff = getLineLength(midPointRight, targetPoint);
-    offset = midPointRight.z < midPointLeft.z ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
-    scaleFromOneSide2(scene, targetPoint.x > midPointRight.x ? -rightDistanceDiff : rightDistanceDiff + offset, "x", "n");
+    offset = midPointRight.x > midPointLeft.x ? 0.075 : 0; // anecdotally this helps the far side align better. may need to remove with more testing
+    scaleFromOneSide2(scene, targetPoint.z > midPointRight.z ? -rightDistanceDiff : rightDistanceDiff + offset, "x", "n");
 
     setModelMeshScaling(scene);
 };
 
 function beginFit3(babCoords, coords, scene) {
+    //placeMarkers(scene, getViewportSizeAtDepth(scene.cameras[0], scene, scene.cameras[0].radius));
+
     //position blind in the middle of the quad
-    const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // will need a rework for z x axis switch
+    const QuadMid = getQuadrilateralCenterByDiagonalIntersection(babCoords[0], babCoords[1], babCoords[2], babCoords[3]); // reworked for z
     boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
 
     // get inclinations
@@ -940,10 +915,10 @@ function beginFit3(babCoords, coords, scene) {
     // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz rotation algorithm
     if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
         // rotate on z axis until top and bottom diff converge under the tolerance (assuming yz -> xz -> yz flow)
-        optimizeRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination, scene);
+        optimizeRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination, scene); // reworked for Z
     }
     
-    adjustYscaling(babCoords, scene);
+    adjustYscaling(babCoords, scene); // reworking
 
     // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
     optimizeRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene); // this is under the assumption that scaleFromOneSide updates the model (which it does)
@@ -993,8 +968,8 @@ function beginFit3(babCoords, coords, scene) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
-    const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
+    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
     // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
@@ -1026,7 +1001,7 @@ function beginFit3(babCoords, coords, scene) {
     
     const quaternion =  new BABYLON.Quaternion.FromEulerAngles(
         BABYLON.Tools.ToRadians(0),
-        BABYLON.Tools.ToRadians(180),
+        BABYLON.Tools.ToRadians(90),
         BABYLON.Tools.ToRadians(0)
     );
 
@@ -1040,12 +1015,13 @@ function beginFit3(babCoords, coords, scene) {
         scene.render();
     });
 
-    scaleOps(scene, babCoords); // shouldn't technically need this but works better with it
+    scaleOps(scene, babCoords);
     scene.meshes[48].rotationQuaternion = quaternion;
 
     scene.onReadyObservable.addOnce(() => {
         //placeMarkers(scene, viewportSize);
         beginFit3(babCoords, coordsJ, scene, viewportSize);
+        //placeMarkers(scene, viewportSize);
         //beginFit2(babCoords, coordsJ, scene, viewportSize);
         //beginFit1(coordsJ, scene);
     });
