@@ -545,8 +545,8 @@ function scaleOps(scene, babCoords) {
     console.log(`Width: ${boxWidth}, Height: ${boxHeight}, Depth: ${boxDepth}`);
     console.log("Box scaling: ", boundingBox._scaling);
 
-    boundingBox._scaling.y = openingY / 2;
-    boundingBox._scaling.x = openingX / 2;
+    boundingBox._scaling.y = 2.5;
+    boundingBox._scaling.x = 2.5;
 
     setModelMeshScaling(scene);
 
@@ -1504,8 +1504,8 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
-    const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
+    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
     // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
