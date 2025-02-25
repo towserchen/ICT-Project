@@ -89,7 +89,7 @@ const SCALING_MESHES = {
 	148: 'TRACK_RIGHT',
 };
 
-async function loadModelWithRetry(
+async function loadModelWithRetry( // not needed for prod
     rootUrl,
     sceneFilename,
     scene = null,
@@ -114,7 +114,7 @@ async function loadModelWithRetry(
     }
 };
 
-const createScene = async () => {
+const createScene = async () => { // not needed for prod
     const scene = new BABYLON.Scene(engine);
     //scene.useRightHandedSystem = true
 
@@ -209,7 +209,7 @@ function scaleToBabylonSpace(cornerCoords, imageWidth, imageHeight, viewportWidt
     return babylonCoords;
 }
 
-function setGlobalMeshPositionAndScale(scene) {
+function setGlobalMeshPositionAndScale(scene) { // not needed for prod
     const MESH_TYPE = MESHES_IDS;
     const SCALING_TYPE = SCALING_MESHES;
 
@@ -234,7 +234,7 @@ function setGlobalMeshPositionAndScale(scene) {
     }
 };
 
-//mimics the scaling perfromed by the gizmo
+// mimics the scaling perfromed by the gizmo
 function scaleFromOneSide2(scene, distance, scaleAxis, direction) {
     const originalParent = scene.meshes[48].parent;
     const anchor = new BABYLON.TransformNode("anchor");
@@ -281,7 +281,7 @@ function scaleFromOneSide2(scene, distance, scaleAxis, direction) {
     scene.meshes[0].computeWorldMatrix(true);
 };
 
-function setModelMeshScaling(scene) {
+function setModelMeshScaling(scene) { // not needed for prod
     const currentRootMesh = scene.meshes[0];
 
     const currentMeshScale = boundingBox?.scaling.divide(rootMeshScale).multiply(new BABYLON.Vector3(1, -1, -1));
@@ -303,7 +303,7 @@ function setModelMeshScaling(scene) {
     outdoorWidthSizeHandler(widthDiff, scene);
 }
 
-function outdoorWidthSizeHandler(widthDiff, scene) {
+function outdoorWidthSizeHandler(widthDiff, scene) { // not needed for prod
     scene.getMeshByName(MESHES_IDS[1]).scaling.x = meshScaling[1].x + 1.84 * widthDiff;
     scene.getMeshByName(MESHES_IDS[2]).scaling.x = meshScaling[2].x + 1.84 * widthDiff;
     scene.getMeshByName(MESHES_IDS[3]).scaling.x = meshScaling[2].x + 1.935 * widthDiff;
@@ -354,7 +354,7 @@ function outdoorWidthSizeHandler(widthDiff, scene) {
     scene.getMeshByName(MESHES_IDS[150]).position.x = meshPosition[148].x + widthDiff;
 };
 
-function outdoorHeightSizeHandler(heightDiff, scene) {
+function outdoorHeightSizeHandler(heightDiff, scene) { // not needed for prod
 
     scene.getMeshByName(MESHES_IDS[2]).scaling.y = meshScaling[2].y + 4 * heightDiff;
     scene.getMeshByName(MESHES_IDS[8]).scaling.y = meshScaling[8].y + 3.55 * heightDiff;
@@ -431,7 +431,7 @@ function outdoorHeightSizeHandler(heightDiff, scene) {
     // getTopSceneHandler(shutter.modelsValue[id]);
 };
 
-function scaleOps(scene, babCoords) { // not need in prod
+function scaleOps(scene, babCoords) { // not needed in prod
     let boundingBoxVectors = boundingBox.getHierarchyBoundingVectors();
     let minimumBox = boundingBoxVectors.min;
     let maximumBox = boundingBoxVectors.max;
@@ -462,7 +462,7 @@ function scaleOps(scene, babCoords) { // not need in prod
     console.log("Box scaling: ", boundingBox._scaling);
 };
 
-function placeMarkers(scene, viewportSize) { // not need in prod
+function placeMarkers(scene, viewportSize) { // not needed in prod
     let corners = getModelBabCorners(boundingBox.rotationQuaternion, scene);
 
     const projectedCorners = []
@@ -506,7 +506,7 @@ function placeMarkers(scene, viewportSize) { // not need in prod
     });
 };
 
-function clearMarkers(scene) { // not need in prod
+function clearMarkers(scene) { // not needed in prod
     // Get all meshes named "point"
     let pointMeshes = scene.meshes.filter(mesh => mesh.name === "point");
 
@@ -562,7 +562,7 @@ function getModelBabCorners(rotationQuaternion, scene) {
     return rotatedCorners;
 };
 
-// gets the dimensions of the model by setting its rotation to zero then getting the model's extremes and then re-appling the original rotation
+// gets the dimensions of the model by setting its rotation to zero then getting the model's extremes and then re-applying the original rotation
 function getDimensions(scene) {
     const saveQuaternion = boundingBox.rotationQuaternion || boundingBox.rotation.toQuaternion();
     boundingBox.rotationQuaternion = BABYLON.Quaternion.Zero();
