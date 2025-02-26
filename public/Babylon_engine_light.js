@@ -947,7 +947,7 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
         bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
         optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // check if conditions are met to being convergence
-        reverse = setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
+        reverse = setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
 
         error =  Math.abs(bottomDiff - topDiff) // updates errors
         total = topDiff + bottomDiff;
@@ -974,7 +974,7 @@ function setOptimise(optimise, axis, clockwiseRotation, topModelInclination, top
     return optimise
 };
 
-function setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
+function setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
     let reverse;
     
     if (axis === BABYLON.Axis.Z) {
@@ -1034,7 +1034,7 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
         
         step = forwardsXRotation ? -step : step;
 
-        boundingBox.rotate(BABYLON.Axis.X, step, BABYLON.Space.LOCAL);
+        boundingBox.rotate(axis, step, BABYLON.Space.LOCAL);
         boundingBox.computeWorldMatrix(true);
         modelCorners = getProjectedCorners(scene);
         leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);

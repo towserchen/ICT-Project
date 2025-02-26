@@ -122,7 +122,7 @@ const createScene = async () => { // not needed for prod
         "ArcRotateCamera",
         Math.PI,
         Math.PI / 2,
-        10,
+        6,
         new BABYLON.Vector3(0, 0, 0),
         scene
     );
@@ -695,7 +695,7 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
     const maxStep = 0.1;     // largest step size (5.73°)
     const minStep = axis === BABYLON.Axis.Z ? 0.001 : 0.0001; // smallest step size for fine-tuning // based on axis and is either 0.0573° (3.44′) for z or 0.00573° (20.63″) for y
 
-    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides // these are broken for some reason.
+    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the corresponding quad sides // these are broken for some reason.
     let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
     let topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});    // inclination of the top of the model as measure from the bottom left inside
     let bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000}); // inclination of the bottom of the model as measure from the bottom left inside
@@ -720,13 +720,13 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
         boundingBox.rotate(axis, step, BABYLON.Space.LOCAL);
         boundingBox.computeWorldMatrix(true); // updates boundingBox data // do we need to update the root mesh here? I'm thinking not as the root mesh itself is not being changed
         modelCorners = getProjectedCorners(scene); // gets new corner coordinates after rotation
-        bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]); // gets difference in angle of the cooresponding side of the model and quad
+        bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]); // gets difference in angle of the corresponding side of the model and quad
         topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
         topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000}); // gets the inclinations of the model
         bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
         optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // check if conditions are met to being convergence
-        reverse = setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
+        reverse = setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
 
         error =  Math.abs(bottomDiff - topDiff) // updates errors
         total = topDiff + bottomDiff;
@@ -755,7 +755,7 @@ function setOptimise(optimise, axis, clockwiseRotation, topModelInclination, top
 };
 
 // conditions for if the rotation direction should be reversed
-function setReverse(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
+function setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
     let reverse;
     
     if (axis === BABYLON.Axis.Z) {
@@ -816,7 +816,7 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
         
         step = forwardsXRotation ? -step : step;
 
-        boundingBox.rotate(BABYLON.Axis.X, step, BABYLON.Space.LOCAL);
+        boundingBox.rotate(axis, step, BABYLON.Space.LOCAL);
         boundingBox.computeWorldMatrix(true);
         modelCorners = getProjectedCorners(scene);
         leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
@@ -947,10 +947,10 @@ function beginFit3(babCoords, coords, scene) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
     // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
-    // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
+    const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
     for (let i = 0; i < coords.length; i += 2) {
         coordsJ.push({ x: coords[i], y: coords[i + 1]});
