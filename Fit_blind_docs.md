@@ -5,23 +5,30 @@
 
 ## Contents
 - [Key Terms](#key-terms)
-- [Fitting Functions (in order of appearance)](#fitting-functions)
-  - [fitModelToQuad](#fitmodeltoquad-rawcoords-)
+- [Fitting Functions](#fitting-functions)
+  - [fitModelToQuad](#fitmodeltoquad)
   - [getViewportSizeAtDepth](#getviewportsizeatdepth)
-  - [optimiseRotationCLR](#optimiserotationclr-coords-axis-clockwiserotation-leftinclination-rightinclination-)
-  - [optimiseRotationCTB](#optimiserotationctb-coords-axis-clockwiserotation-topinclination-bottominclination-)
-  - [setOptimise](#setoptimise-optimise-axis-clockwiserotation-topmodelinclination-topinclination-bottommodelinclination-bottominclination-)
-  - [setReverseRotation](#setreverserotation-axis-clockwiserotation-topmodelinclination-topinclination-bottommodelinclination-bottominclination-)
-  - [adjustYscaling](#adjustyscaling-babcoords-)
-  - [adjustXscaling](#adjustxscaling-babcoords-)
-  - [scaleFromOneSide](#scalefromoneside-distance-scaleaxis-direction-)
-  - [getProjectedCorners](#getprojectedcorners-rotationquaternion--thisboundingboxrotationquaternion-)
-  - [getModelBabCorners](#getmodelbabcorners-rotationquaternion-)
+  - [optimiseRotationCLR](#optimiserotationclr)
+  - [optimiseRotationCTB](#optimiserotationctb)
+  - [setOptimise](#setoptimise)
+  - [setReverseRotation](#setreverserotation)
+  - [adjustYscaling](#adjustyscaling)
+  - [adjustXscaling](#adjustxscaling)
+  - [scaleFromOneSide](#scalefromoneside)
+  - [getProjectedCorners](#getprojectedcorners)
+  - [getModelBabCorners](#getmodelbabcorners)
   - [getDimensions](#getdimensions)
 - [Utility Functions (Util.service)](#utility-functions-utilservice)
+  - [getQuadCenter](#getquadcenter)
+  - [scaleToBabylonSpace](#scaletobabylonspace)
+  - [calculateAngleBetweenLines](#calculateanglebetweenlines)
+  - [getMidpoint](#getmidpoint)
+  - [getPlaneLineIntersection](#getplanelineintersection)
+  - [getLineLength](#getlinelength)
 
 ---
 ## Key Terms
+- **Model:** Throughout this documentation, references to rotating or scaling the "model" specifically refer to transformations applied to the `boundingBox` mesh. This mesh encapsulates the model’s `root mesh`, meaning all transformations affect the bounding box rather than the root mesh directly. 
 - **Quad:** Short for quadrilateral, referring to a detected blind opening represented by four corner coordinates. "Quad" and "opening" may be used interchangeably.
 - **Diff:** Abbreviation for "difference," referring to the difference in inclination between a side of the model and the corresponding side of the quad. For example, "top diff" refers to the inclination difference between the top of the model and the top of the quad.
 - **Converge:** In this context, "converge" refers to minimising the difference between a pair of diffs (e.g., top diff and bottom diff or left diff and right diff) until they are equal (or below a tolerance). The remaining difference between them is referred to as the "error."
@@ -29,15 +36,15 @@
 - **Relative Inclination:** The angle of inclination of a side of the model compared to its corresponding side on the quad. For example if the top inclination of the model is higher than the top inclination of the quad than the top has a positive relative inclination. If the top inclination of the model is lower than the top inclination of the quad than it has a negative relative inclination.
 - **Babylon world space:** The coordinate system that babylon.js uses in relation to the world origin. It uses a more or less arbitary scale and originates from the centre of the scene (The scale is technically metres I think but may as well be arbitary for our purposes).
 - **Babylon local space:** The coordinate system that babylon.js uses in relation to the origin of the model. May be referred to as just "local space" or "local coordinates". (Technically these are never used in this system but for some cases it is better to refer to them as such)
-- **Screen space** The coordiante system that DOM elements such as the `renderCanvas` use. Is in pixel and originates from the top left. 
+- **Screen space:** The coordiante system that DOM elements such as the `renderCanvas` use. Is in pixel and originates from the top left. 
 
 ---
 
 ## Fitting Functions
 
 ---
-
-### fitModelToQuad( *rawCoords* )
+### fitModelToQuad
+#### fitModelToQuad( *rawCoords* )
 
 This function is the entry point of the fitting system and governs the fitting process. The fitting process follows these steps:
 1. **Z-Axis Rotation Adjustment** – If the quad has significant Z rotation, optimises the model’s Z rotation to converge the top and bottom diffs while minimising the total error.
@@ -49,14 +56,14 @@ This function is the entry point of the fitting system and governs the fitting p
 7. **Final Height Adjustment** – Re-scales the model’s height to compensate for the X rotation's effect on the perceived height.
 
 #### Parameters
-- **rawCoords**: An array representing the corner coordinates of a detected opening, scaled to screen space. Format:  `[x1, y1, x2, y2, x3, y3, x4, y4]` (Coordinates follow a clockwise order starting from the top-left.)
+- **rawCoords:** An array representing the corner coordinates of a detected opening, scaled to screen space. Format:  `[x1, y1, x2, y2, x3, y3, x4, y4]` (Coordinates follow a clockwise order starting from the top-left.)
 
 #### Returns
-- **None** – Directly manipulates the model.
+- **None** - Directly manipulates the model.
 
 ---
-
-### getViewportSizeAtDepth()
+### getViewportSizeAtDepth
+#### getViewportSizeAtDepth()
 Calculates the size of the viewport at the depth of the camera's radius in babylon world units.
 
 #### Parameters
@@ -68,126 +75,210 @@ Calculates the size of the viewport at the depth of the camera's radius in babyl
   - **height** (`number`) - The height of the viewport in babylon world units.
 
 ---
-### optimiseRotationCLR( *coords, axis, clockwiseRotation, leftInclination, rightInclination* )
+
+### optimiseRotationCLR
+#### optimiseRotationCLR( *coords, axis, clockwiseRotation, leftInclination, rightInclination* )
 Rotates the model on the specified axis for **C**onvergence of **L**eft and **R**ight diff (CLR).
 
 - Ensures convergence occurs near zero total error rather than at a local minima where the left and right diffs are equal but total error is high.
 - **Note:** Currently optimised for X-axis rotation (can be easily adapted for Z-axis as well).
 
 #### Parameters
-- **coords**: The quad’s screen-space corner coordinates (`array` of 4`{x, y}` objects).
-- **axis**: Axis for rotation (`BABYLON.Axis.X` or `.Z`).
-- **clockwiseRotation**: `boolean` – Rotation direction.
-- **leftInclination**: `number` – Left quad side inclination in degrees.
-- **rightInclination**: `number` – Right quad side inclination in degrees.
+- **coords:** The quad’s screen-space corner coordinates. 
+Expects format: 
+  ```json
+  [
+    {x: x1, y: y1},
+    {x: x2, y: y2},
+    {x: x3, y: y3},
+    {x: x4, y: y4}
+  ]
+  ```
+  - Coordinates follow a clockwise order starting from the top-left.
+- **axis:** Axis for rotation (`BABYLON.Axis.X` or `.Z`).
+- **clockwiseRotation:** `boolean` – Rotation direction.
+- **leftInclination:** `number` – Left quad side inclination in degrees.
+- **rightInclination:** `number` – Right quad side inclination in degrees.
 
 #### Returns
-- **None** – Directly manipulates the model.
+- **None** - Directly manipulates the model.
 
 ---
-### optimiseRotationCTB( *coords, axis, clockwiseRotation, topInclination, bottomInclination* )
+
+### optimiseRotationCTB
+#### optimiseRotationCTB( *coords, axis, clockwiseRotation, topInclination, bottomInclination* )
 Rotates the model on the specified axis for **C**onvergence of **T**op and **B**ottom diff (CTB).
 - Ensures convergence occurs near zero total error rather than at a local minima where the top and bottom diffs are equal but total error is high.
 - **Note:** Only applicable for Y- and Z-axis rotations.
 
 #### Parameters
-- **coords**: The quad’s screen-space corner coordinates (`array` of 4`{x, y}` objects).
-- **axis**: Rotation axis (`BABYLON.Axis.Y` or `.Z`).
-- **clockwiseRotation**: `boolean` – Rotation direction.
-- **topInclination**: `number` – Quad top side inclination in degrees.
-- **bottomInclination**: `number` – Quad bottom side inclination in degrees.
+- **coords:** The quad’s screen-space corner coordinates.
+Expects format: 
+  ```json
+  [
+    {x: x1, y: y1},
+    {x: x2, y: y2},
+    {x: x3, y: y3},
+    {x: x4, y: y4}
+  ]
+  ```
+    - Coordinates follow a clockwise order starting from the top-left.
+- **axis:** Rotation axis (`BABYLON.Axis.Y` or `.Z`).
+- **clockwiseRotation:** `boolean` – Rotation direction.
+- **topInclination:** `number` – Quad top side inclination in degrees.
+- **bottomInclination:** `number` – Quad bottom side inclination in degrees.
 
 #### Returns
-- **None** – Directly manipulates the model.
+- **None** - Directly manipulates the model.
 
 ---
-### setOptimise( *optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
-Used by `optimiseRotationCTB` to determine if it should begin optimising for convergence yet.
-Contains conditions for Y and Z axis.
+
+### setOptimise
+#### setOptimise( *optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
+- Used by `optimiseRotationCTB` to determine if it should begin optimising for convergence yet.
+- Contains conditions for Y- and Z-axis rotations.
 
 #### Parameters
-- **optimise:** A `boolen` for if `optimiseRotationCTB` is currently in the optimise state or not.
-- **axis:** The current rotation axis. Expects `.Y` or `.Z` property of `BABYLON.Axis` object which equates to a `BABYLON.Vector3` with the corresponding coordinate propetry set to `1`.
-- **clockwiseRotation:** A `boolen` representing the direction of rotation
-- **topModelInclination:** The angle of inclination in degrees of the top side of the model. Expects a `number`.
-- **topInclination:** The angle of inclination in degrees of the top side of the quad. Expects a `number`.
-- **bottomModelInclination:** The angle of inclination in degrees of the bottom side of the model. Expects a `number`.
-- **bottomInclination:** The angle of inclination in degree of the bottom side of the quad. Expects a `number`.
+- **optimise:** `boolen` - For if `optimiseRotationCTB` is currently in the optimise state or not.
+- **axis:** Rotation axis (`BABYLON.Axis.Y` or `.Z`).
+- **clockwiseRotation:** `boolen` - Represents the direction of rotation
+- **topModelInclination:** `number` - Model top side inclination in degrees.
+- **topInclination:** `number` – Quad top side inclination in degrees.
+- **bottomModelInclination:** `number` - Model bottom side inclination in degrees.
+- **bottomInclination:** `number` – Quad bottom side inclination in degrees.
 
 #### Returns
-- **optimise:** A  `boolen` representing the new or unchanged state of `optimiseRotationCTB` optimisation.
+- **`boolen`** - updated optimisation state for `optimiseRotationCTB`.
 
 ---
-### setReverseRotation( *axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
-Used by `optimiseRotationCTB` to determine if it should reverse the direction of rotation i.e. it has rotated the model too far for proper convergence.
-Contains conditions for Y and Z axis.
+
+### setReverseRotation
+#### setReverseRotation( *axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
+- Used by `optimiseRotationCTB` to check whether it has rotated the model too far and should reverse direction to achieve better alignment.
+- Contains conditions for Y- and Z-axis rotations.
 
 #### Parameters
-- **axis:** The current rotation axis. Expects `.Y` or `.Z` property of `BABYLON.Axis` object which equates to a `BABYLON.Vector3` with the corresponding coordinate propetry set to `1`.
-- **clockwiseRotation:** A `boolen` representing the direction of rotation
-- **topModelInclination:** The angle of inclination in degrees of the top side of the model. Expects a `number`.
-- **topInclination:** The angle of inclination in degrees of the top side of the quad. Expects a `number`.
-- **bottomModelInclination:** The angle of inclination in degrees of the bottom side of the model. Expects a `number`.
-- **bottomInclination:** The angle of inclination in degree of the bottom side of the quad. Expects a `number`.
+- **axis:** Rotation axis (`BABYLON.Axis.Y` or `.Z`).
+- **clockwiseRotation:** `boolean` – Rotation direction.
+- **topModelInclination:** `number` - Model top side inclination in degrees.
+- **topInclination:** `number` – Quad top side inclination in degrees.
+- **bottomModelInclination:** `number` - Model bottom side inclination in degrees.
+- **bottomInclination:** `number` – Quad bottom side inclination in degrees.
 
 #### Returns
-- **reverse:** A  `boolen` representing if `optimiseRotationCTB` should reverse the direction of rotation or not.
+- **`boolean`** - Whether to reverse rotation.
 
 ---
-### adjustYscaling( *babCoords* )
+
+### adjustYscaling
+#### adjustYscaling( *babCoords* )
 Calculates the difference in height visually between the model and opening and calls functions to change the scaling of the model to match.
 
 #### Parameters
-- **babCoords:** The corner coordinates of the quad in babylon world space. Expects an array of the from `[{x: x1, y: y1}, {x: x2, y: y2}, {x: x3, y: y3}, {x: x4, y: y4}]` where the coordinates are in a clockwise direction starting at the top left. 
+- **babCoords:** The corner coordinates of the quad in babylon world space. 
+Expects format: 
+  ```json
+  [
+    {x: x1, y: y1, z: z1},
+    {x: x2, y: y2, z: z2},
+    {x: x3, y: y3, z: z3},
+    {x: x4, y: y4, z: z4}
+  ]
+  ```
+    - Coordinates follow a clockwise order starting from the top-left.
 
 #### Returns
-- **No returns**: Directly manipulates the model
+- **None** - Manipulates the model (through use of other functions)
 
 ---
-### adjustXscaling( *babCoords* )
+
+### adjustXscaling
+#### adjustXscaling( *babCoords* )
 Calculates the difference in width visually between the model and opening and calls functions to change the scaling of the model to match.
 
 #### Parameters
-- **babCoords:** The corner coordinates of the quad in babylon world space. Expects an array of the from `[{x: x1, y: y1}, {x: x2, y: y2}, {x: x3, y: y3}, {x: x4, y: y4}]` where the coordinates are in a clockwise direction starting at the top left.
+- **babCoords:** The corner coordinates of the quad in babylon world space. 
+Expects format: 
+  ```json
+  [
+    {x: x1, y: y1, z: z1},
+    {x: x2, y: y2, z: z2},
+    {x: x3, y: y3, z: z3},
+    {x: x4, y: y4, z: z4}
+  ]
+  ```
+    - Coordinates follow a clockwise order starting from the top-left.
 
 #### Returns
-- **No returns**: Manipulates the model (through use of other functions)
+- **None** - Manipulates the model (through use of other functions)
 
 ---
-### scaleFromOneSide( *distance, scaleAxis, direction* )
-Applies scaling to the model to adjust its size by a certain distance in a certain direction. Mimics the behaviour of the scaling preformed by dragging the gizmo.
+
+### scaleFromOneSide
+#### scaleFromOneSide( *distance, scaleAxis, direction* )
+- Adjusts the size of the model by scaling it along a specified axis and direction. 
+- This function simulates the behavior of manually dragging the gizmo to resize the model.
 
 #### Parameters
-- **distance:** The distance by which the model will be grown or shrunk by. positive values will grow the model while negative values will shrink it. Expects a `number`.
-- **scaleAxis:** The axis the model will be grown along. Expects `.X` or `.Y` property of `BABYLON.Axis` object which equates to a `BABYLON.Vector3` with the corresponding coordinate propetry set to `1`. (Will be interperted as the models local axis)
-- **direction:** The direction along the `scaleAxis` that the model will be grown or shrunk. Expects `scaleDirection.positive` or `scaleDirection.negative`. Positive corresponding to the coordinate system positive direction and negative corresponding to the coordinates system negative direction. 
+- **distance:** `number` - The amount by which the model should be scaled. Positive values increase the size, while negative values decrease it.
+- **scaleAxis:** The model's local axis along which scaling occurs (`BABYLON.Axis.Y` or `.Z`).
+- **direction:** `scaleDirection` – Defines the scaling direction. Accepts `scaleDirection.positive` or `scaleDirection.negative`, corresponding to the positive or negative direction of the coordinate system.
+
+#### **Returns**
+- **None** - Directly manipulates the model’s scaling along the specified axis and direction.
 
 ---
-### getProjectedCorners( *rotationQuaternion = this.boundingBox.rotationQuaternion* )
-Gets the screen space coordinates of the corners of the model, for a given rotation, as the user visually sees them.
+
+### getProjectedCorners
+#### getProjectedCorners( *rotationQuaternion = this.boundingBox.rotationQuaternion* )
+Computes the screen-space coordinates of the model's corners as seen from the user's perspective for a given rotation.
 
 #### Parameters
-- **rotationQuaternion:** The rotation of the model the projection will be for. Is by default the models current rotation. Expects a `BABYLON.Quaternion`.
+- **rotationQuaternion:** `BABYLON.Quaternion` – The rotation for which the projection will be calculated. Defaults to the model’s current rotation.
 
 #### Returns
-- **projectedCorners:** An array of the form `[{x: x1, y: y1, z: z1}, {x: x2, y: y2, z: z2}, {x: x3, y: y3, z: z3}, {x: x4, y: y4, z: z4}]` where the coordinates are in an  anti-clockwise direction starting at the top right (artefact of development, will be changed to be consistant later). **Note:** `.x` and `.y` are the actual coordinates while `.z` is a measure of if the point is in frustrum with `0 < z < 1` indicating that it is. `.z` is not used.
+- **projectedCorners:** An array of `BABYLON.Vector3` objects representing the projected screen-space coordinates of the model’s corners. For clarity can be thought of as:
+  ```json
+  [
+    {x: x1, y: y1, z: z1},
+    {x: x2, y: y2, z: z2},
+    {x: x3, y: y3, z: z3},
+    {x: x4, y: y4, z: z4}
+  ]
+  ```
+  - **Coordinates are in an anti-clockwise direction starting at the top right.** _(This is a development artifact and will be standardized in a future update.)_
+  - **Note:**
+    - `.x` and `.y` represent the actual screen-space coordinates.
+    - `.z` represents the depth value, indicating whether the point is within the camera frustum (`0 < z < 1`). This value is not used in calculations.
 
 ---
-### getModelBabCorners( *rotationQuaternion* )
-Gets the babylon world space coordinates of the corners of the model for a given rotation.
+
+### getModelBabCorners
+#### getModelBabCorners( *rotationQuaternion* )
+Computes the Babylon.js world-space coordinates of the model's corners for a given rotation.
 
 #### Parameters
-- **rotationQuaternion:** The rotation of the model the coordinates will be found for. Expects a `BABYLON.Quaternion`.
+- **rotationQuaternion:** `BABYLON.Quaternion` – The rotation for which the world-space coordinates will be computed.
 
 #### Returns
-- **rotatedCorners:** An array of the form `[{x: x1, y: y1, z: z1}, {x: x2, y: y2, z: z2}, {x: x3, y: y3, z: z3}, {x: x4, y: y4, z: z4}]` where the coordinates are in an  anti-clockwise direction starting at the top right (artefact of development, will be changed to be consistant later).
+- **rotatedCorners:** An array of `BABYLON.Vector3` objects representing the world-space coordinates of the model’s corners. For clarity can be thought of as:
+  ```json
+  [
+    {x: x1, y: y1, z: z1},
+    {x: x2, y: y2, z: z2},
+    {x: x3, y: y3, z: z3},
+    {x: x4, y: y4, z: z4}
+  ]
+  ```
+  - **Coordinates are in an anti-clockwise direction starting at the top right.** _(This is a development artifact and will be standardized in a future update.)_
 
 ---
-### getDimensions()
-Gets the model's local extremes i.e. the maximum values for `X` `Y` `Z` and the minimum values for `X` `Y` `Z`. From these values the dimensions of the model as well as its local corner coordinates can be inferred.
+### getDimensions
+#### getDimensions()
+Retrieves the model’s local bounding box, providing the minimum and maximum values for each axis (`X`, `Y`, and `Z`). These values define the model’s overall dimensions and local corner coordinates.
 
 #### Parameters
-- **No parameter**
+- **None**
 
 #### Returns
 - An object with the following properties:
@@ -197,3 +288,123 @@ Gets the model's local extremes i.e. the maximum values for `X` `Y` `Z` and the 
 ---
 
 ## Utility Functions (Util.service)
+
+---
+
+### getQuadCenter
+#### getQuadCenter( *p1, p2, p3, p4* )
+Computes the center point of a quadrilateral in 3D space by determining the intersection of its diagonals.
+
+#### Parameters
+- **p1:** `{x: x1, y: y1, z: z1}` – First corner of the quad.
+- **p2:** `{x: x2, y: y2, z: z2}` – Second corner of the quad.
+- **p3:** `{x: x3, y: y3, z: z3}` – Third corner of the quad.
+- **p4:** `{x: x4, y: y4, z: z4}` – Fourth corner of the quad.
+
+#### Returns
+- An object representing the center point of the quad:
+  ```json
+  {
+    x: centerX,
+    y: centerY,
+    z: centerZ
+  }
+
+---
+### scaleToBabylonSpace
+#### scaleToBabylonSpace( *cornerCoords, imageWidth, imageHeight, viewportWidth, viewportHeight* )
+Converts a set of screen-space coordinates (DOM pixel values) into Babylon world space coordinates, mapping them to the viewport.
+
+- **Swaps the X and Z axes**, assuming `camera.alpha = Math.PI`
+- **Inverts Y** to match Babylon’s coordinate system, where positive Y is up.
+
+#### Parameters
+- **cornerCoords:** `Array<number>` – A **flat array** of screen-space corner coordinates.
+  - Format: `[x1, y1, x2, y2, x3, y3, x4, y4]`
+  - Coordinates follow a **clockwise order starting from the top-left**.
+- **imageWidth:** `number` – The width of the source image in pixels.
+- **imageHeight:** `number` – The height of the source image in pixels.
+- **viewportWidth:** `number` – The width of the Babylon viewport in **Babylon world units**.
+- **viewportHeight:** `number` – The height of the Babylon viewport in **Babylon world units**.
+
+#### Returns
+- An **array of objects**, where each object represents a **Babylon world-space coordinate**:
+  ```json
+  [
+    { x: 0, y: babylonY1, z: babylonX1 },
+    { x: 0, y: babylonY2, z: babylonX2 },
+    { x: 0, y: babylonY3, z: babylonX3 },
+    { x: 0, y: babylonY4, z: babylonX4 }
+  ]
+
+---
+### calculateAngleBetweenLines
+#### calculateAngleBetweenLines( *p1, p2, q1, q2* )
+Calculates the **angle** (in degrees) between two **2D lines** using the dot product formula.
+
+#### Parameters
+- **p1:** `{x: px1, y: py1}` – First point of the first line.
+- **p2:** `{x: px2, y: py2}` – Second point of the first line.
+- **q1:** `{x: qx1, y: qy1}` – First point of the second line.
+- **q2:** `{x: qx2, y: qx2}` – Second point of the second line.
+
+#### Returns
+- **`number`** – The angle between the two lines in **degrees** (Will always return a positive number).
+
+---
+### getMidpoint
+#### getMidpoint( *point1, point2* )
+Computes the **midpoint** between two points.
+
+#### Parameters
+Inputs can be `BABYLON.Vector3`
+- **point1:** `{x: x1, y: y1, z: z1}` – First point.
+- **point2:** `{x: x2, y: y2, z: z2}` – Second point.
+
+#### Returns
+- An object representing the **midpoint**:
+  ```json
+  {
+    x: midpointX,
+    y: midpointY,
+    z: midpointZ
+  }
+
+---
+### getPlaneLineIntersection
+#### getPlaneLineIntersection( *planePoint1, planePoint2, planePoint3, linePoint1, linePoint2* )
+Computes the **intersection point** between a **plane** (defined by three points) and a **line** (defined by two points) in 3D space.
+
+#### Parameters
+Inputs can be `BABYLON.Vector3`
+- **planePoint1:** `{x: px1, y: py1, z: pz1}` – First point on the plane.
+- **planePoint2:** `{x: px2, y: py2, z: pz2}` – Second point on the plane.
+- **planePoint3:** `{x: px3, y: py3, z: pz3}` – Third point on the plane.
+- **linePoint1:** `{x: qx1, y: qy1, z: qz1}` – First point of the line.
+- **linePoint2:** `{x: qx2, y: qy2, z: qz2}` – Second point of the line.
+
+#### Returns
+- An object representing the **intersection point**:
+  ```json
+  {
+    x: intersectionX,
+    y: intersectionY,
+    z: intersectionZ
+  }
+
+---
+### getLineLength
+#### getLineLength( *point1, point2* )
+Calculates the **Euclidean distance** (length) between two points in 3D space.
+
+
+
+#### Parameters
+Inputs can be `BABYLON.Vector3`
+- **point1:** `{x: x1, y: y1, z: z1}` – First point.
+- **point2:** `{x: x2, y: y2, z: z2}` – Second point.
+
+#### Returns
+- **`number`** – The **distance** between `point1` and `point2`.
+
+---
