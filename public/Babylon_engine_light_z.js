@@ -823,14 +823,11 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
     let error = Math.abs(leftDiff - rightDiff); // difference between top and bottom diff
     let total = leftDiff + rightDiff; // total combined error of top and bottom diff
     
-    let optimise = false; // used to stop convergence on a local minima
+    let previousTotal = 500;
+    let previousError = 500;
     let reverse = false; // used to reverse direction of rotation if optimal convergence is passed // TODO: implement reverse conditions
 
-    if ((leftModelInclination <= leftInclination && rightModelInclination <= rightInclination + 0.5) || (leftModelInclination >= leftInclination && rightModelInclination >= rightInclination)) { // this is a bit janky. maybe should put +/- 1 degree range on everything
-        optimise = true;
-    }
-
-    while (!optimise || error > tolerance) {
+    while (true) {
         // const magnitude = optimise ? error : total;
         const magnitude = error;
         let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor));
@@ -845,12 +842,20 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
         leftModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[2], {x: 0, y: 0}, {x: 1000, y: 0});
         rightModelInclination = calculateAngleBetweenLines(modelCorners[0], modelCorners[3], {x: 0, y: 0}, {x: 1000, y: 0});
 
-        if ((leftModelInclination <= leftInclination && rightModelInclination <= rightInclination + 0.5) || (leftModelInclination >= leftInclination && rightModelInclination >= rightInclination)) { // this is a bit janky. maybe should put +/- 1 degree range on everything
-            optimise = true;
-        }
-
         error = Math.abs(leftDiff - rightDiff);
         total = leftDiff + rightDiff;
+        
+        if (error < tolerance && total > previousTotal && error > previousError) {
+            boundingBox.rotate(axis, -step, BABYLON.Space.LOCAL);
+            boundingBox.computeWorldMatrix(true);
+            modelCorners = getProjectedCorners(scene); // need to verify if this is needed
+            leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
+            rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
+            break;
+        }
+
+        previousError = error;
+        previousTotal = total;
     }
 };
 
@@ -1021,7 +1026,7 @@ function beginFit3(babCoords, coords, scene) {
     scene.onReadyObservable.addOnce(() => {
         //placeMarkers(scene, viewportSize);
         beginFit3(babCoords, coordsJ, scene, viewportSize);
-        // beginFit3(babCoords, coordsJ, scene, viewportSize);
+        beginFit3(babCoords, coordsJ, scene, viewportSize);
         //placeMarkers(scene, viewportSize);
         //beginFit2(babCoords, coordsJ, scene, viewportSize);
         //beginFit1(coordsJ, scene);
