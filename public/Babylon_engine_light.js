@@ -120,7 +120,7 @@ const createScene = async () => {
         "ArcRotateCamera",
         Math.PI / 2,
         Math.PI / 2,
-        10,
+        6,
         new BABYLON.Vector3(0, 0, 0),
         scene
     );
@@ -914,7 +914,7 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
     const tolerance = 0.01;  // convergence tolerance // arbitrary picked number 0.573°
     const stepFactor = 0.01; // determines magnitude size scaling // arbitrary
     const maxStep = 0.1;     // largest step size (5.73°)
-    const minStep = axis === BABYLON.Axis.Z ? 0.001 : 0.0001; // smallest step size for fine-tuning // based on axis and is either 0.0573° (3.44′) for z or 0.00573° (20.63″) for y
+    const minStep = axis === BABYLON.Axis.Z ? 0.0001 : 0.0001; // smallest step size for fine-tuning // based on axis and is either 0.0573° (3.44′) for z or 0.00573° (20.63″) for y
 
     let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]); // difference between the inclination of the blind top/bottom edge and the cooresponding quad sides
     let bottomDiff = calculateAngleBetweenLines(coords[3], coords[2], modelCorners[2], modelCorners[3]);
@@ -926,10 +926,12 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
     
     let optimise = false; // used to stop convergence on a local minima
     let reverse = false; // used to reverse direction of rotation if optimal convergence is passed
+    let count = 0;
 
     optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if the loop should begin optimising for convergence straight away
 
     while (!optimise || error > tolerance) { // rotaion loop // condition for if optimsing for convergence should begin and once it has condition for convergence being found
+        count += 1;
         const magnitude = optimise ? error : total; // to speed up convergence we use total error, which is usually higher, before optimisation has begun. Once optimisation has begun we use relative error which is usually smaller and better for fine tuning
         let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // sets rotation step based on magnitude of error and clamps it within min and max step range
 
@@ -1504,10 +1506,10 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
     const depth = camera.radius; // Distance from the camera
     const viewportSize = getViewportSizeAtDepth(camera, scene, depth);
     console.log(`Viewport at depth ${depth}: Width = ${viewportSize.width}, Height = ${viewportSize.height}`);
-    const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
+    // const coords = [604, 94,  1198, 326, 1143, 687, 421, 443]; // drawn quad from 20.jpg
     // const coords = [741.2661169415292, 203.2023988005997, 1368.5944527736133, 88.6056971514243, 1352.0547226386807, 698.2128935532234, 736.54047976012, 533.9970014992504]; // drawn quad from 21.jpg
     // const coords = [276.04375000000005, 48.01875, 803.634375, 185.91875, 805.48125, 528.821875, 271.11875000000003, 629.1687499999999]; // drawn quad for 1.jpg
-    // const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
+    const coords = [337.2241379310345, 88.6056971514243, 965.7338830584707, 203.2023988005997, 971.6409295352324, 532.8155922038981, 356.12668665667167, 699.3943028485758]; // drawn quad for 5.jpg
     const coordsJ = [];
     for (let i = 0; i < coords.length; i += 2) {
         coordsJ.push({ x: coords[i], y: coords[i + 1]});
@@ -1556,6 +1558,7 @@ function beginFit2(babCoords, coords, scene, viewportSize) {
 
     scene.onReadyObservable.addOnce(() => {
         //placeMarkers(scene, viewportSize);
+        beginFit3(babCoords, coordsJ, scene, viewportSize);
         beginFit3(babCoords, coordsJ, scene, viewportSize);
         //beginFit2(babCoords, coordsJ, scene, viewportSize);
         //beginFit1(coordsJ, scene);
