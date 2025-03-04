@@ -61,6 +61,11 @@ This function is the entry point of the fitting system and governs the fitting p
 #### Returns
 - **None** - Directly manipulates the model.
 
+#### Exceptions
+- **Currently throws: None**
+- **Future: TBA** - May desire an exception to be thrown so that it can be caught by the calling code in order to display something to the UI to tell the user the fitting failed.
+- **Internal Exception Handling:** This function **catches** any exceptions thrown during the fitting process. These may occur if the quad has **impossible geometry** that prevents a valid fit or if the process **fails to find rotational convergence** within a reasonable time. If an exception is caught, the function will handle it internally, preventing crashes or hangs and but will reset the model to the default.
+
 ---
 ### getViewportSizeAtDepth
 #### getViewportSizeAtDepth()
@@ -103,6 +108,9 @@ Expects format:
 #### Returns
 - **None** - Directly manipulates the model.
 
+#### Exceptions
+- Throws an error if an acceptable **convergence isn't found** within **3 reversal cycles** (i.e. forwards, backwards and forwards again)
+
 ---
 
 ### optimiseRotationCTB
@@ -130,6 +138,9 @@ Expects format:
 
 #### Returns
 - **None** - Directly manipulates the model.
+
+#### Exceptions
+- Throws an error if an acceptable **convergence isn't found** within **1000 iterations**.
 
 ---
 
@@ -310,6 +321,9 @@ Computes the center point of a quadrilateral in 3D space by determining the inte
     z: centerZ
   }
 
+#### Exceptions
+- Throws an error if the diagonals are **parallel**, meaning no unique center can be determined.
+
 ---
 ### scaleToBabylonSpace
 #### scaleToBabylonSpace( *cornerCoords, imageWidth, imageHeight, viewportWidth, viewportHeight* )
@@ -350,6 +364,9 @@ Calculates the **angle** (in degrees) between two **2D lines** using the dot pro
 
 #### Returns
 - **`number`** – The angle between the two lines in **degrees** (Will always return a positive number).
+
+#### Exceptions
+- Throws an error if either line has **zero lenght**
 
 ---
 ### getMidpoint
@@ -392,6 +409,9 @@ Inputs can be `BABYLON.Vector3`
     z: intersectionZ
   }
 
+#### Exceptions
+- Throws an error if the line is **parallel to the plane** or **lies within it**, meaning there is no unique intersection
+
 ---
 ### getLineLength
 #### getLineLength( *point1, point2* )
@@ -408,3 +428,5 @@ Inputs can be `BABYLON.Vector3`
 - **`number`** – The **distance** between `point1` and `point2`.
 
 ---
+
+#### *End Document*
