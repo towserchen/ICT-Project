@@ -689,6 +689,8 @@ function getQuadCenter(p1, p2, p3, p4) {
 
 // optimise rotation to Converge Top and Bottom angle difference (CTB)
 function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bottomInclination, scene) {
+    const MAX_ITERATIONS = 1000; // maximum number of iterations to prevent infinite loop
+    
     let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
 
     const tolerance = 0.01;  // convergence tolerance // arbitrary picked number 0.573°
@@ -711,8 +713,7 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
 
     optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if the loop should begin optimising for convergence straight away
 
-    while (!optimise || error > tolerance) { // rotation loop // condition for if optimsing for convergence should begin and once it has condition for convergence being found
-        count += 1;
+    while ((!optimise || error > tolerance) && count < MAX_ITERATIONS) { // rotation loop // condition for if optimsing for convergence should begin and once it has condition for convergence being found
         const magnitude = optimise ? error : total; // to speed up convergence we use total error, which is usually higher, before optimisation has begun. Once optimisation has begun we use relative error which is usually smaller and better for fine tuning
         let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor)); // sets rotation step based on magnitude of error and clamps it within min and max step range
 
@@ -751,6 +752,12 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
 
         error =  Math.abs(bottomDiff - topDiff) // updates errors
         total = topDiff + bottomDiff;
+
+        count++;
+    }
+
+    if (count >= MAX_ITERATIONS) {
+        throw new Error("Maximum CTB iterations reached!");
     }
 };
 
@@ -823,9 +830,11 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
     let error = Math.abs(leftDiff - rightDiff); // difference between top and bottom diff
     let total = leftDiff + rightDiff; // total combined error of top and bottom diff
     
-    let previousTotal = 500;
-    let previousError = 500;
-    let reverse = false; // used to reverse direction of rotation if optimal convergence is passed // TODO: implement reverse conditions
+    let previousError = 500; // used to store the error from the last iteration // set to 500 as the theoretical maximum is 179° + 179° = 358° then add some extra for safety
+    let previousTotal = 500; // used to store the total from the last iteration // set to 500 as the theoretical maximum is 179° + 179° = 358° then add some extra for safety
+    let reverse = false; // used to reverse direction of rotation if optimal convergence is passed
+    let reversalDiff = total > 5 ? total : 5; // trigger for when to reverse rotation direction
+    let reversalCount = 0; // used to count how many times the rotation direction has been reversed
 
     while (true) {
         // const magnitude = optimise ? error : total;
@@ -833,6 +842,7 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
         let step = Math.max(minStep, Math.min(maxStep, magnitude * stepFactor));
         
         step = forwardsXRotation ? -step : step;
+        step = reverse ? -step : step; // reverses the direction of rotation if rotation has proceeded to far for correct convergence
 
         boundingBox.rotate(axis, step, BABYLON.Space.LOCAL);
         boundingBox.computeWorldMatrix(true);
@@ -852,6 +862,19 @@ function optimiseRotationCLR(coords, axis, clockwiseRotation, leftInclination, r
             leftDiff = calculateAngleBetweenLines(coords[0], coords[3], modelCorners[1], modelCorners[2]);
             rightDiff = calculateAngleBetweenLines(coords[1], coords[2], modelCorners[0], modelCorners[3]);
             break;
+        }
+        
+        if (total > reversalDiff) {
+            reverse = !reverse;
+            reversalCount++;
+            if (reversalCount > 2) {
+                throw new Error("Maximum CLR reversals reached!");
+            }
+        }
+        if ( total > 5) {
+            reversalDiff = total;
+        } else {
+            reversalDiff = 5;
         }
 
         previousError = error;
@@ -900,65 +923,70 @@ function adjustXscaling(babCoords, scene) {
 };
 
 function beginFit3(babCoords, coords, scene) {
-    //position blind in the middle of the quad
-    const QuadMid = getQuadCenter(babCoords[0], babCoords[1], babCoords[2], babCoords[3]);
-    boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
+    try {
+        //position blind in the middle of the quad
+        const QuadMid = getQuadCenter(babCoords[0], babCoords[1], babCoords[2], babCoords[3]);
+        boundingBox.position = new BABYLON.Vector3(QuadMid.x, QuadMid.y, QuadMid.z);
 
-    // get inclinations
-    const leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0}); // taken from the bottom left inside (-> + <180°)
-    const rightInclination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
+        // get inclinations
+        const leftInclination = calculateAngleBetweenLines(coords[0], coords[3], {x: 0, y: 0}, {x: 1000, y: 0}); // taken from the bottom left inside (-> + <180°)
+        const rightInclination = calculateAngleBetweenLines(coords[1], coords[2], {x: 0, y: 0}, {x: 1000, y: 0});
 
-    const topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000}); // taken from the bottom left inside (↑ + <180°)
-    const bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
+        const topInclination = calculateAngleBetweenLines(coords[0], coords[1], {x: 0, y: 0}, {x: 0, y: 1000}); // taken from the bottom left inside (↑ + <180°)
+        const bottomInclination = calculateAngleBetweenLines(coords[3], coords[2], {x: 0, y: 0}, {x: 0, y: 1000});
 
-    // set rotation directions (ones that can be set now)
-    const clockwiseYRotation = (topInclination - bottomInclination > 0) ? true : (topInclination - bottomInclination < 0) ? false : null;
-    let clockwiseZRotation =
-        ((rightInclination > 90 && leftInclination > 90) || (rightInclination > 90 && 180 - rightInclination < leftInclination)) ? true :
-        ((leftInclination < 90 && rightInclination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInclination)) ? false :
-        null;
+        // set rotation directions (ones that can be set now)
+        const clockwiseYRotation = (topInclination - bottomInclination > 0) ? true : (topInclination - bottomInclination < 0) ? false : null;
+        let clockwiseZRotation =
+            ((rightInclination > 90 && leftInclination > 90) || (rightInclination > 90 && 180 - rightInclination < leftInclination)) ? true :
+            ((leftInclination < 90 && rightInclination < 90) || (leftInclination < 90 && leftInclination < 180 - rightInclination)) ? false :
+            null;
 
-    // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz (CTB) rotation algorithm
-    if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
-        // rotate on z axis until top and bottom diff converge under the tolerance (assuming z -> yz -> x flow)
-        optimiseRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination, scene);
-    }
-    
-    adjustYscaling(babCoords, scene); // adjust height of the model so it fits the quad // important to do here as the distance from centre affects inclination angle
+        // correct z rotation for if it's outside the reasonable bounds of what can be corrected with the yz (CTB) rotation algorithm
+        if (clockwiseZRotation !== null && ((topInclination > 90 && bottomInclination > 90) || (topInclination < 90 && bottomInclination < 90))) {
+            // rotate on z axis until top and bottom diff converge under the tolerance (assuming z -> yz -> x flow)
+            optimiseRotationCTB(coords, BABYLON.Axis.Z, clockwiseZRotation, topInclination, bottomInclination, scene);
+        }
+        
+        adjustYscaling(babCoords, scene); // adjust height of the model so it fits the quad // important to do here as the distance from centre affects inclination angle
 
-    // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
-    optimiseRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene);
+        // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
+        optimiseRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene);
 
-    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
+        let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
 
-    // determine z axis rotation direction for yz fine tuning
-    const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
-    if (topModelInclination > topInclination) {
-        clockwiseZRotation = true;
-    } else {
-        clockwiseZRotation = false;
-    }
-
-    // rotate the model on z axis to align top and bottom
-    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-
-    while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
-        if (clockwiseZRotation) {
-            boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
+        // determine z axis rotation direction for yz fine tuning
+        const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+        if (topModelInclination > topInclination) {
+            clockwiseZRotation = true;
         } else {
-            boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+            clockwiseZRotation = false;
         }
 
-        boundingBox.computeWorldMatrix(true);
-        modelCorners = getProjectedCorners(scene);
-        topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+        // rotate the model on z axis to align top and bottom
+        let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+        while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
+            if (clockwiseZRotation) {
+                boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
+            } else {
+                boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
+            }
+
+            boundingBox.computeWorldMatrix(true);
+            modelCorners = getProjectedCorners(scene);
+            topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+        }
+
+        adjustXscaling(babCoords, scene); // adjust width of model to fit quad
+
+        // rotate the model on x axis so the difference between the model left inclination and quad left inclination and the model right inclination and qaud right inclination is the same
+        optimiseRotationCLR(coords, BABYLON.Axis.X, true, leftInclination, rightInclination, scene);
+        adjustYscaling(babCoords, scene); // re-adjust the height of the model as the x rotation has probably made it visually to short
+    } catch (e) {
+        console.warn("Unable to fit model to quad: ", e);
+        // call reset function here or throw an error the calling code can catch or something.
     }
-
-    adjustXscaling(babCoords, scene); // adjust width of model to fit quad
-
-    // rotate the model on x axis so the difference between the model left inclination and quad left inclination and the model right inclination and qaud right inclination is the same
-    optimiseRotationCLR(coords, BABYLON.Axis.X, true, leftInclination, rightInclination, scene);
-    adjustYscaling(babCoords, scene); // re-adjust the height of the model as the x rotation has probably made it visually to short
 };
 
 (async () => {
