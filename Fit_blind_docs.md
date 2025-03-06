@@ -11,7 +11,9 @@
   - [optimiseRotationCLR](#optimiserotationclr)
   - [optimiseRotationCTB](#optimiserotationctb)
   - [setOptimise](#setoptimise)
-  - [setReverseRotation](#setreverserotation)
+  - [setReverseRotationTrue](#setreverserotationtrue)
+  - [setreverseRotationFalse](#setreverserotationfalse)
+  - [finalZRotation](#finalzrotation)
   - [adjustYscaling](#adjustyscaling)
   - [adjustXscaling](#adjustxscaling)
   - [scaleFromOneSide](#scalefromoneside)
@@ -163,8 +165,8 @@ Expects format:
 
 ---
 
-### setReverseRotation
-#### setReverseRotation( *axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
+### setReverseRotationTrue
+#### setReverseRotationTrue( *axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination* )
 - Used by `optimiseRotationCTB` to check whether it has rotated the model too far and should reverse direction to achieve better alignment.
 - Contains conditions for Y- and Z-axis rotations.
 
@@ -177,7 +179,47 @@ Expects format:
 - **bottomInclination:** `number` – Quad bottom side inclination in degrees.
 
 #### Returns
-- **`boolean`** - Whether to reverse rotation.
+- An object with the following properties:
+  - **reverse** (`boolen`) - Whether to reverse rotation.
+  - **smaller** (`string`) - If rotation should be reversed, the side with the smaller diff. Possible values `'top'` or `'bottom'`
+
+---
+
+### setReverseRotationFalse
+#### setReverseRotationFalse( *smaller, topDiff, bottomDiff* )
+- Used by `optimiseRotationCTB` when rotation is reversed to check if rotation should be un-reversed
+
+#### Parameters
+- **smaller:** The side of the model that had a smaller diff when rotation was original reversed.
+- **topDiff:** The top diff. Used to evaluate if the smaller diff is still smaller or not.
+- **bottomDiff:** the bottom diff. Used to evalate if the smaller diff is still smaller or not.
+
+#### Returns
+- **`boolean`** - Whether to reverse rotation. `true` means the reversed rotation continues, `false` means the rotation is un-reversed.
+
+---
+
+### finalZRotation
+#### finalZRotation( *coords, topInclination* )
+- Adjusts the model’s rotation along the Z-axis to align the top and bottom edges with the quad. 
+- Intended to be the final Z-axis adjustment.
+
+#### **Parameters**
+- **coords:** The quad’s screen-space corner coordinates.
+Expects format: 
+  ```json
+  [
+    {x: x1, y: y1},
+    {x: x2, y: y2},
+    {x: x3, y: y3},
+    {x: x4, y: y4}
+  ]
+  ```
+    - Coordinates follow a clockwise order starting from the top-left.
+- **topInclination**: `number` – The inclination angle in degrees of the quads top edge.
+
+#### Returns
+- **None** - Directly manipulates the model.
 
 ---
 

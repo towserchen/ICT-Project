@@ -524,9 +524,9 @@ function clearMarkers(scene) { // not needed in prod
 };
 
 function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuaternion) {
-    let corners = getModelBabCorners(rotateQuaternion, scene); // model corners in babylon world space
+    const corners = getModelBabCorners(rotateQuaternion, scene); // model corners in babylon world space
     const projectedCorners = []
-    let viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
+    const viewport = new BABYLON.Viewport(0, 0, canvas.width, canvas.height);
 
     for (let i = 0; i < corners.length; i++) {
         let projectedCorner = BABYLON.Vector3.Project( // projects the corners position to screen space (as the user see it)
@@ -543,16 +543,16 @@ function getProjectedCorners(scene, rotateQuaternion = boundingBox.rotationQuate
 
 // works by getting the local extremes (not technically but for all intents and purposes) of the model and constructing the points of a rectangle from them then applying the model's current rotation to rectanlge points to get the model's world corner coordinates
 function getModelBabCorners(rotationQuaternion, scene) {    
-    let { localMin, localMax } = getDimensions(scene); // get the local dimensions / extremes
+    const { localMin, localMax } = getDimensions(scene); // get the local dimensions / extremes
     
-    let localCorners = [ // construct the points of a rectangle
+    const localCorners = [ // construct the points of a rectangle
         new BABYLON.Vector3(localMax.x, localMax.y, scene.meshes[48].getAbsolutePivotPoint().z), 
         new BABYLON.Vector3(localMin.x, localMax.y, scene.meshes[48].getAbsolutePivotPoint().z),
         new BABYLON.Vector3(localMin.x, localMin.y, scene.meshes[48].getAbsolutePivotPoint().z),
         new BABYLON.Vector3(localMax.x, localMin.y, scene.meshes[48].getAbsolutePivotPoint().z),
     ];
 
-    let rotatedCorners = [];
+    const rotatedCorners = [];
 
     for (let i = 0; i < localCorners.length; i++) { // rotate rectangle points by model current rotation (or whatever rotation is passed)
         let temp = new BABYLON.Vector3();
@@ -731,24 +731,13 @@ function optimiseRotationCTB(coords, axis, clockwiseRotation, topInclination, bo
         bottomModelInclination = calculateAngleBetweenLines(modelCorners[2], modelCorners[3], {x: 0, y: 0}, {x: 0, y: 1000});
 
         optimise = setOptimise(optimise, axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // check if conditions are met to being convergence
-        // TODO: refactor this abomination and add to setReverseRotation function or make new function etc.
         if (!reverse) {
-            reverse = setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
-            if (reverse) {
-                if (bottomDiff < topDiff) {
-                    smaller = "bottom";
-                } else {
-                    smaller = "top";
-                }
-            }
+            let result = setReverseRotationTrue(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if the direction of rotation needs to be reversed
+            reverse = result.reverse; // sets the reverse variable
+            smaller = result.smaller; // sets the smaller variable
+        } else {
+            reverse = setReverseRotationFalse(smaller, topDiff, bottomDiff); // checks if the direction of rotation needs to be un-reversed
         }
-        if (reverse) {
-            if ((smaller === "bottom" && bottomDiff >= topDiff) || (smaller === "top" && topDiff >= bottomDiff)) {
-                reverse = setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination); // checks if rotation has gone too far
-                // stepFactor = 0.005; // hold off on this for now
-            }
-        }
-        //reverse = setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination);
 
         error =  Math.abs(bottomDiff - topDiff) // updates errors
         total = topDiff + bottomDiff;
@@ -783,7 +772,7 @@ function setOptimise(optimise, axis, clockwiseRotation, topModelInclination, top
 };
 
 // conditions for if the rotation direction should be reversed
-function setReverseRotation(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
+function setReverseRotationTrue(axis, clockwiseRotation, topModelInclination, topInclination, bottomModelInclination, bottomInclination) {
     let reverse;
     
     if (axis === BABYLON.Axis.Z) {
@@ -792,7 +781,7 @@ function setReverseRotation(axis, clockwiseRotation, topModelInclination, topInc
         } else if (!clockwiseRotation && topModelInclination > topInclination && bottomModelInclination > bottomInclination) {
             reverse = true;
         } else {
-            reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor
+            reverse = false;
         }
     } else if (axis === BABYLON.Axis.Y) {
         if (clockwiseRotation && topModelInclination > topInclination && bottomModelInclination < bottomInclination) {
@@ -800,11 +789,64 @@ function setReverseRotation(axis, clockwiseRotation, topModelInclination, topInc
         } else if (!clockwiseRotation && topModelInclination < topInclination && bottomModelInclination > bottomInclination) {
             reverse = true;
         } else {
-            reverse = false; // don't like this could cause osillations // make step half or something? maybe change stepFactor to stop osillations
+            reverse = false;
+        }
+    }
+
+    let smaller = null;
+
+    if (reverse) {
+        if (Math.abs(topModelInclination - topInclination) < Math.abs(bottomModelInclination - bottomInclination)) {
+            smaller = "top";
+        } else {
+            smaller = "bottom";
+        }
+    }
+
+    return { reverse, smaller };
+};
+
+function setReverseRotationFalse(smaller, topDiff, bottomDiff) {
+    let reverse;
+    
+    if (smaller === "top") {
+        if (topDiff >= bottomDiff) {
+            reverse = false;
+        } else {
+            reverse = true;
+        }
+    } else if (smaller === "bottom") {
+        if (bottomDiff >= topDiff) {
+            reverse = false;
+        } else {
+            reverse = true;
         }
     }
 
     return reverse;
+};
+
+function finalZRotation (coords, topInclination) {
+    let modelCorners = this.getProjectedCorners(); // get corners of the blind as the user sees them on screen space
+    
+    // determine z axis rotation direction for yz fine tuning
+    const topModelInclination = this.util.calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+    const clockwiseZRotation = topModelInclination > topInclination;
+
+    // rotate the model on z axis to align top and bottom
+    let topDiff = this.util.calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+
+    while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
+        if (clockwiseZRotation) {
+            this.boundingBox.rotate(Axis.Z, -0.001, Space.LOCAL);
+        } else {
+            this.boundingBox.rotate(Axis.Z, 0.001, Space.LOCAL);
+        }
+
+        this.boundingBox.computeWorldMatrix(true);
+        modelCorners = this.getProjectedCorners();
+        topDiff = this.util.calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+    }
 };
 
 // TODO: combine optimiseRotationCLR and optimiseRotationCTB into core & wrapper functions
@@ -953,30 +995,7 @@ function beginFit3(babCoords, coords, scene) {
         // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
         optimiseRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene);
 
-        let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
-
-        // determine z axis rotation direction for yz fine tuning
-        const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
-        if (topModelInclination > topInclination) {
-            clockwiseZRotation = true;
-        } else {
-            clockwiseZRotation = false;
-        }
-
-        // rotate the model on z axis to align top and bottom
-        let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-
-        while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
-            if (clockwiseZRotation) {
-                boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
-            } else {
-                boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
-            }
-
-            boundingBox.computeWorldMatrix(true);
-            modelCorners = getProjectedCorners(scene);
-            topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
-        }
+        finalZRotation(coords, topInclination); // rotate the model on z axis to align top and bottom
 
         adjustXscaling(babCoords, scene); // adjust width of model to fit quad
 
@@ -1054,7 +1073,7 @@ function beginFit3(babCoords, coords, scene) {
     scene.onReadyObservable.addOnce(() => {
         //placeMarkers(scene, viewportSize);
         beginFit3(babCoords, coordsJ, scene, viewportSize);
-        beginFit3(babCoords, coordsJ, scene, viewportSize);
+        //beginFit3(babCoords, coordsJ, scene, viewportSize);
         //placeMarkers(scene, viewportSize);
         //beginFit2(babCoords, coordsJ, scene, viewportSize);
         //beginFit1(coordsJ, scene);
