@@ -826,26 +826,26 @@ function setReverseRotationFalse(smaller, topDiff, bottomDiff) {
     return reverse;
 };
 
-function finalZRotation (coords, topInclination) {
-    let modelCorners = this.getProjectedCorners(); // get corners of the blind as the user sees them on screen space
+function finalZRotation (coords, topInclination, scene) {
+    let modelCorners = getProjectedCorners(scene); // get corners of the blind as the user sees them on screen space
     
     // determine z axis rotation direction for yz fine tuning
-    const topModelInclination = this.util.calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
+    const topModelInclination = calculateAngleBetweenLines(modelCorners[1], modelCorners[0], {x: 0, y: 0}, {x: 0, y: 1000});
     const clockwiseZRotation = topModelInclination > topInclination;
 
     // rotate the model on z axis to align top and bottom
-    let topDiff = this.util.calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+    let topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
 
     while (topDiff > 0.1) { // may need to change and recheck this tolerance and make step adaptive
         if (clockwiseZRotation) {
-            this.boundingBox.rotate(Axis.Z, -0.001, Space.LOCAL);
+            boundingBox.rotate(BABYLON.Axis.Z, -0.001, BABYLON.Space.LOCAL);
         } else {
-            this.boundingBox.rotate(Axis.Z, 0.001, Space.LOCAL);
+            boundingBox.rotate(BABYLON.Axis.Z, 0.001, BABYLON.Space.LOCAL);
         }
 
-        this.boundingBox.computeWorldMatrix(true);
-        modelCorners = this.getProjectedCorners();
-        topDiff = this.util.calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
+        boundingBox.computeWorldMatrix(true);
+        modelCorners = getProjectedCorners(scene);
+        topDiff = calculateAngleBetweenLines(coords[0], coords[1], modelCorners[1], modelCorners[0]);
     }
 };
 
@@ -995,7 +995,7 @@ function beginFit3(babCoords, coords, scene) {
         // rotate the model so the angle difference between the top and bottom is the same and in the same direction so that the top and bottom can be aligned by rotating on z axis
         optimiseRotationCTB(coords, BABYLON.Axis.Y, clockwiseYRotation, topInclination, bottomInclination, scene);
 
-        finalZRotation(coords, topInclination); // rotate the model on z axis to align top and bottom
+        finalZRotation(coords, topInclination, scene); // rotate the model on z axis to align top and bottom
 
         adjustXscaling(babCoords, scene); // adjust width of model to fit quad
 

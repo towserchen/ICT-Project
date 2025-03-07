@@ -27,6 +27,8 @@
   - [getMidpoint](#getmidpoint)
   - [getPlaneLineIntersection](#getplanelineintersection)
   - [getLineLength](#getlinelength)
+- [Testing Functions (To be removed later)](#testing-functions-to-be-removed-later)
+  - [testFittingAlgo](#testfittingalgo)
 
 ---
 ## Key Terms
@@ -84,7 +86,7 @@ Calculates the size of the viewport at the depth of the camera's radius in babyl
 ---
 
 ### optimiseRotationCLR
-#### optimiseRotationCLR( *coords, axis, clockwiseRotation, leftInclination, rightInclination* )
+#### optimiseRotationCLR( *coords, axis, clockwiseRotation* )
 Rotates the model on the specified axis for **C**onvergence of **L**eft and **R**ight diff (CLR).
 
 - Ensures convergence occurs near zero total error rather than at a local minima where the left and right diffs are equal but total error is high.
@@ -104,8 +106,6 @@ Expects format:
   - Coordinates follow a clockwise order starting from the top-left.
 - **axis:** Axis for rotation (`BABYLON.Axis.X` or `.Z`).
 - **clockwiseRotation:** `boolean` – Rotation direction.
-- **leftInclination:** `number` – Left quad side inclination in degrees.
-- **rightInclination:** `number` – Right quad side inclination in degrees.
 
 #### Returns
 - **None** - Directly manipulates the model.
@@ -468,6 +468,42 @@ Inputs can be `BABYLON.Vector3`
 
 #### Returns
 - **`number`** – The **distance** between `point1` and `point2`.
+
+---
+
+## Testing Functions (To be removed later)
+
+---
+
+### testFittingAlgo
+#### testFittingAlgo()
+A temporary testing function for evaluating the fitting system by allowing users to manually select quadrilateral corners.
+
+#### **Usage:**
+1. Press the **'T'** key to enter test mode after the model has loaded.
+2. Click four corners of an opening in the following order:
+   - **Top-left corner**
+   - **Top-right corner**
+   - **Bottom-right corner**
+   - **Bottom-left corner**
+3. Repeat for additional quadrilaterals if wanted.
+4. Press **'T'** again to exit test mode.
+
+#### **Behavior:**
+- While in test mode, the system records mouse clicks and displays a visual overlay.
+- Once four points are selected, a quadrilateral is drawn, and `fitModelToQuad` is called.
+- If the fitting process fails, the model resets to its default position, and an error message is logged in the console.
+- The overlay is removed when exiting test mode.
+
+#### **Limitations:**
+- This is a temporary test function with some quirks.
+- The click order **must** follow the pattern above, or the fitting process will not work.
+
+#### Parameters
+- **None**
+
+#### **Returns:**
+- **None** – Overlays test visuals on the canvas.
 
 ---
 
