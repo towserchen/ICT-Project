@@ -86,7 +86,7 @@ Calculates the size of the viewport at the depth of the camera's radius in babyl
 ---
 
 ### optimiseRotationCLR
-#### optimiseRotationCLR( *coords, axis, clockwiseRotation* )
+#### optimiseRotationCLR( *coords, axis* )
 Rotates the model on the specified axis for **C**onvergence of **L**eft and **R**ight diff (CLR).
 
 - Ensures convergence occurs near zero total error rather than at a local minima where the left and right diffs are equal but total error is high.
@@ -105,7 +105,6 @@ Expects format:
   ```
   - Coordinates follow a clockwise order starting from the top-left.
 - **axis:** Axis for rotation (`BABYLON.Axis.X` or `.Z`).
-- **clockwiseRotation:** `boolean` – Rotation direction.
 
 #### Returns
 - **None** - Directly manipulates the model.

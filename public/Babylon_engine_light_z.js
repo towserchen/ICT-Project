@@ -1008,8 +1008,11 @@ function beginFit3(babCoords, coords, scene) {
     }
 };
 
+let sceneOut = null;
+
 (async () => {
     const scene = await createScene();
+    sceneOut = scene;
     console.log(scene.meshes);
    
     setGlobalMeshPositionAndScale(scene);
@@ -1083,3 +1086,128 @@ function beginFit3(babCoords, coords, scene) {
         engine.resize();
     });
 })();
+
+let isRecording = false;
+let clickPositions = [];
+let handleCanvasClick = null;
+let handleMouseMove = null;
+let testOverlay= null;
+let overlayCtx = null;
+
+function testFittingAlgo() {
+    if (isRecording) {
+        // Deactivate recording
+        isRecording = false;
+        clickPositions = [];
+        if (handleCanvasClick) {
+            canvas.removeEventListener('click', handleCanvasClick);
+        }
+        if (handleMouseMove) {
+            canvas.removeEventListener('mousemove', handleMouseMove);
+        }
+        if (testOverlay && testOverlay.parentElement) {
+            // testOverlay.parentElement.removeChild(testOverlay);
+            testOverlay = null;
+            overlayCtx = null;
+        }
+    } else {
+        // Activate recording
+        isRecording = true;
+        clickPositions = [];
+
+        // Create testOverlay canvas
+        // testOverlay = document.createElement('canvas');
+        testOverlay = document.getElementById("testCanvas");
+        // testOverlay.width = canvas.width;
+        // testOverlay.height = canvas.height;
+        // testOverlay.style.position = 'absolute';
+        // testOverlay.style.top = canvas.offsetTop + 'px';
+        // testOverlay.style.left = canvas.offsetLeft + 'px';
+        // testOverlay.style.pointerEvents = 'none';
+        // testOverlay.style.zIndex = '10';
+        // testOverlay.id = 'testOverlay';
+
+        // canvas.parentElement?.appendChild(testOverlay);
+        overlayCtx = testOverlay.getContext('2d');
+
+        handleCanvasClick = function (event) {
+            if (clickPositions.length >= 8) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            clickPositions.push(x, y);
+
+            if (clickPositions.length > 2) {
+                overlayCtx.strokeStyle = 'red';
+                overlayCtx.lineWidth = 2;
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(clickPositions[clickPositions.length - 4], clickPositions[clickPositions.length - 3]);
+                overlayCtx.lineTo(clickPositions[clickPositions.length - 2], clickPositions[clickPositions.length - 1]);
+                overlayCtx.stroke();
+            }
+
+            if (clickPositions.length === 8) {
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(clickPositions[6], clickPositions[7]);
+                overlayCtx.lineTo(clickPositions[0], clickPositions[1]);
+                overlayCtx.stroke();
+                fitModelToQuad(clickPositions, sceneOut);
+                clickPositions = [];
+            }
+        };
+
+        handleMouseMove = function (event) {
+            if (!overlayCtx || clickPositions.length % 2 !== 0) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            if (clickPositions.length > 0) {
+                overlayCtx.clearRect(0, 0, testOverlay.width, testOverlay.height);
+            }
+
+            overlayCtx.strokeStyle = 'red';
+            overlayCtx.lineWidth = 2;
+
+            overlayCtx.beginPath();
+            for (let i = 0; i < clickPositions.length - 2; i += 2) {
+                overlayCtx.moveTo(clickPositions[i], clickPositions[i + 1]);
+                overlayCtx.lineTo(clickPositions[i + 2], clickPositions[i + 3]);
+            }
+            overlayCtx.stroke();
+
+            if (clickPositions.length >= 2) {
+                // Draw the dynamic line
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(clickPositions[clickPositions.length - 2], clickPositions[clickPositions.length - 1]);
+                overlayCtx.lineTo(x, y);
+                overlayCtx.stroke();
+
+                if (clickPositions.length === 6) {
+                    // On the fourth click, draw from both the first and third click
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(clickPositions[0], clickPositions[1]);
+                    overlayCtx.lineTo(x, y);
+                    overlayCtx.stroke();
+                }
+            }
+        };
+
+        canvas.addEventListener('click', handleCanvasClick.bind(this));
+        canvas.addEventListener('mousemove', handleMouseMove.bind(this));
+    }
+};
+
+// for testing
+document.addEventListener('keydown', (event) => {
+    if (event.key === 't') {
+        testFittingAlgo();
+    }
+});
