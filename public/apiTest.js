@@ -1,31 +1,33 @@
 const response = await fetch('./sample/1.jpg');
 const blob = await response.blob();
 const file = new File([blob], 'userImage.jpg', { type: blob.type }); // construct file for AI detection
-debugger;
 const fileType = 'jpg'; // Get the file type from the File object
 processImage(file, fileType, 1); // Call the function with the file and its type
 
 async function generateToken() {
-    const timestamp = Math.floor(Date.now() / 1000);
-    const secret = "ziptrak";
-    
+    const secret = "ziptrak"; // Hardcoded secret
+    const timestamp = Math.floor(Date.now() / 1000); // Get current timestamp in seconds
+
+    // Convert secret and timestamp to Uint8Array
     const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);  // Encode secret
+    const messageData = encoder.encode(timestamp.toString()); // Encode timestamp as string
+
+    // Import the key for HMAC-SHA512
     const key = await crypto.subtle.importKey(
         "raw",
-        encoder.encode(secret),
-        { name: "HMAC", hash: "SHA-512" },
+        keyData,
+        { name: "HMAC", hash: { name: "SHA-512" } },
         false,
         ["sign"]
     );
 
-    const signature = await crypto.subtle.sign(
-        "HMAC",
-        key,
-        encoder.encode(timestamp.toString())
-    );
+    // Generate the HMAC signature
+    const signature = await crypto.subtle.sign("HMAC", key, messageData);
 
+    // Convert the signature to a lowercase hex string (to match Python hexdigest())
     const token = Array.from(new Uint8Array(signature))
-        .map(byte => byte.toString(16).padStart(2, "0"))
+        .map(b => b.toString(16).padStart(2, "0")) // Ensures lowercase hex output
         .join("");
 
     return token;
