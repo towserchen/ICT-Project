@@ -1,7 +1,7 @@
 const response = await fetch('./sample/1.jpg');
 const blob = await response.blob();
 const file = new File([blob], 'userImage.jpg', { type: blob.type }); // construct file for AI detection
-const fileType = 'jpg'; // Get the file type from the File object
+const fileType = file.type; // Get the file type from the File object
 processImage(file, fileType, 1); // Call the function with the file and its type
 
 async function generateToken() {
@@ -86,7 +86,6 @@ async function detectImage(fileKey, isIndoor = 1) {
 }
 
 async function processImage(file, fileType, isIndoor = 1) {
-
     const response = await getPresignedUrl(fileType);
     console.log("Pre-Signed URL Response:", response);
     debugger;
@@ -97,37 +96,3 @@ async function processImage(file, fileType, isIndoor = 1) {
     const detectResponse = await detectImage(key, isIndoor);
     console.log("Detection response", detectResponse);
 }
-
-// async function hmacSHA512(timestamp, secret) {
-//     const encoder = new TextEncoder();
-//     const keyData = encoder.encode(secret);
-//     const messageData = encoder.encode(timestamp);
-
-//     const key = await window.crypto.subtle.importKey(
-//         "raw",
-//         keyData,
-//         { name: "HMAC", hash: { name: "SHA-512" } },
-//         false,
-//         ["sign"]
-//     );
-
-//     const signature = await window.crypto.subtle.sign("HMAC", key, messageData);
-
-//     return Array.from(new Uint8Array(signature))
-//         .map(byte => byte.toString(16).padStart(2, "0"))
-//         .join("");
-// }
-
-// fetch('https://ziptrak-ai.ddos.la/file/get_presigned_url', {
-//     method: 'POST',
-//     headers: {
-//         'Content-Type': 'application/json'
-//     },
-//     body: JSON.stringify({ 
-//         token: await hmacSHA512(Math.floor(Date.now() / 1000), 'ziptrak'),
-//         file_type: 'jpg'
-//     })
-// })
-// .then(response => response.json())
-// .then(data => console.log('Success:', data))
-// .catch(error => console.error('Error:', error));
