@@ -88,11 +88,9 @@ async function detectImage(fileKey, isIndoor = 1) {
 async function processImage(file, fileType, isIndoor = 1) {
     const response = await getPresignedUrl(fileType);
     console.log("Pre-Signed URL Response:", response);
-    debugger;
     const url = response.url;
     const key = response.key;
     await uploadFile(file, url);
-    debugger;
     const detectResponse = await detectImage(key, isIndoor);
     console.log("Detection response", detectResponse);
 }
